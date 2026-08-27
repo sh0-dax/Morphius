@@ -11,6 +11,10 @@
 
 # ![Morphius](assets/icon.svg)
 
+<p align="center">
+  <img src="assets/Morphius.gif" alt="Morphius — Reactive AI Face & Voice Assistant" width="100%" />
+</p>
+
 [![Three.js](https://img.shields.io/badge/Three.js-r167-000000?style=for-the-badge&logo=threedotjs&logoColor=white)](https://threejs.org/)
 [![WebLLM](https://img.shields.io/badge/WebLLM-100%25_Local-ffaa00?style=for-the-badge&logo=webgpu&logoColor=white)]()
 [![PWA](https://img.shields.io/badge/Installable-PWA-2f81f7?style=for-the-badge&logo=pwa&logoColor=white)]()
