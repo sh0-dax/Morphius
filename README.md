@@ -9,7 +9,7 @@
 
 ---
 
-# ![Morphius](assets/icon.svg)
+# Morphius — Reactive AI Face & Voice Assistant
 
 <p align="center">
   <img src="assets/Morphius.gif" alt="Morphius — Reactive AI Face & Voice Assistant" width="100%" />
