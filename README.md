@@ -12,7 +12,11 @@
 # Morphius — Reactive AI Face & Voice Assistant
 
 <p align="center">
-  <img src="assets/Morphius.gif" alt="Morphius — Reactive AI Face & Voice Assistant" width="100%" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/Morphius_Dark.gif" />
+    <source media="(prefers-color-scheme: light)" srcset="assets/Morphius_Light.gif" />
+    <img src="assets/Morphius_Light.gif" alt="Morphius — Reactive AI Face & Voice Assistant" width="100%" />
+  </picture>
 </p>
 
 [![Three.js](https://img.shields.io/badge/Three.js-r167-000000?style=for-the-badge&logo=threedotjs&logoColor=white)](https://threejs.org/)
