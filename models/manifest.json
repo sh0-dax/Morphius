@@ -1,0 +1,11 @@
+{
+  "models": [
+    { "name": "FaceCap (CDN)", "url": "https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/facecap.glb" },
+    { "name": "Face Blendshape 52 (ARKit)", "url": "./models/face-blendshape-52.glb" },
+    { "name": "Raccoon Head", "url": "./models/raccoon-head.glb" },
+    { "name": "Android Head Bust", "url": "./models/android_-_head_bust.glb" },
+    { "name": "Humanoid Robot Face", "url": "./models/humanoid_robot_face.glb" },
+    { "name": "Face of a Girl", "url": "./models/face_of_a_girl.glb" },
+    { "name": "Face Mask", "url": "./models/face_mask.glb" }
+  ]
+}

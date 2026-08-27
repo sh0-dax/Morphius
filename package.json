@@ -1,0 +1,12 @@
+{
+  "name": "ai-face",
+  "private": true,
+  "version": "6.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.1"
+  }
+}

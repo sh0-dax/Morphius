@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Face v6 — Auto States + Front Chat</title>
+  <meta name="description" content="AI Face — Voice and vision assistant interface with multi-provider support and local browser-only mode via WebLLM.">
+  <meta name="theme-color" content="#070c16">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="./assets/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="./assets/icon-192.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="./assets/icon-192.png">
+  <link rel="stylesheet" href="./css/styles.css">
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="scanner-line"></div>
+  <div class="bg-pulse" id="bgPulse"></div>
+  <div class="overlay" id="overlay"></div>
+
+  <!-- ============================================================
+       Data Panel (right side)
+       ============================================================ -->
+  <div class="data-panel" id="dataPanel">
+    <div class="data-panel-title">
+      <span data-i18n="metrics.title">SYSTEM METRICS</span>
+      <button class="close-data-btn" id="closeDataBtn" aria-label="Close data panel">&#x2715;</button>
+    </div>
+    <div class="waveform-container">
+      <canvas id="waveform-canvas"></canvas>
+    </div>
+    <div class="data-readouts">
+      <div class="data-row">
+        <span class="data-label" data-i18n="metrics.amplitude">AMPLITUDE</span>
+        <span class="data-value highlight" id="amplitude-value">--</span>
+      </div>
+      <div class="data-row">
+        <span class="data-label" data-i18n="metrics.peak">PEAK FREQ</span>
+        <span class="data-value highlight" id="peak-value">--</span>
+      </div>
+      <div class="data-row">
+        <span class="data-label" data-i18n="metrics.energy">ENERGY</span>
+        <span class="data-value" id="energy-value">--</span>
+      </div>
+      <div class="data-row">
+        <span class="data-label" data-i18n="metrics.stability">STABILITY</span>
+        <span class="data-value" id="stability-value">--</span>
+      </div>
+      <div class="data-row">
+        <span class="data-label" data-i18n="metrics.state">STATE</span>
+        <span class="data-value" id="state-metric">IDLE</span>
+      </div>
+    </div>
+    <div class="terminal-container">
+      <div class="terminal-header"><span data-i18n="console.title">CONSOLE</span></div>
+      <div class="terminal-output" id="terminalOutput"></div>
+    </div>
+  </div>
+  <button class="toggle-data-btn" id="toggleDataBtn" aria-label="Show/hide data panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="7" width="4" height="14" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg></button>
+
+  <!-- ============================================================
+       Settings Toggle + Voice Indicator
+       ============================================================ -->
+<button class="toggle-panel-btn" id="togglePanel" aria-label="Open settings">
+    <span class="btn-icon">&#9881;</span><span class="btn-label" data-i18n="btn.settings">Settings</span>
+  </button>
+  <div class="voice-indicator" id="voiceIndicator">
+    <span class="dot" id="voiceDot"></span>
+    <span id="voiceLabel" data-i18n="voice.on">Voice ON</span>
+  </div>
+
+  <!-- ============================================================
+       Settings Side Panel
+       ============================================================ -->
+  <aside class="side-panel" id="sidePanel">
+    <div class="panel-header">
+      <h2 data-i18n="settings.title">LLM Bridge // Settings</h2>
+      <button id="closePanel" aria-label="Close settings" style="padding:4px 8px;font-size:13px;">&#x2715;</button>
+    </div>
+    <div class="panel-body">
+
+      <!-- Section 1: Provider -->
+      <div class="settings-section open">
+        <button class="settings-section-header" type="button">
+          <span data-i18n="settings.provider">Provider</span>
+          <span class="chevron">&#x25BC;</span>
+        </button>
+        <div class="settings-section-body">
+          <div class="field-group">
+            <label data-i18n="settings.provider">Provider</label>
+            <select id="cfgProvider">
+              <option value="gemini">Google Gemini (Online)</option>
+              <option value="openai">OpenAI (ChatGPT)</option>
+              <option value="meta">Meta AI (Muse / Model API)</option>
+              <option value="bazaarlink">BazaarLink (Multi-model Gateway)</option>
+              <option value="ollama">Ollama (Local / Offline)</option>
+              <option value="webllm">WebLLM (100% in-browser, no key)</option>
+              <option value="custom">Custom OpenAI-Compatible</option>
+            </select>
+          </div>
+          <div class="field-group" id="groupModel">
+            <label data-i18n="settings.modelName">Model Name</label>
+            <input type="text" id="cfgModel" value="gemini-2.5-flash">
+            <small data-i18n="settings.modelHint" id="modelHint">Example: gemini-2.5-flash or llama3.2</small>
+          </div>
+          <div class="field-group" id="groupWebLlmModel" style="display:none;">
+            <label data-i18n="settings.webllmModel">WebLLM Model</label>
+            <select id="cfgWebLlmModel">
+              <option value="TinyLlama-1.1B-Chat-v1.0-q4f32_1-MLC">TinyLlama 1.1B (~0.7 GB)</option>
+              <option value="Llama-3.2-3B-Instruct-q4f32_1-MLC">Llama-3.2 3B (~2 GB)</option>
+              <option value="Qwen2.5-1.5B-Instruct-q4f32_1-MLC">Qwen2.5 1.5B (~1.1 GB)</option>
+              <option value="gemma-2-2b-it-q4f32_1-MLC">Gemma 2 2B (~1.8 GB)</option>
+              <option value="Llama-3.1-8B-Instruct-q4f32_1-MLC">Llama-3.1 8B (~5.3 GB)</option>
+              <option value="Qwen2.5-7B-Instruct-q4f32_1-MLC">Qwen2.5 7B (~5.2 GB)</option>
+              <option value="">Custom model id...</option>
+            </select>
+            <input type="text" id="cfgWebLlmCustom" style="display:none;margin-top:6px;" list="webllmModels" data-i18n-placeholder="settings.webllmCustomPlaceholder" placeholder="e.g. NeuralHermes-2.5-Mistral-7B-q4f32_1-MLC">
+            <datalist id="webllmModels">
+              <option value="NeuralHermes-2.5-Mistral-7B-q4f32_1-MLC"></option>
+              <option value="Llama-3.2-1B-Instruct-q4f32_1-MLC"></option>
+              <option value="gemma-2-9b-it-q4f32_1-MLC"></option>
+            </datalist>
+            <small data-i18n="settings.webllmModelHint">Runs fully in-browser. The model downloads once, then loads from cache. Bigger models need more RAM/VRAM.</small>
+          </div>
+          <div class="field-group" id="groupKey">
+            <label data-i18n="settings.apiKey">API Key</label>
+            <input type="password" id="cfgKey" data-i18n-placeholder="settings.keyPlaceholder" placeholder="Paste API key here">
+            <small data-i18n="settings.keyHint">Required for Gemini. Leave empty for Ollama.</small>
+          </div>
+          <div class="field-group" id="groupUrl">
+            <label data-i18n="settings.baseUrl">Base URL / Endpoint</label>
+            <input type="text" id="cfgUrl" data-i18n-placeholder="settings.urlPlaceholder" placeholder="https://generativelanguage.googleapis.com/v1beta">
+            <small data-i18n="settings.urlHint" id="urlHint">Auto-configured per provider</small>
+          </div>
+          <div class="row-2">
+            <div class="field-group"><label data-i18n="settings.temperature">Temperature</label><input type="number" id="cfgTemp" min="0" max="2" step="0.1" value="0.7"></div>
+            <div class="field-group"><label data-i18n="settings.maxTokens">Max Tokens</label><input type="number" id="cfgMaxTokens" min="1" max="8192" step="1" value="1024"></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:12px;">
+            <button id="btnSave" class="btn" style="flex:1;" data-i18n="btn.save">Save Settings</button>
+            <button id="btnTest" class="btn" style="flex:1;" data-i18n="btn.test">Test Connection</button>
+          </div>
+          <div id="connStatus"></div>
+        </div>
+      </div>
+
+      <!-- Section 2: Voice & TTS -->
+      <div class="settings-section">
+        <button class="settings-section-header" type="button">
+          <span data-i18n="settings.voiceTitle">Voice &amp; TTS</span>
+          <span class="chevron">&#x25BC;</span>
+        </button>
+        <div class="settings-section-body">
+          <div class="field-group">
+            <label data-i18n="settings.voiceLang">Voice Language (TTS + STT)</label>
+            <select id="cfgTtsLang">
+              <option value="en-US">English (en-US)</option>
+              <option value="ar-SA">Arabic (ar-SA)</option>
+              <option value="fr-FR">French (fr-FR)</option>
+              <option value="de-DE">German (de-DE)</option>
+              <option value="es-ES">Spanish (es-ES)</option>
+              <option value="ja-JP">Japanese (ja-JP)</option>
+            </select>
+            <small data-i18n="settings.voiceLangHint">Used for both speech output and microphone recognition</small>
+          </div>
+          <div class="field-group">
+            <label>
+              <input type="checkbox" id="cfgAutoSend" checked>
+              <span data-i18n="settings.autoSend">Auto-send after voice input</span>
+            </label>
+          </div>
+          <div class="field-group">
+            <div class="row-between">
+              <label data-i18n="settings.masterVolume">Master Volume</label>
+              <span id="masterVolumeValue" style="opacity:.7;">100%</span>
+            </div>
+            <input type="range" id="cfgMasterVolume" min="0" max="100" value="100" style="width:100%;">
+          </div>
+          <div class="field-group" id="outputDeviceGroup">
+            <label data-i18n="settings.outputDevice">Output Device</label>
+            <select id="cfgOutputDevice">
+              <option value="default">System default</option>
+            </select>
+            <small data-i18n="settings.outputDeviceHint">Playback routing where the browser allows it. Browser voices always use the system default device.</small>
+          </div>
+          <div class="field-group" style="border-top:1px solid var(--panel-border);padding-top:14px;">
+            <label data-i18n="settings.micEngine">Microphone Engine</label>
+            <select id="cfgMicEngine">
+              <option value="browser">Browser (system voices)</option>
+              <option value="local">On-device Whisper (offline)</option>
+            </select>
+            <small data-i18n="settings.micEngineHint">On-device = in-browser Whisper. First use downloads a small model, then it works offline. Audio never leaves your machine.</small>
+          </div>
+<div class="field-group" id="whisperTierGroup" style="display:none;">
+            <label data-i18n="settings.whisperTier">Whisper Model Size</label>
+            <select id="cfgWhisperTier">
+              <option value="Xenova/whisper-tiny">Tiny (~40 MB, fastest)</option>
+              <option value="Xenova/whisper-base">Base (~140 MB, balanced)</option>
+              <option value="Xenova/whisper-small">Small (~460 MB, most accurate)</option>
+            </select>
+            <small data-i18n="settings.whisperTierHint">Bigger models transcribe more accurately but download and run slower on-device.</small>
+          </div>
+          <div class="field-group" style="border-top:1px solid var(--panel-border);padding-top:14px;">
+            <label data-i18n="settings.ttsEngine">Speech Output Engine</label>
+            <select id="cfgTtsEngine">
+              <option value="browser">Browser voices</option>
+              <option value="local">On-device (Kokoro / MMS)</option>
+            </select>
+            <small data-i18n="settings.ttsEngineHint">On-device TTS: Kokoro is excellent for English; Arabic uses Meta MMS (more robotic than browser Arabic voices).</small>
+          </div>
+          <div class="field-group" style="border-top:1px solid var(--panel-border);padding-top:14px;">
+            <label>
+              <input type="checkbox" id="cfgUseGeminiTts">
+              <span data-i18n="settings.geminiNative">Use Gemini native voice (Text-to-Speech)</span>
+            </label>
+            <small data-i18n="settings.geminiNativeHint">Handles audio I/O and speech generation natively -- more reliable across languages.</small>
+          </div>
+          <div id="geminiTtsFields" style="display:none;">
+            <div class="field-group">
+              <label data-i18n="settings.voiceKey">Gemini API Key (for voice)</label>
+              <input type="password" id="cfgGeminiTtsKey" data-i18n-placeholder="settings.voiceKeyPlaceholder" placeholder="Paste your Gemini API key here">
+              <small data-i18n="settings.voiceKeyHint">Reused automatically if Provider above is already set to Gemini</small>
+            </div>
+            <div class="row-2">
+              <div class="field-group">
+                <label data-i18n="settings.ttsModel">TTS Model</label>
+                <input type="text" id="cfgGeminiTtsModel" value="gemini-2.5-flash-preview-tts">
+              </div>
+              <div class="field-group">
+                <label data-i18n="settings.voice">Voice</label>
+                <select id="cfgGeminiVoice">
+                  <option value="Kore">Kore</option>
+                  <option value="Puck">Puck</option>
+                  <option value="Zephyr">Zephyr</option>
+                  <option value="Aoede">Aoede</option>
+                  <option value="Leda">Leda</option>
+                  <option value="Charon">Charon</option>
+                  <option value="Fenrir">Fenrir</option>
+                  <option value="Orus">Orus</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="field-group" style="border-top:1px solid var(--panel-border);padding-top:14px;">
+            <label>
+              <input type="checkbox" id="cfgLiveVoice">
+              <span data-i18n="settings.liveVoice">Live voice call (Gemini Live API -- WebSocket)</span>
+            </label>
+            <small data-i18n="settings.liveVoiceHint">Real-time two-way voice chat: mic stays open and streams audio directly via WebSocket.</small>
+          </div>
+          <div id="liveVoiceFields" style="display:none;">
+            <div class="field-group">
+              <label data-i18n="settings.liveKey">Gemini API Key (for live call)</label>
+              <input type="password" id="cfgLiveKey" data-i18n-placeholder="settings.voiceKeyPlaceholder" placeholder="Paste your Gemini API key here">
+              <small data-i18n="settings.liveKeyHint">Reuses the Gemini key above if the main provider is set to Gemini</small>
+            </div>
+            <div class="field-group">
+              <label data-i18n="settings.liveModel">Live Model</label>
+              <input type="text" id="cfgLiveModel" value="gemini-2.5-flash-native-audio-preview-12-2025">
+              <small data-i18n="settings.liveModelHint">Example: gemini-2.5-flash-native-audio-preview-12-2025</small>
+            </div>
+            <div class="field-group">
+              <label>
+                <input type="checkbox" id="cfgLiveTranscript" checked>
+                <span data-i18n="settings.liveTranscript">Show live transcript of the call in chat</span>
+              </label>
+            </div>
+            <div class="status-pill warn" style="display:block;width:100%;text-align:center;box-sizing:border-box;" data-i18n="settings.experimental">Experimental -- consumes API quota faster than text chat</div>
+          </div>
+          <div style="margin-top:10px;text-align:center;">
+            <button id="btnTestVoice" class="btn" style="border-color:var(--success);color:var(--success);" data-i18n="settings.testVoice">Test Voice and Lips</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3: Face Mirror -->
+      <div class="settings-section">
+        <button class="settings-section-header" type="button">
+          <span data-i18n="settings.mirrorTitle">Face Mirror</span>
+          <span class="chevron">&#x25BC;</span>
+        </button>
+        <div class="settings-section-body">
+          <div class="field-group">
+            <label>
+              <input type="checkbox" id="cfgMirror">
+              <span data-i18n="settings.mirrorLive">Live face mirror (on-device)</span>
+            </label>
+            <small data-i18n="settings.mirrorLiveHint">MediaPipe FaceLandmarker reads your face from the camera. Frames are analyzed on your GPU locally -- nothing leaves this device.</small>
+          </div>
+          <div class="field-group" id="mirrorModeGroup" style="display:none;">
+            <label data-i18n="settings.mirrorMode">Mirror Mode</label>
+            <select id="cfgMirrorMode">
+              <option value="copy">Copy my expressions</option>
+              <option value="emotion">Detect emotion only</option>
+            </select>
+            <small data-i18n="settings.mirrorModeHint">Copy = avatar mimics your face live. Emotion = avatar reacts to your mood.</small>
+          </div>
+          <div id="mirrorStatus" class="status-pill warn">MIRROR: OFF</div>
+        </div>
+      </div>
+
+      <!-- Section 3b: Feeling Colors -->
+      <div class="settings-section">
+        <button class="settings-section-header" type="button">
+          <span data-i18n="settings.feelingTitle">Feeling Colors</span>
+          <span class="chevron">&#x25BC;</span>
+        </button>
+        <div class="settings-section-body">
+          <div class="field-group">
+            <label data-i18n="settings.feelingSource">Sentiment source</label>
+            <select id="cfgFeelingMode">
+              <option value="auto">Auto (response + my words + live words)</option>
+              <option value="response">AI response only</option>
+              <option value="user">My input only</option>
+              <option value="off">Off</option>
+            </select>
+            <small data-i18n="settings.feelingHint">Detects the feeling of the words being typed or spoken (English + Arabic) and colors the face accordingly. Louder speech adds a warm glow on top.</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 4: Advanced -->
+      <div class="settings-section">
+        <button class="settings-section-header" type="button">
+          <span data-i18n="settings.advancedTitle">Advanced</span>
+          <span class="chevron">&#x25BC;</span>
+        </button>
+        <div class="settings-section-body">
+          <div class="field-group">
+            <label data-i18n="settings.systemPrompt">System Prompt</label>
+            <textarea id="cfgSystem" rows="4">You are a friendly AI assistant. Keep responses concise and helpful.</textarea>
+          </div>
+          <div class="field-group">
+            <label data-i18n="settings.model3d">3D Model</label>
+            <select id="cfgModel3d">
+              <option value="facecap">FaceCap (Classic)</option>
+              <option value="custom">Custom GLB/VRM...</option>
+            </select>
+            <small data-i18n="settings.model3dHint">Switch to Custom to load your own GLB, GLTF or VRM model.</small>
+          </div>
+          <div class="field-group" id="customModelGroup" style="display:none;">
+            <label data-i18n="settings.loadModel">Load Model</label>
+            <select id="cfgLocalModels">
+              <option value="">-- Select a model --</option>
+            </select>
+            <div class="model-load-row" style="margin-top:6px;">
+              <button type="button" id="browseModelBtn" class="browse-btn" title="Browse local .glb/.vrm file">📂</button>
+              <input type="file" id="cfgModelFile" accept=".glb,.gltf,.vrm" style="display:none">
+              <input type="text" id="cfgCustomModelUrl" data-i18n-placeholder="settings.modelUrlPlaceholder" placeholder="Or paste URL">
+              <button type="button" id="loadModelBtn" class="load-btn" data-i18n="btn.load">Load</button>
+            </div>
+            <div style="margin-top:6px;">
+              <button type="button" id="mapMorphsBtn" class="browse-btn" style="width:100%;" data-i18n="settings.mapMorphs">Map Morph Targets...</button>
+            </div>
+            <small id="modelName" data-i18n="settings.noModel">No custom model loaded</small>
+          </div>
+          <div class="field-group">
+            <label>
+              <input type="checkbox" id="cfgShowFace" checked>
+              <span data-i18n="settings.showFace">Show 3D Face</span>
+            </label>
+            <small data-i18n="settings.showFaceHint">Show/hide the 3D face model. Uncheck to use only visual effects.</small>
+          </div>
+          <div class="field-group">
+            <label data-i18n="settings.visualStyle">Visual Style</label>
+            <select id="cfgWaveStyle">
+              <option value="wave">Audio Wave</option>
+              <option value="particles">Particle Field</option>
+              <option value="rings">Pulse Rings</option>
+              <option value="none">None (Face only)</option>
+            </select>
+<small data-i18n="settings.visualStyleHint">Audio-reactive visual effect behind the face.</small>
+          </div>
+          <div class="field-group">
+            <label data-i18n="settings.visemePlayground">Viseme Playground</label>
+            <div class="viseme-row">
+              <input type="text" id="visemeInput" maxlength="1" placeholder="A" aria-label="viseme" autocomplete="off">
+              <button id="visemePreviewBtn" class="btn" type="button" data-i18n="btn.previewBtn">Hold Preview</button>
+            </div>
+            <small data-i18n="settings.visemeHint">Press the letter, then hold Preview to make the face mouth that shape: M, O, E, A, S, T, L, K, C, F, U.</small>
+          </div>
+          <div class="field-group">
+            <label>
+              <input type="checkbox" id="cfgAutoRestoreChat" checked>
+              <span data-i18n="settings.autoRestore">Auto-restore last chat</span>
+            </label>
+            <small data-i18n="settings.autoRestoreHint">On load, resume your most recent conversation.</small>
+          </div>
+          <div class="field-group">
+            <label data-i18n="settings.theme">Theme</label>
+            <select id="cfgTheme">
+              <option value="blueprint" data-i18n="theme.blueprint">Blueprint (Blue)</option>
+              <option value="matrix" data-i18n="theme.matrix">Matrix (Green)</option>
+              <option value="noir" data-i18n="theme.noir">Noir (White)</option>
+              <option value="warm" data-i18n="theme.warm">Warm (Human)</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label data-i18n="settings.lightingPreset">Lighting Preset</label>
+            <select id="cfgLightPreset">
+              <option value="blueprint" data-i18n="theme.blueprint">Blueprint (Blue)</option>
+              <option value="matrix" data-i18n="theme.matrix">Matrix (Green)</option>
+              <option value="warm" data-i18n="theme.warm">Warm (Human)</option>
+              <option value="soft">Soft White</option>
+              <option value="noir">Noir (White)</option>
+            </select>
+            <small data-i18n="settings.lightingHint">Global ambient light tint and brightness.</small>
+          </div>
+          <div class="field-group">
+            <label data-i18n="settings.locale">Interface Language</label>
+            <select id="cfgLocale">
+              <option value="en">English</option>
+              <option value="ar">العربية</option>
+              <option value="fr">Français</option>
+              <option value="de">Deutsch</option>
+              <option value="es">Español</option>
+              <option value="ja">日本語</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="field-group">
+      <button id="installBtn" class="btn" style="display:none;" data-i18n="btn.installApp">Install App</button>
+    </div>
+    <div class="panel-footer">AI Face v6 -- Auto States + Front Chat</div>
+  </aside>
+
+  <!-- ============================================================
+       Main App
+       ============================================================ -->
+  <div id="app">
+    <div class="progress-overlay" id="progressOverlay">
+      <div class="progress-inner">
+        <span class="progress-label" id="progressText">Loading model 0%</span>
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      </div>
+    </div>
+    <div class="stage">
+      <div id="loadMsg" data-i18n="loading.msg">Initializing engine...</div>
+      <div class="load-error-banner" id="loadErrorBanner" hidden>
+        <span class="load-error-msg" id="loadErrorMsg"></span>
+        <button class="load-error-retry" id="loadErrorRetry" data-i18n="btn.retry">Retry</button>
+        <button class="load-error-dismiss" id="loadErrorDismiss" aria-label="Dismiss">&times;</button>
+      </div>
+      <div class="bracket tl"></div><div class="bracket tr"></div>
+      <div class="bracket bl"></div><div class="bracket br"></div>
+      <svg class="connection-lines" id="connectionLines" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <line x1="0" y1="0" x2="50" y2="50" stroke="var(--accent-primary)" stroke-width="0.3" opacity="0.2"/>
+        <line x1="100" y1="0" x2="50" y2="50" stroke="var(--accent-primary)" stroke-width="0.3" opacity="0.2"/>
+        <line x1="0" y1="100" x2="50" y2="50" stroke="var(--accent-primary)" stroke-width="0.3" opacity="0.2"/>
+        <line x1="100" y1="100" x2="50" y2="50" stroke="var(--accent-primary)" stroke-width="0.3" opacity="0.2"/>
+        <circle cx="50" cy="50" r="1.5" fill="var(--active)" opacity="0.5">
+          <animate attributeName="r" values="1.5;2.5;1.5" dur="2s" repeatCount="indefinite"/>
+          <animate attributeName="opacity" values="0.5;0.9;0.5" dur="2s" repeatCount="indefinite"/>
+        </circle>
+      </svg>
+      <div class="status-orb" id="statusOrb" title="System Status"></div>
+      <div class="hud-text hud-top" id="hudNode">SYS.NODE // 0x0000</div>
+      <div class="hud-text hud-top-right" id="hudClock">00:00:00</div>
+      <div class="hud-text hud-bottom" id="hudCoord">X:000 Y:000</div>
+      <div class="hud-text hud-bottom-right" id="hudFreq">0.00 Hz</div>
+    </div>
+    <div class="state-label" id="stateLabel"><span data-i18n="state.prefix">STATE //</span> <span id="stateVal">IDLE</span></div>
+    <div class="elapsed-label" id="elapsedLabel"></div>
+    <div class="controls" id="apiHint" data-i18n="hud.api">API: window.AIFace -- see console</div>
+    <div class="live-chat-front" id="liveChatFront">
+      <div class="chat-history" id="chatHistory" role="log" aria-live="polite" aria-relevant="additions" aria-label="Chat history"></div>
+      <div class="chat-scroll-bottom" id="chatScrollBottom">
+        <button id="chatScrollBtn" aria-label="Scroll to bottom" data-i18n="btn.scrollNew">&#x2193; New</button>
+      </div>
+      <div class="chat-input-wrap" style="position:relative;">
+        <div id="imageChip" style="display:none;position:absolute;bottom:calc(100% + 6px);right:0;align-items:center;gap:6px;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:8px;padding:4px;z-index:5;">
+          <img id="imageChipThumb" alt="Attached image" style="height:44px;max-width:120px;object-fit:cover;border-radius:5px;">
+          <button id="imageChipRemove" aria-label="Remove image" style="padding:2px 8px;font-size:13px;border-color:var(--alert);color:var(--alert);background:transparent;">&#x2715;</button>
+        </div>
+        <input type="file" id="imageInput" accept="image/*" style="display:none">
+        <button id="attachBtn" class="mic-btn" title="Attach image" aria-label="Attach image">&#x1F5BC;</button>
+        <button id="micBtn" class="mic-btn" title="Talk (Ctrl+M)" aria-label="Start or stop voice input">&#x1F3A4;</button>
+        <input type="text" id="chatInput" data-i18n-placeholder="chat.placeholder" placeholder="Type your message... or press mic" autocomplete="off">
+        <button id="btnSend" aria-label="Send message" data-i18n="btn.send">Send</button>
+      </div>
+      <div style="margin-top:6px;display:flex;gap:6px;justify-content:center;">
+        <button id="btnNewChat" style="font-size:11px;padding:6px 12px;" data-i18n="btn.newChat">New Chat</button>
+        <button id="btnSessions" style="font-size:11px;padding:6px 12px;" data-i18n="btn.sessions">Sessions</button>
+        <button id="btnClear" style="font-size:11px;padding:6px 12px;" data-i18n="btn.clear">Clear Chat</button>
+        <button id="btnStop" style="font-size:11px;padding:6px 12px;display:none;" data-i18n="btn.stop">Stop</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       Caption Overlay
+       ============================================================ -->
+  <div class="caption-overlay" id="captionOverlay" role="status" aria-live="polite" aria-atomic="true">
+    <span class="cap-label" id="captionLabel" data-i18n="caption.listening">Listening...</span>
+    <span id="captionText"></span>
+  </div>
+
+  <!-- Mirror Camera Panel -->
+  <div class="mirror-panel" id="mirrorPanel" style="display:none;">
+    <div class="mirror-panel-head">
+      <span data-i18n="mirror.title">MIRROR</span>
+      <span id="mirrorPill" class="mirror-pill">OFF</span>
+    </div>
+  </div>
+
+  <!-- Feeling Pill -->
+  <div class="feeling-pill" id="feelingPill" style="display:none;"><span data-i18n="feeling.prefix">FEELING</span>: NEUTRAL</div>
+
+  <!-- Sessions Modal -->
+  <div class="overlay" id="sessionsOverlay">
+    <div class="overlay-card">
+      <h3 data-i18n="sessions.title">Sessions</h3>
+      <p data-i18n="sessions.desc">Conversations are saved automatically. Pick one to resume.</p>
+      <div id="sessionsList"></div>
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center;">
+        <button id="sessionsNew" class="btn" data-i18n="sessions.new">New Chat</button>
+        <button id="sessionsClose" class="btn" style="margin-left:auto;" data-i18n="btn.done">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Morph Target Mapping Modal -->
+  <div class="overlay" id="morphMapOverlay">
+    <div class="overlay-card">
+      <h3 data-i18n="morph.title">Map Morph Targets</h3>
+      <p data-i18n="morph.desc">Match your model's morph names to the avatar's canonical slots so expressions, lip-sync and the mirror work.</p>
+      <div id="morphMapList"></div>
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center;">
+        <button id="morphAutoMap" class="btn" data-i18n="btn.autoDetect">Auto-detect</button>
+        <button id="morphResetMap" class="btn btn-skip" data-i18n="btn.reset">Reset</button>
+        <button id="morphClose" class="btn" style="margin-left:auto;" data-i18n="btn.done">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Mic Button -->
+  <button class="mic-float" id="micFloatBtn" title="Talk (Ctrl+M)" aria-label="Start or stop voice input (Ctrl+M)">&#x1F3A4;</button>
+
+  <!-- Debug Log (hidden by default) -->
+  <div id="debugLog"></div>
+  <button class="debug-toggle" id="debugToggle" title="Toggle debug log (Ctrl+Shift+D)" aria-label="Toggle debug log">D</button>
+
+  <!-- ============================================================
+       Onboarding Modal
+       ============================================================ -->
+  <div class="onboarding-modal" id="onboardingModal">
+    <div class="onboarding-card">
+      <h2 data-i18n="onboarding.title">Welcome to AI Face</h2>
+      <p class="subtitle" data-i18n="onboarding.subtitle">Voice &amp; vision assistant running entirely in your browser</p>
+      <ol class="onboarding-steps">
+        <li>
+          <span class="step-num">1</span>
+          <span class="step-text" data-i18n="onboarding.step1">Pick a provider in Settings -- choose Gemini, OpenAI, Ollama, or run fully offline with WebLLM.</span>
+        </li>
+        <li>
+          <span class="step-num">2</span>
+          <span class="step-text" data-i18n="onboarding.step2">Paste your API key (stored encrypted in your browser only).</span>
+        </li>
+        <li>
+          <span class="step-num">3</span>
+          <span class="step-text" data-i18n="onboarding.step3">Start chatting -- type or press the mic button to talk. The 3D face syncs with the voice.</span>
+        </li>
+      </ol>
+      <div class="onboarding-actions">
+        <button id="onboardingGetStarted" class="btn" data-i18n="btn.getStarted">Get Started</button>
+        <button id="onboardingSkip" class="btn btn-skip" data-i18n="btn.skip">Skip</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       Scripts
+       ============================================================ -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.183.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.183.0/examples/jsm/",
+      "@mediapipe/tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14",
+      "@huggingface/transformers": "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1",
+      "kokoro-js": "https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/dist/kokoro.web.js",
+      "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.1.2"
+    }
+  }
+  </script>
+  <script>
+    // Apply saved theme BEFORE first paint to prevent flash
+    try {
+      var s = JSON.parse(localStorage.getItem('aiface_llm_settings'));
+      if (s && s.theme && s.theme !== 'blueprint') document.documentElement.className = 'theme-' + s.theme;
+    } catch(e) {}
+  </script>
+  <script>
+    // DEV/self-heal kill switch: loading with ?nosw unregisters any service
+    // worker and clears app-shell caches so a stale SW can never pin old code.
+    // NOTE: this must run before the module script below.
+    window.__NOSW = new URLSearchParams(location.search).has('nosw');
+    if (window.__NOSW) {
+      (function() {
+        try {
+          navigator.serviceWorker.getRegistrations().then(function(regs) {
+            return Promise.all(regs.map(function(r) { return r.unregister(); }));
+          }).catch(function() {});
+          caches.keys().then(function(keys) {
+            return Promise.all(keys.filter(function(k) { return k.indexOf('aiface-shell') === 0; }).map(function(k) { return caches.delete(k); }));
+          }).catch(function() {});
+        } catch (e) {}
+        document.addEventListener('DOMContentLoaded', function() {
+          var chip = document.createElement('div');
+          chip.className = 'nosw-chip';
+          chip.title = 'Service worker bypassed — PWA/offline disabled. Remove ?nosw from the URL to re-enable.';
+          chip.textContent = 'NO-SW // DEV';
+          document.body.appendChild(chip);
+        });
+      })();
+      console.warn('[nosw] service worker bypassed — PWA/offline disabled.');
+    }
+  </script>
+  <script type="module" src="./js/app.js"></script>
+  <script>
+    // Detect if modules failed (file:// protocol) and show a helpful message
+    window.addEventListener('DOMContentLoaded', function() {
+      setTimeout(function() {
+        var loadMsg = document.getElementById('loadMsg');
+        if (loadMsg && loadMsg.style.display !== 'none' && loadMsg.textContent.indexOf('server') === -1) {
+          if (location.protocol === 'file:') {
+            loadMsg.textContent = 'ES modules require a web server. Run: npx serve . --port 3000';
+            loadMsg.style.display = 'flex';
+            loadMsg.style.color = '#ff4757';
+          }
+        }
+      }, 3000);
+    });
+    // Watchdog: if app.js's module graph never evaluates (a pinned CDN library
+    // is unreachable), show the error banner instead of hanging on "Initializing".
+    window.__APP_STATIC_READY = 0;
+    window.addEventListener('DOMContentLoaded', function() {
+      setTimeout(function() {
+        var banner = document.getElementById('loadErrorBanner');
+        var msgEl = document.getElementById('loadErrorMsg');
+        if (!window.__APP_STATIC_READY && banner && msgEl) {
+          msgEl.textContent = 'App module failed to load (a CDN/library is unreachable). Check your connection, then Retry, or load the URL with ?nosw to bypass the cache.';
+          banner.hidden = false;
+        }
+      }, 15000);
+    });
+    if ('serviceWorker' in navigator && !window.__NOSW) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+          .then(function(reg) {
+            if (reg && typeof reg.update === 'function') return reg.update();
+          })
+          .catch(function(e) { console.warn('SW registration skipped:', e.message); });
+        var refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', function() {
+          if (refreshing) return;
+          refreshing = true;
+          window.location.reload();
+        });
+      });
+    }
+  </script>
+</body>
+</html>

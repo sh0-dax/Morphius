@@ -1,0 +1,19 @@
+{
+  "name": "AI Face — Voice & Vision Assistant Interface",
+  "short_name": "AI Face",
+  "description": "Voice and vision assistant interface running entirely in the browser, with multi-provider support and local browser-only mode via WebLLM.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#020306",
+  "theme_color": "#070c16",
+  "lang": "en",
+  "dir": "ltr",
+  "icons": [
+    { "src": "./assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "./assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
