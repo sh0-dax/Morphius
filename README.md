@@ -49,41 +49,25 @@ They render text. Morphius **reacts**.
 | Single language | **6 locales** (en / ar / fr / de / es / ja), auto-detected, parity-test-enforced |
 | Text-only memory | **Encrypted IndexedDB sessions** — restore, rename, export, multimodal images |
 
-### How Morphius works
-
-Morphius lives **entirely in the browser**. The face, the chat, the audio bus, and even the LLM can all run client-side with no server.
-
-```
-User Input
-    │
-    ▼
-┌──────────────────────────────────────────┐
-│          BROWSER APP SHELL               │
-│  Chat UI · HUD · Settings · Onboarding   │
-│  i18n (6 locales) · PWA / Service Worker │
-├──────────────────────────────────────────┤
-│        FACE & STATE ENGINE (app.js)       │
-│  10-state machine · 52 morph slots        │
-│  idle life (blink + breath) · visemes     │
-│  lighting presets · webcam face mirror    │
-├──────────────────────────────────────────┤
-│        VOICE & AUDIO (masterBus.js)       │
-│  TTS (Web Speech / Gemini / Live)         │
-│  STT (Whisper tiers) · volume · sink ID   │
-├──────────────────────────────────────────┤
-│        PROVIDERS (multi)                  │
-│  Gemini · OpenAI · Ollama · WebLLM        │
-│  OpenAI-compatible endpoints              │
-├──────────────────────────────────────────┤
-│  SECURITY (AES-GCM) · STORAGE (IndexedDB) │
-└──────────────────────────────────────────┘
-```
-
----
-
 ## 1\. System Architecture Overview
 
 Morphius is a zero-build client-side application. All logic is plain ES modules loaded directly by the browser; a service worker provides an offline app shell and cache-first delivery for pinned dependencies.
+
+### Runtime Request Flow
+
+```mermaid
+graph TD
+    A["User message"] --> B["chatStore persist"]
+    B --> C["state -> thinking"]
+    C --> D["Provider router"]
+    D -->|cloud| E["Gemini / OpenAI / Ollama"]
+    D -->|local| F["WebLLM (WebGPU)"]
+    E --> G["stream tokens"]
+    F --> G
+    G --> H["state -> responding"]
+    H --> I["viseme + TTS synthesis"]
+    I --> J["face morphs + audio render"]
+```
 
 ### Core Pillars
 
