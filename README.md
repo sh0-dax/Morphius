@@ -230,6 +230,19 @@ Toggle **Settings → Vision** and enable **Real-time object detection (AI Visio
 - Detections appear live in the `VISION` status pill (e.g. `YOLO (WebGPU) · 1 person`), throttled by `Max detection rate (FPS)`.
 - **Pause / Resume** suspends inference without releasing the camera.
 - When **React when a person is detected** is on, the avatar adopts a subtle engaged expression while a person is in view.
+
+**Vision drives feeling (sentiment).** Detections map onto the avatar's feeling state:
+- A **person present** keeps a warm feeling (`love`) until they leave.
+- A **new object class** appearing triggers a short `surprised` burst.
+- Known classes feel specific things — animals (`cat`, `dog`, `horse`, …) → `happy`.
+- Vision feeling applies whenever detection is active and clears when nothing is detected (or Vision is turned off).
+
+**Vision drives audio (proactive commentary).** With **Speak about what I see** on (default), the avatar may spontaneously comment out loud on what it detects — e.g. "I see a person." or "I see a cat!". Rules keep it from being chatty:
+- Only when the avatar is **idle** and not already speaking.
+- Only on a **scene change** (a class appears that wasn't there before).
+- A **25s cooldown** between comments.
+- Local i18n lines (no API cost); fully disabled by unticking **Speak about what I see** or turning Vision off.
+
 - All frames are processed locally — images never leave the device. The int8 model (`models/yolo26n_int8.onnx`) is precached by the service worker.
 
 ---

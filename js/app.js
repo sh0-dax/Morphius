@@ -1785,22 +1785,70 @@ const cfgVision = document.getElementById('cfgVision');
 const cfgVisionBackend = document.getElementById('cfgVisionBackend');
 const cfgVisionMaxFps = document.getElementById('cfgVisionMaxFps');
 const cfgVisionReact = document.getElementById('cfgVisionReact');
+const cfgVisionCommentary = document.getElementById('cfgVisionCommentary');
 const btnVisionPause = document.getElementById('btnVisionPause');
 const visionStatus = document.getElementById('visionStatus');
 const visionBackendGroup = document.getElementById('visionBackendGroup');
 const visionFpsGroup = document.getElementById('visionFpsGroup');
 const visionReactGroup = document.getElementById('visionReactGroup');
+const visionCommentaryGroup = document.getElementById('visionCommentaryGroup');
 const visionPauseGroup = document.getElementById('visionPauseGroup');
 let visionActive = false;
 let visionPaused = false;
 let visionReact = true;
+let visionCommentary = true;
 let visionPersonPresent = false;
 let visionBackendName = '';
 let visionVideo = null;
 let visionStream = null;
+let visionLastClasses = new Set();
+let visionLastCommentAt = 0;
+let visionFeelingActive = false;
+let visionFeelingLabel = '';
+
+const VISION_COMMENT_COOLDOWN = 25000;
+// Map seen COCO classes to a feeling label for avatar sentiment.
+const VISION_FEELING_MAP = {
+  'person': 'love',
+  'cat': 'happy', 'dog': 'happy', 'horse': 'happy', 'sheep': 'happy',
+  'cow': 'happy', 'elephant': 'happy', 'bear': 'happy', 'zebra': 'happy',
+  'giraffe': 'happy', 'bird': 'happy',
+};
+// Classes the avatar will proactively call out (out loud) when they appear.
+const VISION_SPEAK_CLASSES = new Set(['person', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', 'bird']);
 
 function handleVisionDetections(detections) {
   visionPersonPresent = detections.some((d) => d.class === 'person');
+
+  const classes = new Set(detections.map((d) => d.class));
+  const newClasses = new Set([...classes].filter((c) => !visionLastClasses.has(c)));
+  visionLastClasses = classes;
+
+  // ---- Vision -> Feeling (always applies) ----
+  if (visionReact && cfgFeelingMode && cfgFeelingMode.value !== 'off') {
+    if (visionPersonPresent && VISION_FEELING_MAP.person) {
+      setVisionFeeling(VISION_FEELING_MAP.person, 0);
+    } else if (newClasses.size) {
+      const firstNew = [...newClasses][0];
+      if (VISION_FEELING_MAP[firstNew]) setVisionFeeling(VISION_FEELING_MAP[firstNew], 0);
+      else { setVisionFeeling('surprised', 1600); }
+    } else if (classes.size === 0) {
+      clearVisionFeeling();
+    } else {
+      const anyMapped = [...classes].find((c) => VISION_FEELING_MAP[c]);
+      if (anyMapped) setVisionFeeling(VISION_FEELING_MAP[anyMapped], 0);
+    }
+  }
+
+  // ---- Vision -> Audio (proactive commentary) ----
+  if (visionActive && !visionPaused && visionCommentary && newClasses.size) {
+    const firstNew = [...newClasses][0];
+    if (VISION_SPEAK_CLASSES.has(firstNew) || firstNew === 'person') {
+      speakVisionCommentary(firstNew);
+    }
+  }
+
+  // ---- Status pill ----
   let summary = '';
   const counts = {};
   for (const d of detections) counts[d.class] = (counts[d.class] || 0) + 1;
@@ -1810,6 +1858,37 @@ function handleVisionDetections(detections) {
     .replace('{backend}', visionBackendName)
     .replace('{summary}', summary);
   setVisionStatus('on', label);
+}
+
+function setVisionFeeling(label, lingerMs) {
+  visionFeelingActive = true;
+  visionFeelingLabel = label;
+  setFeeling(label, lingerMs);
+}
+
+function clearVisionFeeling() {
+  if (visionFeelingActive) {
+    visionFeelingActive = false;
+    if (S.feeling === visionFeelingLabel) setFeeling('neutral', 0);
+  }
+  visionFeelingLabel = '';
+}
+
+function speakVisionCommentary(className) {
+  if (S.speaking || S.isTtsSpeaking || S.ttsMuted) return;
+  if (S.currentState !== 'idle') return;
+  const now = performance.now();
+  if (now - visionLastCommentAt < VISION_COMMENT_COOLDOWN) return;
+  let line;
+  if (className === 'person') {
+    line = t('vision.comment.person', 'I see a person.');
+  } else if (VISION_SPEAK_CLASSES.has(className)) {
+    line = t('vision.comment.animal', 'I see {obj}!').replace('{obj}', className);
+  } else {
+    line = t('vision.comment.generic', 'I see {obj}.').replace('{obj}', className);
+  }
+  visionLastCommentAt = now;
+  speakUnified(line, cfgTtsLang ? cfgTtsLang.value : 'en-US');
 }
 
 function setVisionStatus(state, extra) {
@@ -1835,6 +1914,7 @@ function updateVisionUI() {
   if (visionBackendGroup) visionBackendGroup.style.display = hidden;
   if (visionFpsGroup) visionFpsGroup.style.display = hidden;
   if (visionReactGroup) visionReactGroup.style.display = hidden;
+  if (visionCommentaryGroup) visionCommentaryGroup.style.display = hidden;
   if (visionPauseGroup) visionPauseGroup.style.display = hidden;
   if (!on) {
     setVisionStatus('off');
@@ -1869,6 +1949,9 @@ async function startVision() {
     visionActive = true;
     visionPaused = false;
     visionReact = cfgVisionReact ? cfgVisionReact.checked : true;
+    visionCommentary = cfgVisionCommentary ? cfgVisionCommentary.checked : true;
+    visionLastClasses = new Set();
+    visionLastCommentAt = 0;
     Vision.start(handleVisionDetections);
     if (btnVisionPause) btnVisionPause.textContent = t('settings.visionPause') || 'Pause Vision';
     setVisionStatus('on');
@@ -1885,6 +1968,8 @@ function stopVision() {
   visionActive = false;
   visionPaused = false;
   visionPersonPresent = false;
+  clearVisionFeeling();
+  visionLastClasses = new Set();
   try { Vision.stop(); } catch (e) {}
   if (visionStream) { visionStream.getTracks().forEach((t) => t.stop()); visionStream = null; }
   if (visionVideo) { visionVideo.srcObject = null; }
@@ -1922,6 +2007,7 @@ cfgVisionMaxFps.addEventListener('change', () => {
   if (visionActive) { stopVision(); startVision(); }
 });
 cfgVisionReact.addEventListener('change', () => { visionReact = cfgVisionReact.checked; saveSettings(); });
+if (cfgVisionCommentary) cfgVisionCommentary.addEventListener('change', () => { visionCommentary = cfgVisionCommentary.checked; saveSettings(); });
 if (btnVisionPause) btnVisionPause.addEventListener('click', toggleVisionPause);
 window.addEventListener('pagehide', () => { if (visionActive) stopVision(); });
 
@@ -2167,6 +2253,7 @@ async function saveSettings() {
     visionBackend: cfgVisionBackend ? cfgVisionBackend.value : 'auto',
     visionMaxFps: cfgVisionMaxFps ? cfgVisionMaxFps.value : '8',
     visionReact: cfgVisionReact ? cfgVisionReact.checked : true,
+    visionCommentary: cfgVisionCommentary ? cfgVisionCommentary.checked : true,
   };
   localStorage.setItem('aiface_llm_settings', JSON.stringify(settings));
   showStatus('Settings saved (keys encrypted locally)', 'ok');
@@ -2224,6 +2311,8 @@ async function loadSettings() {
       if (cfgVisionMaxFps) cfgVisionMaxFps.value = s.visionMaxFps || '8';
       if (cfgVisionReact) cfgVisionReact.checked = s.visionReact !== undefined ? s.visionReact : true;
       visionReact = cfgVisionReact.checked;
+      if (cfgVisionCommentary) cfgVisionCommentary.checked = s.visionCommentary !== undefined ? s.visionCommentary : true;
+      visionCommentary = cfgVisionCommentary.checked;
       updateVisionUI();
       if (cfgVision.checked) startVision();
       else stopVision();
