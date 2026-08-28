@@ -7,7 +7,7 @@
 // app keeps working through CDN outages and offline. Offline still works via
 // cache fallbacks.
 // Bump CACHE_NAME on any shell change to invalidate old caches automatically.
-const CACHE_NAME = 'aiface-shell-v24';
+const CACHE_NAME = 'aiface-shell-v25';
 const CDN_CACHE = 'aiface-cdn-v1';
 
 // Exact pinned CDN resources (substring match against href). These are cached
@@ -30,8 +30,18 @@ const SHELL_FILES = [
   './index.html',
   './css/styles.css',
   './js/app.js',
+  './js/pure.js',
   './js/mirror.js',
   './js/localSpeech.js',
+  './js/chatStore.js',
+  './js/masterBus.js',
+  './js/progress.js',
+  './i18n/en.json',
+  './i18n/ar.json',
+  './i18n/fr.json',
+  './i18n/de.json',
+  './i18n/es.json',
+  './i18n/ja.json',
   './manifest.json',
   './assets/icon.svg',
   './assets/icon-192.png',
@@ -60,8 +70,9 @@ function isMutable(url) {
   const last = p.split('/').pop() || '';
   const modelsManifest = p.endsWith('models/manifest.json');
   const isListing = /\/models\/?$/.test(p);
+  const isI18n = /\/i18n\/[^/]+\.json$/.test(p);
   const isCode = last.endsWith('.js') || last.endsWith('.css') || last === 'index.html' || p === '/';
-  return modelsManifest || isListing || isCode;
+  return modelsManifest || isListing || isI18n || isCode;
 }
 
 function isStaticCacheable(url) {

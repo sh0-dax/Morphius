@@ -9,10 +9,10 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { Mirror, startMirror, stopMirror } from './mirror.js';
-import { LocalSpeech, startLocalSTT, stopLocalSTT, toWhisperLang, generateLocalAudio, playLocalAudio, setLocalCallbacks, stopLocalAudio, setWhisperModel, applyMasterSettings } from './localSpeech.js';
+import { LocalSpeech, startLocalSTT, stopLocalSTT, generateLocalAudio, playLocalAudio, setLocalCallbacks, stopLocalAudio, setWhisperModel, applyMasterSettings } from './localSpeech.js';
 import { modelProgress } from './progress.js';
 import { getMasterVolume, setMasterVolume, setOutputDevice, routeOutput } from './masterBus.js';
-import { detectFeeling, visemeFor, DEFAULT_VISEME, VISEME_KEYS, contentToText, contentImages, buildUserContent, geminiContentParts, dataUrlMeta } from './pure.js';
+import { detectFeeling, visemeFor, DEFAULT_VISEME, VISEME_KEYS, contentToText, contentImages, buildUserContent, geminiContentParts } from './pure.js';
 import { saveSession, loadSession, listSessions, deleteSession, getLastSession, buildSession, makeSessionId, sanitizeMessages, sessionTitle } from './chatStore.js';
 
 // ---- i18n (lightweight loader, EN fallback, dir flip for RTL) ----
@@ -65,12 +65,18 @@ const debugEl = document.getElementById('debugLog');
 const termEl = document.getElementById('terminalOutput');
 const TERM_MAX = 50;
 
+function esc(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 function term(msg, type) {
   const t = new Date().toTimeString().slice(0, 8);
   const cls = 't-' + (type || 'info');
   const line = document.createElement('div');
   line.className = 't-line';
-  line.innerHTML = '<span class="t-time">' + t + '</span> <span class="' + cls + '">' + msg + '</span>';
+  line.innerHTML = '<span class="t-time">' + esc(t) + '</span> <span class="' + esc(cls) + '">' + esc(msg) + '</span>';
   termEl.appendChild(line);
   if (termEl.children.length > TERM_MAX) termEl.removeChild(termEl.firstChild);
   termEl.scrollTop = termEl.scrollHeight;
@@ -83,7 +89,7 @@ function dbg(msg, type) {
   if (type === 'err') color = 'var(--alert)';
   if (type === 'ok') color = 'var(--success)';
   if (type === 'warn') color = 'var(--warn)';
-  span.innerHTML = '<span style="color:var(--dim)">[' + t + ']</span> <span style="color:' + color + '">' + msg + '</span>';
+  span.innerHTML = '<span style="color:var(--dim)">[' + esc(t) + ']</span> <span style="color:' + esc(color) + '">' + esc(msg) + '</span>';
   debugEl.appendChild(span);
   debugEl.scrollTop = debugEl.scrollHeight;
   term(msg, type);
@@ -775,7 +781,7 @@ function speakUnified(text, lang) {
   const fm = cfgFeelingMode ? cfgFeelingMode.value : 'auto';
   if ((fm === 'auto' || fm === 'response') && text) {
     const f = detectFeeling(text);
-    if (f !== 'neutral') setFeeling(f, 0);
+    if (f !== 'neutral') setFeeling(f, 8000);
   }
   if (cfgUseGeminiTts.checked) {
     const key = cfgGeminiTtsKey.value.trim() || (cfgProvider.value === 'gemini' ? cfgKey.value.trim() : '');
@@ -906,6 +912,7 @@ Object.assign(window.AIFace, {
 window.addEventListener('message', (event) => {
   const d = event.data;
   if (!d || d.source !== 'ai-face-control') return;
+  if (event.origin && event.origin !== location.origin) return;
   if (d.type === 'state' && STATE_TARGETS[d.value]) setState(d.value);
   else if (d.type === 'speaking') setSpeaking(!!d.value);
   else if (d.type === 'token') onToken();
@@ -919,6 +926,11 @@ let dict = null;
 let mixer = null;
 let glowMat = null;
 let wireMat = null;
+function makeMatPair() {
+  glowMat = new THREE.MeshStandardMaterial({ color: 0x020810, emissive: 0x2f81f7, emissiveIntensity: 0.8, metalness: 0.6, roughness: 0.3, transparent: true, opacity: 0.95 });
+  wireMat = new THREE.MeshBasicMaterial({ color: 0x7dd3fc, wireframe: true, transparent: true, opacity: 0.9 });
+  return { glow: glowMat, wire: wireMat };
+}
 let ambientLight = null;
 let eyeDotMats = [];
 let faceCanvas = null;
@@ -1143,9 +1155,7 @@ if (cfgModelFile) {
     if (modelNameEl) modelNameEl.textContent = file.name;
     dbg('Loading file: ' + file.name, 'ok');
     loadModel(blobUrl, null, () => {
-      glowMat = new THREE.MeshStandardMaterial({ color: 0x020810, emissive: 0x2f81f7, emissiveIntensity: 0.8, metalness: 0.6, roughness: 0.3, transparent: true, opacity: 0.95 });
-      wireMat = new THREE.MeshBasicMaterial({ color: 0x7dd3fc, wireframe: true, transparent: true, opacity: 0.9 });
-      return { glow: glowMat, wire: wireMat };
+      return makeMatPair();
     }).catch(e => dbg('Model load failed: ' + e.message, 'err'));
     saveSettings();
   });
@@ -1222,9 +1232,7 @@ if (loadModelBtn) {
     customModelGroup.style.display = 'block';
     if (modelNameEl) modelNameEl.textContent = url.split('/').pop() || url;
     loadModel(url, null, () => {
-      glowMat = new THREE.MeshStandardMaterial({ color: 0x020810, emissive: 0x2f81f7, emissiveIntensity: 0.8, metalness: 0.6, roughness: 0.3, transparent: true, opacity: 0.95 });
-      wireMat = new THREE.MeshBasicMaterial({ color: 0x7dd3fc, wireframe: true, transparent: true, opacity: 0.9 });
-      return { glow: glowMat, wire: wireMat };
+      return makeMatPair();
     }).catch(e => dbg('Model load failed: ' + e.message, 'err'));
     saveSettings();
   });
@@ -1275,9 +1283,7 @@ async function initScene() {
   window.addEventListener('resize', () => { fit(); resizeWaveCanvas(); });
 
   function buildBlueprintMaterials() {
-    glowMat = new THREE.MeshStandardMaterial({ color: 0x020810, emissive: 0x2f81f7, emissiveIntensity: 0.8, metalness: 0.6, roughness: 0.3, transparent: true, opacity: 0.95 });
-    wireMat = new THREE.MeshBasicMaterial({ color: 0x7dd3fc, wireframe: true, transparent: true, opacity: 0.9 });
-    return { glow: glowMat, wire: wireMat };
+    return makeMatPair();
   }
 
   const ktx2Loader = new KTX2Loader();
@@ -1466,9 +1472,9 @@ async function initScene() {
         document.getElementById('bgPulse').classList.toggle('long-mode', S.isLongResponse);
         document.getElementById('stateLabel').className = 'state-label' + (S.currentState === 'alert' ? ' alert-mode' : '') + (S.isLongResponse ? ' long-mode' : '');
       }
-      document.getElementById('elapsedLabel').textContent = S.isLongResponse ? 'EXTENDED // ' + elapsedSec.toFixed(0) + 'S' : elapsedSec.toFixed(0) + 'S';
+      document.getElementById('elapsedLabel').textContent = S.isLongResponse ? t('status.extended', 'EXTENDED // ') + elapsedSec.toFixed(0) + 'S' : elapsedSec.toFixed(0) + 'S';
       document.getElementById('elapsedLabel').className = 'elapsed-label' + (S.isLongResponse ? ' long-mode' : '');
-      if ((performance.now() - S.lastActivityAt) / 1000 > 8) {
+      if (!S.isTtsSpeaking && (performance.now() - S.lastActivityAt) / 1000 > 8) {
         setSpeaking(false);
       }
     } else {
@@ -1506,7 +1512,6 @@ if (window.speechSynthesis) {
   }
 } else {
   dbg('speechSynthesis NOT AVAILABLE -- TTS disabled', 'warn');
-  window._fakeTTS = true;
 }
 
 // ============================================================
@@ -1558,6 +1563,7 @@ const cfgWebLlmCustom = document.getElementById('cfgWebLlmCustom');
 const cfgMasterVolume = document.getElementById('cfgMasterVolume');
 const cfgMasterVolumeValue = document.getElementById('masterVolumeValue');
 const cfgOutputDevice = document.getElementById('cfgOutputDevice');
+const cfgLocale = document.getElementById('cfgLocale');
 
 // ---- Viseme playground ----
 const visemeInput = document.getElementById('visemeInput');
@@ -1745,7 +1751,7 @@ cfgLiveVoice.addEventListener('change', () => {
   liveVoiceFields.style.display = cfgLiveVoice.checked ? 'block' : 'none';
   updateMicButtonsMode();
   if (recognizing) recognizer.stop();
-  if (liveCallActive) stopLiveCall();
+  if (liveCallActive) toggleLiveCall();
 });
 cfgUseGeminiTts.addEventListener('change', () => {
   geminiTtsFields.style.display = cfgUseGeminiTts.checked ? 'block' : 'none';
@@ -2037,7 +2043,7 @@ btnSave.addEventListener('click', saveSettings);
 
 function showStatus(text, type) {
   if (!type) type = 'ok';
-  connStatus.innerHTML = '<span class="status-pill ' + type + '">' + text + '</span>';
+  connStatus.innerHTML = '<span class="status-pill ' + esc(type) + '">' + esc(text) + '</span>';
 }
 
 btnTestVoice.addEventListener('click', () => {
@@ -2335,6 +2341,7 @@ async function sendChat() {
   const image = pendingImageDataUrl;
   const content = buildUserContent(text, image);
   if ((typeof content === 'string' && !content) || (Array.isArray(content) && !content.length)) return;
+  if (abortCtrl) { return; }
   primeAudio();
   if (abortCtrl) { abortCtrl.abort(); }
 
@@ -2366,7 +2373,8 @@ async function sendChat() {
   btnSend.disabled = true;
   micBtn.disabled = true;
   btnStop.style.display = 'inline-block';
-  abortCtrl = new AbortController();
+  const localCtrl = new AbortController();
+  abortCtrl = localCtrl;
 
   try {
     if (p === 'gemini') {
@@ -2408,7 +2416,7 @@ async function sendChat() {
     btnSend.disabled = false;
     micBtn.disabled = false;
     btnStop.style.display = 'none';
-    abortCtrl = null;
+    if (abortCtrl === localCtrl) abortCtrl = null;
   }
 }
 
@@ -2429,6 +2437,22 @@ async function streamErrorMsg(res, provider) {
   else if (res.status === 400 || res.status === 404) hint = ' -- Check model name and Base URL in Settings';
   else if (res.status === 429) hint = ' -- Rate limited, wait a moment';
   return msg + hint;
+}
+
+async function consumeSSE(res, onLine) {
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
+    for (const line of lines) {
+      onLine(line);
+    }
+  }
 }
 
 async function streamGemini(content, model, key, baseUrl, temp, maxTokens, system, signal) {
@@ -2454,37 +2478,26 @@ async function streamGemini(content, model, key, baseUrl, temp, maxTokens, syste
     throw new Error(await streamErrorMsg(res, 'Gemini'));
   }
 
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
   let firstToken = true;
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop();
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed === 'data: [DONE]') continue;
-      try {
-        const raw = trimmed.startsWith('data: ') ? trimmed.slice(6) : trimmed;
-        const json = JSON.parse(raw);
-        const cand = Array.isArray(json) ? json[0]?.candidates?.[0] : json.candidates?.[0];
-        const chunk = cand?.content?.parts?.[0]?.text || '';
-        if (chunk) {
-          if (firstToken) {
-            firstToken = false;
-            assistantTextEl = addMessage('assistant', '');
-            dbg('First token', 'ok');
-          }
-          fullResponse += chunk;
-          if (assistantTextEl) assistantTextEl.textContent = fullResponse;
+  await consumeSSE(res, (line) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed === 'data: [DONE]') return;
+    try {
+      const raw = trimmed.startsWith('data: ') ? trimmed.slice(6) : trimmed;
+      const json = JSON.parse(raw);
+      const cand = Array.isArray(json) ? json[0]?.candidates?.[0] : json.candidates?.[0];
+      const chunk = cand?.content?.parts?.[0]?.text || '';
+      if (chunk) {
+        if (firstToken) {
+          firstToken = false;
+          assistantTextEl = addMessage('assistant', '');
+          dbg('First token', 'ok');
         }
-      } catch (e) { dbg('Gemini parse: ' + e.message, 'warn'); }
-    }
-  }
+        fullResponse += chunk;
+        if (assistantTextEl) assistantTextEl.textContent = fullResponse;
+      }
+    } catch (e) { dbg('Gemini parse: ' + e.message, 'warn'); }
+  });
   dbg('Gemini done', 'ok');
 }
 
@@ -2510,35 +2523,24 @@ async function streamOllama(content, model, baseUrl, temp, maxTokens, system, si
   });
   if (!res.ok) throw new Error(await streamErrorMsg(res, 'Ollama'));
 
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
   let firstToken = true;
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop();
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      try {
-        const json = JSON.parse(trimmed);
-        const chunk = json.message && json.message.content ? json.message.content : '';
-        if (chunk) {
-          if (firstToken) {
-            firstToken = false;
-            assistantTextEl = addMessage('assistant', '');
-            dbg('First token', 'ok');
-          }
-          fullResponse += chunk;
-          if (assistantTextEl) assistantTextEl.textContent = fullResponse;
+  await consumeSSE(res, (line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+    try {
+      const json = JSON.parse(trimmed);
+      const chunk = json.message && json.message.content ? json.message.content : '';
+      if (chunk) {
+        if (firstToken) {
+          firstToken = false;
+          assistantTextEl = addMessage('assistant', '');
+          dbg('First token', 'ok');
         }
-      } catch (e) {}
-    }
-  }
+        fullResponse += chunk;
+        if (assistantTextEl) assistantTextEl.textContent = fullResponse;
+      }
+    } catch (e) {}
+  });
   dbg('Ollama done', 'ok');
 }
 
@@ -2614,36 +2616,25 @@ async function streamCustom(content, model, key, baseUrl, temp, maxTokens, syste
   });
   if (!res.ok) throw new Error(await streamErrorMsg(res, 'Custom'));
 
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
   let firstToken = true;
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop();
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed === 'data: [DONE]') continue;
-      if (!trimmed.startsWith('data: ')) continue;
-      try {
-        const json = JSON.parse(trimmed.slice(6));
-        const chunk = json.choices && json.choices[0] && json.choices[0].delta ? json.choices[0].delta.content || '' : '';
-        if (chunk) {
-          if (firstToken) {
-            firstToken = false;
-            assistantTextEl = addMessage('assistant', '');
-            dbg('First token', 'ok');
-          }
-          fullResponse += chunk;
-          if (assistantTextEl) assistantTextEl.textContent = fullResponse;
+  await consumeSSE(res, (line) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed === 'data: [DONE]') return;
+    if (!trimmed.startsWith('data: ')) return;
+    try {
+      const json = JSON.parse(trimmed.slice(6));
+      const chunk = json.choices && json.choices[0] && json.choices[0].delta ? json.choices[0].delta.content || '' : '';
+      if (chunk) {
+        if (firstToken) {
+          firstToken = false;
+          assistantTextEl = addMessage('assistant', '');
+          dbg('First token', 'ok');
         }
-      } catch (e) {}
-    }
-  }
+        fullResponse += chunk;
+        if (assistantTextEl) assistantTextEl.textContent = fullResponse;
+      }
+    } catch (e) {}
+  });
   dbg('Custom done', 'ok');
 }
 
@@ -2760,7 +2751,7 @@ if (!SpeechRecognitionCtor) {
     finalTranscript = '';
     setMicVisualState('listening');
     setState('listening');
-    showCaption('', 'Listening...');
+    showCaption('');
     dbg('Mic: listening started', 'ok');
   };
 
@@ -2773,7 +2764,7 @@ if (!SpeechRecognitionCtor) {
     }
     const combined = (finalTranscript + interim).trim();
     chatInput.value = combined;
-    showCaption(combined, 'Listening...');
+    showCaption(combined);
   };
 
   recognizer.onerror = (e) => {
@@ -2874,29 +2865,32 @@ if (!SpeechRecognitionCtor) {
   async function startLocalMicFlow() {
     setMicVisualState('listening');
     setState('listening');
-    showCaption('', 'Listening...');
-    const ok = await startLocalSTT(cfgTtsLang.value || 'en-US', {
-      onError: (msg) => {
-        localSttActive = false;
-        setMicVisualState('error');
-        showCaption(msg, 'Error');
-        addMessage('error', msg, true);
-        setState('idle');
-        setTimeout(() => { setMicVisualState('idle'); hideCaption(); }, 3500);
-      },
-      onResult: (text) => {
-        chatInput.value = text;
-        showCaption(text, 'Listening...');
-      },
-      onEnd: () => {
-        localSttActive = false;
-        setMicVisualState('idle');
-        hideCaption();
-        setState('idle');
-        const text = chatInput.value.trim();
-        if (text && cfgAutoSend.checked) sendChat();
-      },
-    });
+    showCaption('');
+    let ok = false;
+    try {
+      ok = await startLocalSTT(cfgTtsLang.value || 'en-US', {
+        onError: (msg) => {
+          localSttActive = false;
+          setMicVisualState('error');
+          showCaption(msg, 'Error');
+          addMessage('error', msg, true);
+          setState('idle');
+          setTimeout(() => { setMicVisualState('idle'); hideCaption(); }, 3500);
+        },
+        onResult: (text) => {
+          chatInput.value = text;
+          showCaption(text);
+        },
+        onEnd: () => {
+          localSttActive = false;
+          setMicVisualState('idle');
+          hideCaption();
+          setState('idle');
+          const text = chatInput.value.trim();
+          if (text && cfgAutoSend.checked) sendChat();
+        },
+      });
+    } catch (e) { ok = false; }
     if (ok) localSttActive = true;
   }
 
@@ -3020,7 +3014,7 @@ async function startLiveCall() {
   liveCallActive = true;
   micButtons.forEach(btn => { btn.classList.add('live-call'); btn.textContent = '\u260E'; });
   captionOverlay.classList.add('live-mode');
-  showCaption('', 'Live call -- connecting...');
+  showCaption('', t('live.connecting', 'Live call -- connecting...'));
   setState('listening');
   dbg('Live call: connecting WebSocket', 'info');
 
@@ -3149,7 +3143,7 @@ function stopLiveAudioPlayback() {
 function handleLiveServerMessage(msg) {
   if (msg.setupComplete) {
     dbg('Live call: setup complete', 'ok');
-    showCaption('', 'Live call -- speak now');
+    showCaption('', t('live.speaknow', 'Live call -- speak now'));
     setState('listening');
     return;
   }
@@ -3414,9 +3408,7 @@ if (cfgLocalModels) {
     customModelGroup.style.display = 'block';
     if (modelNameEl) modelNameEl.textContent = cfgLocalModels.options[cfgLocalModels.selectedIndex].textContent;
     loadModel(url, null, () => {
-      glowMat = new THREE.MeshStandardMaterial({ color: 0x020810, emissive: 0x2f81f7, emissiveIntensity: 0.8, metalness: 0.6, roughness: 0.3, transparent: true, opacity: 0.95 });
-      wireMat = new THREE.MeshBasicMaterial({ color: 0x7dd3fc, wireframe: true, transparent: true, opacity: 0.9 });
-      return { glow: glowMat, wire: wireMat };
+      return makeMatPair();
     }).catch(e => dbg('Model load failed: ' + e.message, 'err'));
     saveSettings();
   });

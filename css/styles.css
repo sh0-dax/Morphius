@@ -1636,14 +1636,12 @@ input, select, textarea { font-size: max(0.8rem, 13px); }
    Focus mode — dim the scene while the AI is responding or the
    mic is listening, so attention stays on the conversation.
    ============================================================ */
-body.state-responding #stage, body.state-responding .bg-grid,
-body.state-listening #stage, body.state-listening .bg-grid {
+body.state-responding .stage, body.state-responding .bg-grid,
+body.state-listening .stage, body.state-listening .bg-grid {
   filter: brightness(0.55) saturate(0.8);
   transition: filter 0.5s ease;
 }
 body.state-responding #bgPulse, body.state-listening #bgPulse { opacity: 0.25; }
-body.state-responding:not(:hover) .the-stage-overlay-inner,
-body.state-listening:not(:hover) .the-stage-overlay-inner { opacity: 0.06; }
 
 /* ============================================================
    Chat sessions drawer (persisted conversations)

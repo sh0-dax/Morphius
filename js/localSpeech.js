@@ -94,16 +94,15 @@ export function toWhisperLang(code) {
   return BCP47_TO_WHISPER[code] || 'en';
 }
 
-export function startLocalSTT(lang, callbacks) {
-  return new Promise(async (resolve) => {
+export async function startLocalSTT(lang, callbacks) {
+  try {
     const ok = await loadAsr();
-    if (!ok) { if (callbacks.onError) callbacks.onError('Could not load on-device Whisper. Use the Browser microphone engine instead.'); resolve(false); return; }
+    if (!ok) { if (callbacks.onError) callbacks.onError('Could not load on-device Whisper. Use the Browser microphone engine instead.'); return false; }
     try {
       recStream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
     } catch (e) {
       if (callbacks.onError) callbacks.onError('Microphone permission denied.');
-      resolve(false);
-      return;
+      return false;
     }
     recLang = toWhisperLang(lang);
     recCallbacks = callbacks;
@@ -134,8 +133,12 @@ export function startLocalSTT(lang, callbacks) {
       }
     };
     mediaRecorder.start(250);
-    resolve(true);
-  });
+    return true;
+  } catch (e) {
+    console.warn('startLocalSTT failed:', e);
+    if (callbacks && callbacks.onError) callbacks.onError('Could not start speech recognition.');
+    return false;
+  }
 }
 
 export function stopLocalSTT() {
