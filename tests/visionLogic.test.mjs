@@ -10,6 +10,8 @@ import {
   canRunCameraPipeline,
   shouldRunVisionFrame,
   clampVisionFps,
+  computeNewClasses,
+  splitBands,
   DEFAULT_VISION_FPS,
   MIN_VISION_FPS,
   MAX_VISION_FPS,
@@ -229,3 +231,79 @@ describe('clampVisionFps', () => {
     expect(clampVisionFps(Infinity)).toBe(Infinity);
   });
 });
+
+describe('computeNewClasses', () => {
+  const S = (arr) => new Set(arr);
+
+  it('treats everything as new on the first frame (null prev)', () => {
+    expect([...computeNewClasses(S(['cat', 'tv']), null)].sort()).toEqual(['cat', 'tv']);
+  });
+  it('only reports classes not already present in the previous frame', () => {
+    const next = computeNewClasses(S(['cat', 'tv', 'laptop']), S(['cat']));
+    expect([...next].sort()).toEqual(['laptop', 'tv']);
+  });
+  it('returns empty set when nothing is new', () => {
+    expect(computeNewClasses(S(['cat']), S(['cat'])).size).toBe(0);
+  });
+  it('does not mutate the passed prev set', () => {
+    const prev = S(['cat']);
+    computeNewClasses(S(['cat', 'dog']), prev);
+    expect(prev.has('cat')).toBe(true);
+    expect(prev.has('dog')).toBe(false);
+  });
+});
+
+// The app's handleVisionDetections previously passed prevClasses == classes
+// (it overwrote the "previous" set before decisioning), which made the
+// surprised/new-object branch dead. This regression test pins the contract
+// used by the app-side fix: compute new classes from the PREVIOUS frame.
+describe('I1 regression: new-class reaction pipeline', () => {
+  const S = (arr) => new Set(arr);
+  const prevClasses = S(['cat']);
+  const classes = S(['cat', 'laptop']);
+  const newClasses = computeNewClasses(classes, prevClasses);
+  const feeling = computeVisionFeeling({ personPresent: false, classes, prevClasses });
+  const firstNew = [...newClasses][0];
+
+  it('derives a non-empty new set from the previous frame', () => {
+    expect(newClasses.size).toBeGreaterThan(0);
+    expect(firstNew).toBe('laptop');
+  });
+  it('fires the surprised burst because the new object is unmapped', () => {
+    expect(feeling).toEqual({ action: 'feeling', label: 'surprised', lingerMs: VISION_SURPRISE_LINGER_MS });
+  });
+});
+
+describe('splitBands', () => {
+  // 512-bin FFT at 48kHz -> 93.75 Hz per bin.
+  const bins = 256;
+  const sampleRate = 48000;
+  const fftSize = 512;
+
+  it('returns zeros for falsy/empty input', () => {
+    expect(splitBands(null, sampleRate, fftSize)).toEqual({ bass: 0, mid: 0, treble: 0 });
+    expect(splitBands([], sampleRate, fftSize)).toEqual({ bass: 0, mid: 0, treble: 0 });
+  });
+  it('ignores bins at or above the 8kHz treble cutoff', () => {
+    const arr = new Uint8Array(bins).fill(255); // all bins loud
+    const b = splitBands(arr, sampleRate, fftSize);
+    expect(b.bass).toBeGreaterThan(0);
+    expect(b.mid).toBeGreaterThan(0);
+  });
+  it('is dominated by bass for a low-frequency bin', () => {
+    const arr = new Uint8Array(bins);       // all zero
+    arr[0] = 255;                            // 0 Hz -> bass
+    const b = splitBands(arr, sampleRate, fftSize);
+    expect(b.bass).toBeGreaterThan(b.mid);
+    expect(b.mid).toBe(0);
+  });
+  it('treats a mid-frequency bin as mid', () => {
+    const arr = new Uint8Array(bins);
+    const midBin = Math.round(1000 / (sampleRate / fftSize)); // ~1000 Hz
+    arr[midBin] = 255;
+    const b = splitBands(arr, sampleRate, fftSize);
+    expect(b.mid).toBeGreaterThan(0);
+    expect(b.bass).toBe(0);
+  });
+});
+

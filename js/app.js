@@ -13,8 +13,8 @@ import { Vision } from './vision.js';
 import { LocalSpeech, startLocalSTT, stopLocalSTT, generateLocalAudio, playLocalAudio, setLocalCallbacks, stopLocalAudio, setWhisperModel, applyMasterSettings } from './localSpeech.js';
 import { modelProgress } from './progress.js';
 import { getMasterVolume, setMasterVolume, setOutputDevice, routeOutput } from './masterBus.js';
-import { detectFeeling, visemeFor, DEFAULT_VISEME, VISEME_KEYS, contentToText, contentImages, buildUserContent, geminiContentParts, detectDeviceTier, recommendedWebLlmModel, createEventBus } from './pure.js';
-import { computeVisionFeeling, decideVisionCommentary, getSpeakHint, displayClass, VISION_SPEAK_CLASSES, canRunCameraPipeline } from './visionLogic.js';
+import { detectFeeling, visemeFor, DEFAULT_VISEME, VISEME_KEYS, contentToText, contentImages, buildUserContent, geminiContentParts, detectDeviceTier, recommendedWebLlmModel, createEventBus, lerpWeight } from './pure.js';
+import { computeVisionFeeling, decideVisionCommentary, getSpeakHint, displayClass, VISION_SPEAK_CLASSES, canRunCameraPipeline, computeNewClasses, splitBands } from './visionLogic.js';
 import { STATE_TARGETS, EMOTION_TARGETS, FEELING_TARGETS, VISION_TARGETS, STATE_COLORS, FEELING_COLORS, LIGHT_PRESETS } from './presets.js';
 import { saveSession, loadSession, listSessions, deleteSession, getLastSession, buildSession, makeSessionId, sanitizeMessages, sessionTitle } from './chatStore.js';
 
@@ -189,6 +189,7 @@ const S = {
   phonemeQueue: [],
   phonemeQueueIndex: 0,
   phonemeQueueTimer: 0,
+  phonemeQueuePrevT: undefined,
   bass: 0, mid: 0, treble: 0,
   beat: false, beatPulse: 0,
   feeling: 'neutral',
@@ -485,7 +486,10 @@ function driveWordPhonemes(fullText, charIndex) {
   if (!match) { S.phonemeQueue = []; return; }
   S.phonemeQueue = match[0].split('').map(visemeFor);
   S.phonemeQueueIndex = 0;
-  S.phonemeQueueTimer = 0;
+  // Start the timer at one full step so the first character is actually shown
+  // (previously it started at 0 and advanced past char 0 before it was read).
+  S.phonemeQueueTimer = 0.085 + Math.random() * 0.03;
+  S.phonemeQueuePrevT = undefined;
   const fm = cfgFeelingMode ? cfgFeelingMode.value : 'auto';
   if (fm === 'auto' && match[0]) {
     const wf = detectFeeling(match[0]);
@@ -495,11 +499,17 @@ function driveWordPhonemes(fullText, charIndex) {
 
 function applyPhonemeShape(t) {
   if (S.phonemeQueue && S.phonemeQueue.length) {
-    S.phonemeQueueTimer -= 1 / 60;
+    // Pace by real elapsed time (via the running-time accumulator `t`) instead
+    // of assuming a fixed 60fps frame.
+    if (S.phonemeQueuePrevT === undefined) S.phonemeQueuePrevT = t;
+    S.phonemeQueueTimer -= (t - S.phonemeQueuePrevT);
+    S.phonemeQueuePrevT = t;
     if (S.phonemeQueueTimer <= 0) {
       S.phonemeQueueIndex = Math.min(S.phonemeQueueIndex + 1, S.phonemeQueue.length - 1);
       S.phonemeQueueTimer = 0.085 + Math.random() * 0.03;
     }
+  } else {
+    S.phonemeQueuePrevT = undefined;
   }
   const shape = (S.phonemeQueue && S.phonemeQueue.length) ? S.phonemeQueue[S.phonemeQueueIndex] : DEFAULT_VISEME;
   const intensity = S.phonemeIntensity;
@@ -610,6 +620,10 @@ async function speakGemini(text, lang, apiKey, voiceName, model) {
     audioEl.volume = getMasterVolume();
     routeOutput(audioEl);
     activeGeminiAudioEl = audioEl;
+    let urlRevoked = false;
+    const revokeUrl = () => {
+      if (!urlRevoked) { urlRevoked = true; URL.revokeObjectURL(objUrl); }
+    };
 
     audioEl.onplay = () => {
       S.isTtsSpeaking = true;
@@ -632,7 +646,8 @@ async function speakGemini(text, lang, apiKey, voiceName, model) {
       setState('idle');
       dbg('Gemini TTS ENDED', 'ok');
       updateVoiceUI();
-      URL.revokeObjectURL(objUrl);
+      revokeUrl();
+      if (activeGeminiAudioEl === audioEl) activeGeminiAudioEl = null;
     };
     audioEl.onerror = () => {
       stopGeminiAudio();
@@ -642,9 +657,16 @@ async function speakGemini(text, lang, apiKey, voiceName, model) {
       dbg('Gemini TTS playback ERROR', 'err');
       updateVoiceUI();
       notifyTtsFailure('Failed to play Gemini-generated audio.');
-      URL.revokeObjectURL(objUrl);
+      revokeUrl();
+      if (activeGeminiAudioEl === audioEl) activeGeminiAudioEl = null;
     };
-    await audioEl.play();
+    try {
+      await audioEl.play();
+    } catch (e) {
+      revokeUrl();
+      if (activeGeminiAudioEl === audioEl) activeGeminiAudioEl = null;
+      throw e;
+    }
   } catch (err) {
     dbg('Gemini TTS error: ' + err.message, 'err');
     setState('idle');
@@ -653,17 +675,22 @@ async function speakGemini(text, lang, apiKey, voiceName, model) {
 }
 
 // ---- Browser TTS ----
+let speakRetryTimer = null;
+let speakStallTimer = null;
+
 function speak(text, lang, _retried) {
   if (!lang) lang = 'en-US';
   dbg('speak() called: ' + text.substring(0, 30), 'info');
   if (S.ttsMuted) { dbg('TTS muted', 'warn'); setState('idle'); return; }
   if (!text || !text.trim()) { dbg('TTS empty', 'warn'); setState('idle'); return; }
   if (!window.speechSynthesis) { dbg('TTS NOT AVAILABLE', 'err'); setState('idle'); return; }
+  if (speakRetryTimer) { clearTimeout(speakRetryTimer); speakRetryTimer = null; }
+  if (speakStallTimer) { clearTimeout(speakStallTimer); speakStallTimer = null; }
 
   const availableVoices = window.speechSynthesis.getVoices() || [];
   if (availableVoices.length === 0 && !_retried) {
     dbg('No voices yet -- retrying speak() shortly', 'warn');
-    setTimeout(() => speak(text, lang, true), 350);
+    speakRetryTimer = setTimeout(() => { speakRetryTimer = null; speak(text, lang, true); }, 350);
     return;
   }
 
@@ -715,7 +742,8 @@ function speak(text, lang, _retried) {
   window.speechSynthesis.speak(utterance);
   dbg('speechSynthesis.speak() done', 'ok');
 
-  setTimeout(() => {
+  speakStallTimer = setTimeout(() => {
+    speakStallTimer = null;
     if (!S.isTtsSpeaking && window.speechSynthesis.speaking === false) {
       dbg('TTS did not start -- likely blocked by browser/preview', 'err');
       notifyTtsFailure('Speech did not start within 2 seconds -- the browser or preview window may be blocking auto-play. Click the speaker button next to the AI response, or open the file in a standalone browser tab.');
@@ -724,6 +752,9 @@ function speak(text, lang, _retried) {
 }
 
 function stopTTS() {
+  if (speakRetryTimer) { clearTimeout(speakRetryTimer); speakRetryTimer = null; }
+  if (speakStallTimer) { clearTimeout(speakStallTimer); speakStallTimer = null; }
+  localSpeakToken++; // invalidate any in-flight local TTS generation
   if (window.speechSynthesis) { try { window.speechSynthesis.cancel(); } catch (e) {} S.isTtsSpeaking = false; updateVoiceUI(); }
   stopGeminiAudio();
   stopLocalAudio();
@@ -751,6 +782,8 @@ function speakUnified(text, lang) {
   }
 }
 
+let localSpeakToken = 0;
+
 function finishLocalSpeak() {
   S.isTtsSpeaking = false;
   setSpeaking(false);
@@ -761,6 +794,7 @@ function finishLocalSpeak() {
 async function speakLocal(text, lang) {
   if (S.ttsMuted) { dbg('TTS muted', 'warn'); setState('idle'); return; }
   if (!text || !text.trim()) { setState('idle'); return; }
+  const token = ++localSpeakToken;
   setState('responding');
   setSpeaking(true);
   S.isTtsSpeaking = true;
@@ -769,6 +803,13 @@ async function speakLocal(text, lang) {
   dbg('Local TTS generating...', 'info');
   try {
     const audio = await generateLocalAudio(text.trim(), lang);
+    // A newer speak/stop may have superseded this request while the audio was
+    // being generated; discard stale results so playback/state can't clobber it.
+    if (token !== localSpeakToken || S.ttsMuted) {
+      dbg('Discarding stale local TTS result', 'warn');
+      finishLocalSpeak();
+      return;
+    }
     setLocalCallbacks({
       onWord: (charIndex) => {
         S.talkPulse = 0.42;
@@ -881,7 +922,10 @@ window.addEventListener('message', (event) => {
   if (d.type === 'state' && STATE_TARGETS[d.value]) setState(d.value);
   else if (d.type === 'speaking') setSpeaking(!!d.value);
   else if (d.type === 'token') onToken();
-  else if (d.type === 'speakText') speak(d.text, d.lang || 'en-US');
+  else if (d.type === 'speakText') {
+    const lang = d.lang || (cfgTtsLang ? cfgTtsLang.value : 'en-US') || 'en-US';
+    speakUnified(d.text, lang);
+  }
 });
 
 // ---- Three.js scene ----
@@ -908,6 +952,10 @@ let _currentModelGroup = null;
 let currentVRM = null;
 
 // ---- Reusable model loader ----
+const FACECAP_URL = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/facecap.glb';
+let sceneFitFn = null;
+let sceneMatsFn = null;
+
 function loadModel(url, fitFn, buildMatsFn) {
   return new Promise((resolve, reject) => {
     if (!_gltfLoader || !_scene) { reject(new Error('Scene not ready')); return; }
@@ -1076,6 +1124,9 @@ function loadModelVRM(url, fitFn, resolve, reject, loadMsg, loadTimeout) {
       head = vrm.scene;
       influences = best ? best.morphTargetInfluences : null;
       dict = best ? (best.morphTargetDictionary || {}) : null;
+      refreshBlinkKeys();
+      const vrmSlots = (dict && Object.keys(dict).length) ? Object.keys(dict) : ALL_SLOT_NAMES;
+      for (const k of vrmSlots) S.currentWeights[k] = S.currentWeights[k] || 0;
 
       const vrmName = (vrm.meta && vrm.meta.name) || url.substring(url.lastIndexOf('/') + 1);
       dbg('VRM loaded: ' + vrmName, 'ok');
@@ -1250,6 +1301,8 @@ async function initScene() {
   function buildBlueprintMaterials() {
     return makeMatPair();
   }
+  sceneFitFn = fit;
+  sceneMatsFn = buildBlueprintMaterials;
 
   const ktx2Loader = new KTX2Loader();
   ktx2Loader.setTranscoderPath('https://unpkg.com/three@0.183.0/examples/jsm/libs/basis/');
@@ -1260,10 +1313,11 @@ async function initScene() {
   _gltfLoader = gltfLoader;
 
   const MODEL_MAP = {
-    facecap: 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/facecap.glb',
-    custom: cfgCustomModelUrl.value || 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/facecap.glb'
+    facecap: FACECAP_URL,
+    custom: cfgCustomModelUrl.value || FACECAP_URL
   };
   const MODEL_URL = MODEL_MAP[cfgModel3d.value] || MODEL_MAP.facecap;
+  if (cfgModel3d.value !== 'facecap') cfgModel3d.setAttribute('data-custom-loaded', '1');
   await loadModel(MODEL_URL, fit, buildBlueprintMaterials);
   if (modelNameEl && cfgModel3d.value === 'facecap') modelNameEl.textContent = 'FaceCap (Classic)';
 
@@ -1295,7 +1349,12 @@ async function initScene() {
       const visionTarget = (visionReact && visionPersonPresent && IDLE_LIFE_STATES.includes(S.currentState)) ? VISION_TARGETS.active : {};
       const target = Object.assign({}, stateTarget, emotionTarget, feelingTarget, visionTarget);
 
-      const slots = currentVRM ? ALL_SLOT_NAMES : Object.keys(dict);
+      // For VRM avatars we must also blend non-canonical target keys (e.g.
+      // eyeLookUpLeft/Right in STATE_TARGETS.thinking) which aren't in
+      // ALL_SLOT_NAMES, otherwise those poses never appear on VRM models.
+      const targetSlots = new Set([...(currentVRM ? ALL_SLOT_NAMES : Object.keys(dict))]);
+      for (const k of Object.keys(target)) targetSlots.add(k);
+      const slots = [...targetSlots];
 
       for (const key of slots) {
         let goal = target[key] !== undefined ? target[key] : 0;
@@ -1304,11 +1363,11 @@ async function initScene() {
           goal = Mirror.weights[key];
           rate = 0.45;
         }
-        S.currentWeights[key] += (goal - S.currentWeights[key]) * rate;
+        S.currentWeights[key] = lerpWeight(S.currentWeights[key], goal, rate);
       }
 
       // ---- Idle life: autonomous blinking + soft breathing ----
-      const idleLife = !S.speaking && !S.phonemePreview && IDLE_LIFE_STATES.includes(S.currentState);
+      const idleLife = !S.speaking && !S.visemePreview && IDLE_LIFE_STATES.includes(S.currentState);
       if (idleLife) {
         idleTime += delta;
         if (idleBlinkT < 0) {
@@ -1746,6 +1805,7 @@ const visionReactGroup = document.getElementById('visionReactGroup');
 const visionCommentaryGroup = document.getElementById('visionCommentaryGroup');
 const visionPauseGroup = document.getElementById('visionPauseGroup');
 let visionActive = false;
+let visionRequestId = 0;
 let visionPaused = false;
 let visionReact = true;
 let visionCommentary = true;
@@ -1765,12 +1825,13 @@ function handleVisionDetections(detections) {
   visionPersonPresent = detections.some((d) => d.class === 'person');
 
   const classes = new Set(detections.map((d) => d.class));
-  const newClasses = new Set([...classes].filter((c) => !visionLastClasses.has(c)));
+  const prevClasses = visionLastClasses;
+  const newClasses = computeNewClasses(classes, prevClasses);
   visionLastClasses = classes;
 
   // ---- Vision -> Feeling (pure decision, applied as a side effect) ----
   if (visionReact && cfgFeelingMode && cfgFeelingMode.value !== 'off') {
-    const feeling = computeVisionFeeling({ personPresent: visionPersonPresent, classes, prevClasses: visionLastClasses });
+    const feeling = computeVisionFeeling({ personPresent: visionPersonPresent, classes, prevClasses });
     if (feeling.action === 'clear') clearVisionFeeling();
     else if (feeling.action === 'feeling') setVisionFeeling(feeling.label, feeling.lingerMs);
   }
@@ -1859,6 +1920,7 @@ function updateVisionUI() {
 
 async function startVision() {
   if (visionActive) return true;
+  const rid = ++visionRequestId;
   try {
     if (!visionVideo) {
       visionVideo = document.createElement('video');
@@ -1880,6 +1942,12 @@ async function startVision() {
     const maxFPS = cfgVisionMaxFps ? Math.max(1, Math.min(30, parseInt(cfgVisionMaxFps.value, 10) || 8)) : 8;
     setVisionStatus('starting');
     const backend = await Vision.init(visionVideo, { forceBackend, maxFPS });
+    // A stop/restart may have happened while the model was downloading; if so,
+    // this init is stale and must not (re)start the detection pipeline.
+    if (rid !== visionRequestId || !cfgVision.checked) {
+      stopVision();
+      return false;
+    }
     visionBackendName = backend === 'yolo-webgpu' ? 'YOLO (WebGPU)' : 'COCO-SSD (WebGL)';
     visionActive = true;
     visionPaused = false;
@@ -1902,6 +1970,7 @@ async function startVision() {
 
 function stopVision() {
   visionActive = false;
+  visionRequestId++; // invalidate any in-flight Vision.init so it won't re-start the loop
   visionPaused = false;
   visionPersonPresent = false;
   clearVisionFeeling();
@@ -2246,7 +2315,19 @@ async function loadSettings() {
     cfgMirror.checked = s.mirror !== undefined ? s.mirror : false;
     cfgMirrorMode.value = s.mirrorMode || 'copy';
     if (cfgFeelingMode) cfgFeelingMode.value = s.feelingMode || 'auto';
-    if (!cfgMirror.checked) stopMirror();
+    if (cfgMirror.checked) {
+      // Restore the checkbox to the saved state but auto-run the mirror through
+      // the same device-tier gate the checkbox handler uses.
+      const gate = canRunCameraPipeline({ tier: detectDeviceTier(), requested: 'mirror', otherActive: visionActive });
+      if (gate.allowed) {
+        const ok = await startMirror();
+        if (!ok) cfgMirror.checked = false;
+      } else {
+        cfgMirror.checked = false;
+      }
+    } else {
+      stopMirror();
+    }
     updateMirrorUI();
     if (cfgVision) {
       cfgVision.checked = s.vision !== undefined ? s.vision : false;
@@ -2278,7 +2359,12 @@ async function loadSettings() {
     if (s.key && !s.key.startsWith('enc:')) saveSettings();
   } catch (e) { dbg('Load settings fail: ' + e.message, 'warn'); }
 }
-loadSettings().then(() => restoreLastSession());
+let resolveSettingsReady;
+const settingsReady = new Promise((r) => { resolveSettingsReady = r; });
+loadSettings().catch((e) => { dbg('Settings init failed: ' + (e && e.message), 'warn'); }).then(() => {
+  if (resolveSettingsReady) resolveSettingsReady();
+  restoreLastSession();
+});
 btnSave.addEventListener('click', saveSettings);
 
 function showStatus(text, type) {
@@ -2369,7 +2455,7 @@ function addMessage(role, text, isError) {
         feedback.textContent = t('chat.copied');
         feedback.classList.add('show');
         setTimeout(() => feedback.classList.remove('show'), 1500);
-      });
+      }).catch(() => { /* silent: no spurious "network/resource load failed" banner */ });
     });
 
     const feedback = document.createElement('span');
@@ -2586,7 +2672,6 @@ async function sendChat() {
   if ((typeof content === 'string' && !content) || (Array.isArray(content) && !content.length)) return;
   if (abortCtrl) { return; }
   primeAudio();
-  if (abortCtrl) { abortCtrl.abort(); }
 
   chatInput.value = '';
   clearImageChip();
@@ -3168,6 +3253,7 @@ let liveAnalyserRAF = null;
 let liveAssistantEl = null;
 let liveUserEl = null;
 let liveTurnHasAudio = false;
+let liveActiveSources = new Set();
 
 function updateMicButtonsMode() {
   const live = cfgLiveVoice.checked;
@@ -3219,6 +3305,8 @@ function liveTearDownAudioGraph() {
   if (livePlaybackCtx) { try { livePlaybackCtx.close(); } catch (e) {} livePlaybackCtx = null; }
   liveAnalyser = null;
   liveNextPlayTime = 0;
+  for (const src of liveActiveSources) { try { src.stop(); } catch (e) {} }
+  liveActiveSources = new Set();
 }
 
 async function startLiveCall() {
@@ -3305,6 +3393,10 @@ async function startLiveCall() {
 function startLiveMicCapture() {
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
   liveCaptureCtx = new AudioCtx();
+  // An AudioContext created outside a user gesture (e.g. inside a WebSocket
+  // callback) starts suspended; resume it explicitly or onaudioprocess never
+  // fires and the mic stays silent (matches the localSpeech resume pattern).
+  if (liveCaptureCtx.state === 'suspended') { try { liveCaptureCtx.resume(); } catch (e) {} }
   const source = liveCaptureCtx.createMediaStreamSource(liveMicStream);
   liveCaptureNode = liveCaptureCtx.createScriptProcessor(4096, 1, 1);
   source.connect(liveCaptureNode);
@@ -3327,6 +3419,7 @@ function ensureLivePlaybackCtx() {
   if (livePlaybackCtx) return livePlaybackCtx;
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
   livePlaybackCtx = new AudioCtx({ sampleRate: 24000 });
+  if (livePlaybackCtx.state === 'suspended') { try { livePlaybackCtx.resume(); } catch (e) {} }
   liveAnalyser = livePlaybackCtx.createAnalyser();
   liveAnalyser.fftSize = 256;
   liveAnalyserData = new Uint8Array(liveAnalyser.frequencyBinCount);
@@ -3366,6 +3459,7 @@ function playLiveAudioChunk(base64Data, mimeType) {
 
   const startAt = Math.max(ctx.currentTime, liveNextPlayTime);
   src.start(startAt);
+  liveActiveSources.add(src);
   liveNextPlayTime = startAt + buffer.duration;
 
   if (!liveTurnHasAudio) {
@@ -3378,6 +3472,10 @@ function playLiveAudioChunk(base64Data, mimeType) {
 
 function stopLiveAudioPlayback() {
   if (livePlaybackCtx) liveNextPlayTime = livePlaybackCtx.currentTime;
+  // Stop any already-scheduled playback immediately (honors barge-in /
+  // interruption rather than letting queued chunks keep playing).
+  for (const src of liveActiveSources) { try { src.stop(); } catch (e) {} }
+  liveActiveSources = new Set();
   liveTurnHasAudio = false;
   setSpeaking(false);
   setState('listening');
@@ -3584,6 +3682,13 @@ cfgWaveStyle.addEventListener('change', () => {
 cfgModel3d.addEventListener('change', () => {
   customModelGroup.style.display = cfgModel3d.value === 'custom' ? 'block' : 'none';
   if (cfgModel3d.value === 'facecap' && modelNameEl) modelNameEl.textContent = 'FaceCap (Classic)';
+  // Switching back to the built-in FaceCap from a custom/VRM model should
+  // reload it rather than leaving the previous model on screen.
+  if (cfgModel3d.value === 'facecap' && (currentVRM || cfgModel3d.getAttribute('data-custom-loaded')) && sceneFitFn && sceneMatsFn) {
+    loadModel(FACECAP_URL, sceneFitFn, sceneMatsFn)
+      .then(() => { setState('idle'); cfgModel3d.removeAttribute('data-custom-loaded'); })
+      .catch((e) => { dbg('FaceCap reload failed: ' + e.message, 'err'); });
+  }
   saveSettings();
 });
 cfgCustomModelUrl.addEventListener('change', saveSettings);
@@ -3700,10 +3805,13 @@ closeDataBtn.addEventListener('click', () => toggleDataPanel(false));
 let audioAnalyser = null;
 let audioDataArray = null;
 let audioFreqArray = null;
+let analyserCtx = null; // owned AudioContext for the analyser graph (closed on teardown)
 
 function setupAudioAnalyser(stream) {
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (analyserCtx) { try { analyserCtx.close(); } catch (e) {} analyserCtx = null; }
   const ctx = new AudioCtx();
+  analyserCtx = ctx;
   const source = ctx.createMediaStreamSource(stream);
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 512;
@@ -3719,28 +3827,18 @@ function setupAudioAnalyser(stream) {
 
 function extractBands() {
   const src = audioAnalyser || LocalSpeech.analyser || null;
-  if (!src || !audioFreqArray) { S.bass = 0; S.mid = 0; S.treble = 0; return; }
-  if (audioFreqArray.length !== src.frequencyBinCount) {
-    audioDataArray = new Uint8Array(src.frequencyBinCount);
+  if (!src) { S.bass = 0; S.mid = 0; S.treble = 0; return; }
+  // Lazy-allocate the FFT read buffers so they work for any analyser source
+  // (live call via setupAudioAnalyser, or on-device TTS via LocalSpeech.analyser).
+  if (!audioFreqArray || audioFreqArray.length !== src.frequencyBinCount) {
     audioFreqArray = new Uint8Array(src.frequencyBinCount);
+    audioDataArray = new Uint8Array(src.frequencyBinCount);
   }
   src.getByteFrequencyData(audioFreqArray);
-  const bins = audioFreqArray.length;
-  const sampleRate = src.context.sampleRate;
-  const binHz = sampleRate / (src.fftSize);
-  let bassSum = 0, bassCount = 0;
-  let midSum = 0, midCount = 0;
-  let trebSum = 0, trebCount = 0;
-  for (let i = 0; i < bins; i++) {
-    const hz = i * binHz;
-    const v = audioFreqArray[i] / 255;
-    if (hz < 250) { bassSum += v; bassCount++; }
-    else if (hz < 2000) { midSum += v; midCount++; }
-    else if (hz < 8000) { trebSum += v; trebCount++; }
-  }
-  S.bass = bassCount ? bassSum / bassCount : 0;
-  S.mid = midCount ? midSum / midCount : 0;
-  S.treble = trebCount ? trebSum / trebCount : 0;
+  const b = splitBands(audioFreqArray, src.context.sampleRate, src.fftSize);
+  S.bass = b.bass;
+  S.mid = b.mid;
+  S.treble = b.treble;
 }
 
 // ---- Beat detection ----
@@ -3778,6 +3876,8 @@ endLiveCall = function (reasonMsg) {
   originalEndLiveCall.call(this, reasonMsg);
   audioAnalyser = null;
   audioDataArray = null;
+  audioFreqArray = null;
+  if (analyserCtx) { try { analyserCtx.close(); } catch (e) {} analyserCtx = null; }
 };
 
 // ---- Data panel update (always live) ----
@@ -3868,8 +3968,11 @@ function exportChat() {
   const a = document.createElement('a');
   a.href = url;
   a.download = 'aiface-chat-' + new Date().toISOString().slice(0,10) + '.md';
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+  // Revoke on the next task so some browsers don't cancel the download.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
   showStatus('Chat exported as Markdown', 'ok');
   dbg('Chat exported', 'ok');
 }
@@ -3939,7 +4042,7 @@ window.addEventListener('unhandledrejection', (e) => {
 
 dbg('LLM Bridge ready', 'ok');
 
-initScene().catch((err) => {
+settingsReady.then(() => initScene()).catch((err) => {
   dbg('Scene init failed: ' + err.message, 'err');
   const msg = document.getElementById('loadMsg');
   if (msg) { msg.style.display = 'flex'; msg.textContent = 'Failed to start -- open Console (F12)'; }

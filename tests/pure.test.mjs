@@ -16,6 +16,7 @@ import {
   iou,
   nonMaxSuppression,
   parseYoloOneToOne,
+  lerpWeight,
 } from '../js/pure.js';
 import { getMasterVolume, setMasterVolume, getOutputDevice, setOutputDevice, routeOutput } from '../js/masterBus.js';
 
@@ -366,5 +367,23 @@ describe('parseYoloOneToOne (YOLO26 one-to-one output)', () => {
     expect(dets[0].bbox[1]).toBeCloseTo(0, 5);
     expect(dets[0].bbox[2]).toBeCloseTo(1, 5);
     expect(dets[0].bbox[3]).toBeCloseTo(1, 5);
+  });
+});
+
+// C1 regression: the expression blender lerp must never produce NaN, even when
+// a slot's current weight is unseeded (undefined) after a model switch.
+describe('lerpWeight', () => {
+  it('keeps an already-set weight unchanged when goal equals current', () => {
+    expect(lerpWeight(0.5, 0.5, 0.08)).toBe(0.5);
+  });
+  it('moves toward the goal by the given rate', () => {
+    expect(lerpWeight(0, 1, 0.25)).toBeCloseTo(0.25, 5);
+    expect(lerpWeight(0.5, 0, 0.5)).toBeCloseTo(0.25, 5);
+  });
+  it('treats an undefined/NaN current weight as 0 (no NaN corruption)', () => {
+    const r = lerpWeight(undefined, 0.5, 0.08);
+    expect(Number.isNaN(r)).toBe(false);
+    expect(r).toBeCloseTo(0.04, 5);
+    expect(Number.isNaN(lerpWeight(NaN, 0.5, 0.08))).toBe(false);
   });
 });

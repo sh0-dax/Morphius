@@ -188,6 +188,14 @@ export function createEventBus(onHandlerError) {
 // in tests so the parsing math doesn't need a browser.
 // ============================================================
 
+// Frame-rate/weight lerp used by the expression blender. Guards against NaN:
+// an unseeded current value (undefined) is treated as 0 so a model switch or a
+// first frame can never corrupt all weights to NaN. DOM-free + unit-tested.
+export function lerpWeight(current, goal, rate) {
+  const c = Number.isFinite(current) ? current : 0;
+  return c + (goal - c) * rate;
+}
+
 // Intersection-over-Union of two [x, y, w, h] boxes.
 export function iou(a, b) {
   const [ax, ay, aw, ah] = a.bbox;

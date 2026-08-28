@@ -18,6 +18,13 @@ export const VISION_SPEAK_CLASSES = new Set([
 
 export const VISION_SURPRISE_LINGER_MS = 1600;
 
+// Classes present now but not in the previous frame. prevClasses may be a Set
+// or null/undefined (meaning "first frame", so everything counts as new).
+export function computeNewClasses(classes, prevClasses) {
+  const prev = prevClasses instanceof Set ? prevClasses : new Set();
+  return new Set([...classes].filter((c) => !prev.has(c)));
+}
+
 // Resolve the sentiment decision for a frame of detections.
 // prevClasses is the set of classes from the previous frame (use null/undefined
 // on the first frame so everything counts as "new").
@@ -138,5 +145,28 @@ export function shouldRunVisionFrame({ lastRun, now, fps }) {
   const shouldRun = first || clamp === Infinity || elapsed >= intervalMs;
   const nextDelayMs = (first || clamp === Infinity) ? 0 : Math.max(0, intervalMs - elapsed);
   return { shouldRun, intervalMs, nextDelayMs };
+}
+
+// Split a byte frequency-domain array (values 0..255 from an AnalyserNode's
+// getByteFrequencyData) into normalized [0..1] bass/mid/treble energy buckets.
+// sampleRate + fftSize are used to compute the per-bin frequency so the cutoffs
+// (250 Hz / 2 kHz / 8 kHz) are stable across devices.
+export function splitBands(freqArray, sampleRate, fftSize) {
+  const out = { bass: 0, mid: 0, treble: 0 };
+  if (!freqArray || !freqArray.length || !sampleRate || !fftSize) return out;
+  const bins = freqArray.length;
+  const binHz = sampleRate / fftSize;
+  let bassSum = 0, bassCount = 0, midSum = 0, midCount = 0, trebSum = 0, trebCount = 0;
+  for (let i = 0; i < bins; i++) {
+    const hz = i * binHz;
+    const v = freqArray[i] / 255;
+    if (hz < 250) { bassSum += v; bassCount++; }
+    else if (hz < 2000) { midSum += v; midCount++; }
+    else if (hz < 8000) { trebSum += v; trebCount++; }
+  }
+  out.bass = bassCount ? bassSum / bassCount : 0;
+  out.mid = midCount ? midSum / midCount : 0;
+  out.treble = trebCount ? trebSum / trebCount : 0;
+  return out;
 }
 
