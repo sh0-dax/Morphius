@@ -12,7 +12,7 @@ import { Mirror, startMirror, stopMirror } from './mirror.js';
 import { LocalSpeech, startLocalSTT, stopLocalSTT, generateLocalAudio, playLocalAudio, setLocalCallbacks, stopLocalAudio, setWhisperModel, applyMasterSettings } from './localSpeech.js';
 import { modelProgress } from './progress.js';
 import { getMasterVolume, setMasterVolume, setOutputDevice, routeOutput } from './masterBus.js';
-import { detectFeeling, visemeFor, DEFAULT_VISEME, VISEME_KEYS, contentToText, contentImages, buildUserContent, geminiContentParts } from './pure.js';
+import { detectFeeling, visemeFor, DEFAULT_VISEME, VISEME_KEYS, contentToText, contentImages, buildUserContent, geminiContentParts, detectDeviceTier, recommendedWebLlmModel, createEventBus } from './pure.js';
 import { saveSession, loadSession, listSessions, deleteSession, getLastSession, buildSession, makeSessionId, sanitizeMessages, sessionTitle } from './chatStore.js';
 
 // ---- i18n (lightweight loader, EN fallback, dir flip for RTL) ----
@@ -196,6 +196,13 @@ const S = {
   visemePreview: null,
 };
 window._AIFaceState = S;
+
+// ---- Event bus: lets embedders/plugins react to internal changes ----
+// Public events: 'stateChange', 'providerSwitch', 'sessionUpdate', 'speakingChange'
+const _bus = createEventBus((event, e) => dbg('AIFace event handler for "' + event + '" threw: ' + e.message, 'warn'));
+const onAIFaceEvent = _bus.on;
+const offAIFaceEvent = _bus.off;
+const emitAIFaceEvent = _bus.emit;
 
 // ---- Idle life: autonomous blink + breathing (cheap procedural animation) ----
 const IDLE_BLINK_LEFT = 'eyeBlinkLeft';
@@ -850,7 +857,9 @@ function updateStateBody() {
 
 function setState(s) {
   if (!STATE_TARGETS[s]) return;
+  const previous = S.currentState;
   S.currentState = s;
+  if (previous !== s) emitAIFaceEvent('stateChange', { state: s, previous });
   updateStateBody();
   document.getElementById('stateVal').textContent = stateLabelText(s);
   const label = document.getElementById('stateLabel');
@@ -873,6 +882,7 @@ function setSpeaking(v) {
   if (!v) { S.speakStartedAt = null; S.isLongResponse = false; document.getElementById('bgPulse').classList.remove('long-mode'); S.talkPulse = 0; scheduleFeelingDecay(); }
   S.lastActivityAt = performance.now();
   document.getElementById('stateVal').textContent = stateLabelText(S.currentState);
+  if (v !== was) emitAIFaceEvent('speakingChange', { speaking: v });
 }
 
 function onToken() {
@@ -891,7 +901,11 @@ window.AIFace = {
   setState, setSpeaking, onToken, reset,
   speak, stopTTS, toggleMute,
   modelProgress,
-  getStatus: () => S
+  getStatus: () => S,
+  // Event bus: on('stateChange' | 'speakingChange' | 'providerSwitch' | 'sessionUpdate', handler)
+  // Returns an unsubscribe function. handler receives an event-specific detail object.
+  on: onAIFaceEvent,
+  off: offAIFaceEvent
 };
 Object.assign(window.AIFace, {
   newChat,
@@ -1647,6 +1661,17 @@ async function populateOutputDevices() {
   }
 }
 
+// ---- WebLLM Lite mode: local-storage flag for "user made an explicit choice" ----
+// (detectDeviceTier / recommendedWebLlmModel are imported from pure.js so
+// the recommendation heuristic itself stays unit-testable without a DOM.)
+const WEBLLM_MODEL_OVERRIDE_KEY = 'aiface_webllm_model_manual';
+function hasManualWebLlmModelChoice() {
+  try { return !!localStorage.getItem(WEBLLM_MODEL_OVERRIDE_KEY); } catch (e) { return false; }
+}
+function markManualWebLlmModelChoice() {
+  try { localStorage.setItem(WEBLLM_MODEL_OVERRIDE_KEY, '1'); } catch (e) {}
+}
+
 function syncWebLlmModel() {
   if (!cfgWebLlmModel) return;
   const v = cfgModel ? cfgModel.value : '';
@@ -1839,7 +1864,7 @@ function applyProviderDefaults(resetFields) {
   if (attachBtn) attachBtn.style.display = (p === 'webllm') ? 'none' : 'inline-flex';
   if ((p === 'webllm') && pendingImageDataUrl) clearImageChip();
   if (resetFields) {
-    cfgModel.value = d.model;
+    cfgModel.value = (p === 'webllm' && !hasManualWebLlmModelChoice()) ? recommendedWebLlmModel() : d.model;
     cfgUrl.value = '';
     cfgKey.value = '';
   }
@@ -1860,17 +1885,30 @@ function applyProviderDefaults(resetFields) {
     document.getElementById('modelHint').textContent = 'Example: llama3.2, mistral, phi4';
     document.getElementById('urlHint').textContent = 'Run: ollama serve (local machine)';
   } else if (p === 'webllm') {
-    document.getElementById('modelHint').textContent = 'Runs 100% in the browser via WebGPU -- no server, no key. First use downloads the model (~1-2GB) then caches it.';
+    const tier = detectDeviceTier();
+    const tierNote = hasManualWebLlmModelChoice()
+      ? ''
+      : (tier === 'low' ? ' Lite mode: a smaller model was auto-selected for your device.'
+        : tier === 'high' ? ' Your device looks capable of larger models too.'
+        : '');
+    document.getElementById('modelHint').textContent = 'Runs 100% in the browser via WebGPU -- no server, no key. First use downloads the model (~0.7-2GB) then caches it.' + tierNote;
   } else {
     document.getElementById('modelHint').textContent = 'Model name per your server';
     document.getElementById('urlHint').textContent = 'Must support OpenAI Chat Completions';
   }
 }
-cfgProvider.addEventListener('change', () => applyProviderDefaults(true));
+let _lastEmittedProvider = cfgProvider.value;
+cfgProvider.addEventListener('change', () => {
+  const previous = _lastEmittedProvider;
+  applyProviderDefaults(true);
+  _lastEmittedProvider = cfgProvider.value;
+  if (previous !== _lastEmittedProvider) emitAIFaceEvent('providerSwitch', { provider: _lastEmittedProvider, previous });
+});
 applyProviderDefaults(false);
 
 if (cfgWebLlmModel) {
   cfgWebLlmModel.addEventListener('change', () => {
+    markManualWebLlmModelChoice(); // user made an explicit pick -- stop auto-recommending on future provider switches
     if (cfgWebLlmModel.value) {
       cfgWebLlmCustom.style.display = 'none';
       cfgModel.value = cfgWebLlmModel.value;
@@ -1882,7 +1920,10 @@ if (cfgWebLlmModel) {
   });
 }
 if (cfgWebLlmCustom) {
-  cfgWebLlmCustom.addEventListener('input', () => { cfgModel.value = cfgWebLlmCustom.value.trim(); });
+  cfgWebLlmCustom.addEventListener('input', () => {
+    markManualWebLlmModelChoice();
+    cfgModel.value = cfgWebLlmCustom.value.trim();
+  });
 }
 
 // ---- Local key protection ----
@@ -2206,6 +2247,7 @@ async function restoreSession(session) {
     messages = list.map((m) => ({ role: m.role, content: m.content }));
     renderSessionMessages(messages);
     dbg('Restored session "' + sessionTitle(messages) + '" (' + messages.length + ' msgs)', 'ok');
+    emitAIFaceEvent('sessionUpdate', { reason: 'restore', sessionId: currentSessionId, messageCount: messages.length });
     return true;
   } catch (e) {
     dbg('Restore fail: ' + e.message, 'warn');
@@ -2223,6 +2265,7 @@ async function saveCurrentSession() {
       model: (cfgModel.value || '').trim(),
       messages
     }));
+    emitAIFaceEvent('sessionUpdate', { reason: 'save', sessionId: currentSessionId, messageCount: messages.length });
   } catch (e) {
     dbg('Session save fail: ' + e.message, 'warn');
   }
@@ -2252,6 +2295,7 @@ function newChat() {
   chatHistory.innerHTML = '';
   showStatus('New chat', 'ok');
   dbg('New chat started', 'ok');
+  emitAIFaceEvent('sessionUpdate', { reason: 'new', sessionId: null, messageCount: 0 });
 }
 
 async function openSessionsModal() {

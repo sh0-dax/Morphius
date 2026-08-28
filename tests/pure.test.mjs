@@ -9,6 +9,10 @@ import {
   buildUserContent,
   dataUrlMeta,
   geminiContentParts,
+  WEBLLM_TIER_MODELS,
+  detectDeviceTier,
+  recommendedWebLlmModel,
+  createEventBus,
 } from '../js/pure.js';
 import { getMasterVolume, setMasterVolume, getOutputDevice, setOutputDevice, routeOutput } from '../js/masterBus.js';
 
@@ -183,5 +187,95 @@ describe('master audio bus', () => {
     setOutputDevice('default');
     expect(await routeOutput({})).toBe(false);
     expect(await routeOutput(null)).toBe(false);
+  });
+});
+
+describe('detectDeviceTier / recommendedWebLlmModel (WebLLM Lite mode)', () => {
+  it('recommends "low" for a low-memory device', () => {
+    expect(detectDeviceTier({ deviceMemory: 2, hardwareConcurrency: 4 })).toBe('low');
+  });
+
+  it('recommends "low" for a low-core device even without deviceMemory support', () => {
+    expect(detectDeviceTier({ deviceMemory: undefined, hardwareConcurrency: 2 })).toBe('low');
+  });
+
+  it('recommends "high" for a well-resourced device', () => {
+    expect(detectDeviceTier({ deviceMemory: 8, hardwareConcurrency: 12 })).toBe('high');
+  });
+
+  it('falls back to "mid" when no signal is available at all', () => {
+    expect(detectDeviceTier({})).toBe('mid');
+  });
+
+  it('does not crash when called with no argument (falls back to global navigator, if any)', () => {
+    // Real value depends on the host running the test (Node's navigator vs a
+    // browser's) -- the contract under test is "never throws, always returns
+    // a valid tier", not a specific tier for this environment.
+    expect(['low', 'mid', 'high']).toContain(detectDeviceTier(undefined));
+  });
+
+  it('maps each tier to the corresponding model id', () => {
+    expect(recommendedWebLlmModel({ deviceMemory: 2 })).toBe(WEBLLM_TIER_MODELS.low);
+    expect(recommendedWebLlmModel({ deviceMemory: 8, hardwareConcurrency: 8 })).toBe(WEBLLM_TIER_MODELS.high);
+    expect(recommendedWebLlmModel({ deviceMemory: 6, hardwareConcurrency: 6 })).toBe(WEBLLM_TIER_MODELS.mid);
+  });
+});
+
+describe('createEventBus', () => {
+  it('calls subscribed handlers with the emitted detail', () => {
+    const bus = createEventBus();
+    let received = null;
+    bus.on('stateChange', (detail) => { received = detail; });
+    bus.emit('stateChange', { state: 'thinking', previous: 'idle' });
+    expect(received).toEqual({ state: 'thinking', previous: 'idle' });
+  });
+
+  it('supports multiple handlers on the same event', () => {
+    const bus = createEventBus();
+    let a = 0, b = 0;
+    bus.on('sessionUpdate', () => { a++; });
+    bus.on('sessionUpdate', () => { b++; });
+    bus.emit('sessionUpdate', {});
+    expect(a).toBe(1);
+    expect(b).toBe(1);
+  });
+
+  it('unsubscribes via the returned function', () => {
+    const bus = createEventBus();
+    let calls = 0;
+    const unsubscribe = bus.on('providerSwitch', () => { calls++; });
+    bus.emit('providerSwitch', {});
+    unsubscribe();
+    bus.emit('providerSwitch', {});
+    expect(calls).toBe(1);
+  });
+
+  it('unsubscribes via off()', () => {
+    const bus = createEventBus();
+    let calls = 0;
+    const handler = () => { calls++; };
+    bus.on('speakingChange', handler);
+    bus.off('speakingChange', handler);
+    bus.emit('speakingChange', { speaking: true });
+    expect(calls).toBe(0);
+  });
+
+  it('isolates a throwing handler and still calls the others, reporting the error', () => {
+    const bus = createEventBus();
+    const errors = [];
+    bus.on('stateChange', () => { throw new Error('boom'); });
+    let secondCalled = false;
+    bus.on('stateChange', () => { secondCalled = true; });
+    const busWithReporter = createEventBus((event, e) => errors.push([event, e.message]));
+    busWithReporter.on('stateChange', () => { throw new Error('boom'); });
+    expect(() => bus.emit('stateChange', {})).not.toThrow();
+    expect(secondCalled).toBe(true);
+    busWithReporter.emit('stateChange', {});
+    expect(errors).toEqual([['stateChange', 'boom']]);
+  });
+
+  it('does nothing when emitting an event with no listeners', () => {
+    const bus = createEventBus();
+    expect(() => bus.emit('unknownEvent', {})).not.toThrow();
   });
 });

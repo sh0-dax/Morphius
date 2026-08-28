@@ -124,3 +124,61 @@ export function geminiContentParts(content) {
   }
   return parts;
 }
+
+// ============================================================
+// WebLLM "Lite mode" — recommend a model tier from rough device
+// capability. Heuristic only: navigator.deviceMemory is capped at 8GB
+// by the spec and unavailable in some browsers (notably Safari/Firefox),
+// so this errs toward "mid" whenever signal is missing rather than
+// guessing "low" or "high". Good enough to steer clearly low-end
+// devices away from downloading a 5GB+ model by default -- not a
+// precise VRAM measurement.
+// ============================================================
+export const WEBLLM_TIER_MODELS = {
+  low: 'TinyLlama-1.1B-Chat-v1.0-q4f32_1-MLC',   // ~0.7 GB
+  mid: 'Qwen2.5-1.5B-Instruct-q4f32_1-MLC',       // ~1.1 GB
+  high: 'Llama-3.2-3B-Instruct-q4f32_1-MLC'       // ~2 GB (previous hardcoded default)
+};
+
+// Accepts a navigator-like object so it's testable without a real DOM:
+// detectDeviceTier({ deviceMemory: 4, hardwareConcurrency: 4 })
+export function detectDeviceTier(nav) {
+  const n = nav || (typeof navigator !== 'undefined' ? navigator : {});
+  const mem = typeof n.deviceMemory === 'number' ? n.deviceMemory : null; // GB
+  const cores = typeof n.hardwareConcurrency === 'number' ? n.hardwareConcurrency : null;
+  if (mem !== null && mem <= 4) return 'low';
+  if (cores !== null && cores <= 4 && (mem === null || mem <= 4)) return 'low';
+  if ((mem !== null && mem >= 8) || (cores !== null && cores >= 8)) return 'high';
+  return 'mid';
+}
+
+export function recommendedWebLlmModel(nav) {
+  return WEBLLM_TIER_MODELS[detectDeviceTier(nav)];
+}
+
+// ============================================================
+// Minimal pub/sub event bus used by window.AIFace so embedders can
+// react to state/provider/session changes without polling getStatus().
+// Kept DOM-free and dependency-free so it's independently unit-testable.
+// ============================================================
+export function createEventBus(onHandlerError) {
+  const listeners = Object.create(null);
+  function on(event, handler) {
+    if (typeof handler !== 'function') return () => {};
+    (listeners[event] || (listeners[event] = new Set())).add(handler);
+    return () => off(event, handler);
+  }
+  function off(event, handler) {
+    const set = listeners[event];
+    if (set) set.delete(handler);
+  }
+  function emit(event, detail) {
+    const set = listeners[event];
+    if (!set || !set.size) return;
+    for (const handler of set) {
+      try { handler(detail); }
+      catch (e) { if (typeof onHandlerError === 'function') onHandlerError(event, e); }
+    }
+  }
+  return { on, off, emit };
+}
