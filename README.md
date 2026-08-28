@@ -38,7 +38,7 @@
 
 **Table of Contents**
 
-[Why Morphius?](#why-morphius) · [1. System Architecture](#1-system-architecture-overview) · [2. Face & State Engine](#2-face--state-engine) · [3. Voice & Audio](#3-voice--audio) · [4. Chat & Persistence](#4-chat--persistence) · [5. i18n & Platform](#5-i18n--platform) · [6. Repository Layout](#6-repository-layout) · [7. Quick Start](#7-quick-start) · [8. Providers](#8-providers) · [9. Runtime API](#9-runtime-api--programmatic-control) · [10. Advanced Features](#10-advanced-features) · [11. CI/CD & QA](#11-cicd--qa) · [12. License](#12-license)
+[Why Morphius?](#why-morphius) · [1. System Architecture](#1-system-architecture-overview) · [2. Face & State Engine](#2-face--state-engine) · [3. Voice & Audio](#3-voice--audio) · [4. Chat & Persistence](#4-chat--persistence) · [5. i18n & Platform](#5-i18n--platform) · [6. Repository Layout](#6-repository-layout) · [7. Quick Start](#7-quick-start) · [8. Providers](#8-providers) · [9. Runtime API](#9-runtime-api--programmatic-control) · [10. Advanced Features](#10-advanced-features) · [11. Browser Support](#11-browser-support) · [12. CI/CD & QA](#12-cicd--qa) · [13. Roadmap](#13-roadmap) · [14. Contributing](#14-contributing) · [15. License](#15-license)
 
 ---
 
@@ -52,7 +52,7 @@ They render text. Morphius **reacts**.
 
 | Typical widget | Morphius's answer |
 |---|---|
-| Static image or looping idle animation | **Autonomous idle life** — native-morph blinking + rhythmic breathing drive by real morph slots |
+| Static image or looping idle animation | **Autonomous idle life** — native-morph blinking + rhythmic breathing driven by real morph slots |
 | Blocks of text with no affect | **10 auto states** (idle / greeting / listening / thinking / speaking / responding / alert / error / paying / processing) blended into expressions |
 | Robotic, un-synced TTS | **Exact visemes** per phoneme via `visemeFor()`, lip-synced to speech in real time |
 | Fixed camera / one look | **5 lighting presets** (Blueprint / Matrix / Warm / Soft / Noir) with smooth ambient lerp |
@@ -98,7 +98,7 @@ Morphius is a zero-build client-side application. All logic is plain ES modules 
 
 ### Runtime Request Flow
 
-```
+```mermaid
 graph TD
     A[User message] --> B[chatStore persist]
     B --> C[state -> thinking]
@@ -190,7 +190,7 @@ Real `AudioAnalyser` data drives the HUD (waveform · energy · frequency) with 
 
 ## 5\. i18n & Platform
 
-- **6 locales**: English · العربية · Français · Deutsch · Español · 日本語 — 142 keys each, auto-detected from `navigator.language` with manual override.
+- **6 locales**: English · العربية · Français · Deutsch · Español · 日本語 — 145 keys each, auto-detected from `navigator.language` with manual override.
 - **BOM-free JSON**: enforced to avoid encoding corruption.
 - **PWA**: installable, offline app shell, 192/512 + maskable icons, SVG favicon.
 - **Accessibility**: `prefers-reduced-motion`, visible `:focus-visible`, `aria-live` regions.
@@ -213,7 +213,7 @@ Morphius/
 │   ├── chatStore.js                  # IndexedDB session store
 │   ├── masterBus.js                  # Volume + output-device routing
 │   └── progress.js                   # Model-download progress → HUD
-├── i18n/                             # en · ar · fr · de · es · ja (142 keys each)
+├── i18n/                             # en · ar · fr · de · es · ja (145 keys each)
 ├── models/                           # 7 GLB face models + models/manifest.json
 ├── assets/                           # icon-192/512.png · icon.svg · screenshots/
 ├── tests/                            # Vitest suites (47 tests)
@@ -291,7 +291,18 @@ Key internal modules:
 
 ---
 
-## 11\. CI/CD & QA
+## 11\. Browser Support
+
+| Feature | Requirement |
+|---|---|
+| Core app / face rendering | Any modern browser with WebGL2 (Chrome, Edge, Firefox, Safari) |
+| WebLLM (local models) | Chrome or Edge with WebGPU enabled |
+| Microphone / STT | Secure context (`https://` or `localhost`) |
+| PWA install | Chromium-based browsers; Safari has partial PWA support |
+
+---
+
+## 12\. CI/CD & QA
 
 Deploys automatically to **GitHub Pages** on every push to `main` via `.github/workflows/deploy.yml` (pages-artifact → deploy-pages).
 
@@ -306,6 +317,30 @@ Per-phase Playwright E2E gates across development phases A–H (chat, multimodal
 
 ---
 
-## 12\. License
+## 13\. Roadmap
+
+- [ ] Additional GLB face models and community model contributions
+- [ ] More TTS voices per locale
+- [ ] Expanded Live API support for additional providers
+- [ ] Plugin/extension system for custom states and gestures
+
+> Have an idea? Open an [issue](https://github.com/sh0-dax/Morphius/issues) or start a [discussion](https://github.com/sh0-dax/Morphius/discussions).
+
+---
+
+## 14\. Contributing
+
+Contributions are welcome — bug reports, new locales, face models, or code.
+
+1. Fork the repo and create a branch: `git checkout -b feature/my-feature`
+2. Make your changes (no build step — plain ES modules).
+3. Run `npm test` and make sure all suites pass.
+4. Open a pull request describing what changed and why.
+
+Please keep PRs focused and add tests for new logic where possible.
+
+---
+
+## 15\. License
 
 MIT — see [LICENSE](./LICENSE).
