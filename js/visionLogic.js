@@ -108,3 +108,35 @@ export function canRunCameraPipeline({ tier, requested, otherActive }) {
   return { allowed: true, reason: 'none' };
 }
 
+// Clamp a requested detection FPS into a sane operating range. The detection
+// loop is decoupled from requestAnimationFrame (so it never steals render
+// frames from Three.js), and this gives us a safe window to bound the rate.
+//   fps <= 0  -> DEFAULT_VISION_FPS (callers wanting unlimited must pass Infinity)
+//   Unbounded -> Infinity (never throttle)
+export const DEFAULT_VISION_FPS = 8;
+export const MIN_VISION_FPS = 1;
+export const MAX_VISION_FPS = 30;
+
+export function clampVisionFps(fps) {
+  if (fps === Infinity) return Infinity;
+  const n = Number(fps);
+  if (!Number.isFinite(n) || n <= 0) return DEFAULT_VISION_FPS;
+  return Math.max(MIN_VISION_FPS, Math.min(MAX_VISION_FPS, Math.round(n)));
+}
+
+// Pure decision: should a vision inference frame run at time `now` given the
+// last time one ran (`lastRun`) and the target `fps`?
+// Returns { shouldRun: boolean, intervalMs, nextDelayMs }.
+//   - first frame (lastRun == 0 / null) always runs through
+//   - fps === Infinity -> always run (intervalMs 0)
+export function shouldRunVisionFrame({ lastRun, now, fps }) {
+  const target = fps === undefined ? DEFAULT_VISION_FPS : fps;
+  const clamp = target === Infinity ? Infinity : clampVisionFps(target);
+  const intervalMs = clamp === Infinity ? 0 : Math.round(1000 / clamp);
+  const first = !lastRun || lastRun <= 0;
+  const elapsed = now - (first ? now : lastRun);
+  const shouldRun = first || clamp === Infinity || elapsed >= intervalMs;
+  const nextDelayMs = (first || clamp === Infinity) ? 0 : Math.max(0, intervalMs - elapsed);
+  return { shouldRun, intervalMs, nextDelayMs };
+}
+

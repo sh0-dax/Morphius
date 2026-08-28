@@ -12,7 +12,7 @@
 [![WebLLM](https://img.shields.io/badge/WebLLM-100%25_Local-ffaa00?style=for-the-badge&logo=webgpu&logoColor=white)]()
 [![PWA](https://img.shields.io/badge/Installable-PWA-2f81f7?style=for-the-badge&logo=pwa&logoColor=white)]()
 [![i18n](https://img.shields.io/badge/i18n-6_Locales-ec4899?style=for-the-badge&logo=google-translate&logoColor=white)]()
-[![Tests](https://img.shields.io/badge/Tests-98_passing-00d4aa?style=for-the-badge&logo=vitest&logoColor=white)]()
+[![Tests](https://img.shields.io/badge/Tests-108_passing-00d4aa?style=for-the-badge&logo=vitest&logoColor=white)]()
 [![CI](https://github.com/sh0-dax/Morphius/actions/workflows/deploy.yml/badge.svg)](https://github.com/sh0-dax/Morphius/actions/workflows/deploy.yml)
 [![Status](https://img.shields.io/badge/Status-v6.0.0_Ready-22c55e?style=for-the-badge)]()
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](./LICENSE)
@@ -268,9 +268,9 @@ Every push to `main` runs a **mandatory test gate** (`.github/workflows/deploy.y
 |------|------|-------|
 | Chat store (IndexedDB) | `tests/chatStore.test.mjs` | 13 |
 | Pure helpers | `tests/pure.test.mjs` | 47 |
-| AI Vision logic (pure) | `tests/visionLogic.test.mjs` | 31 |
+| AI Vision logic (pure) | `tests/visionLogic.test.mjs` | 41 |
 | i18n parity | `tests/i18n.test.mjs` | 7 |
-| **Total (unit)** | | **98** |
+| **Total (unit)** | | **108** |
 
 CodeQL static analysis also runs on push/PR (`.github/workflows/codeql.yml`).
 

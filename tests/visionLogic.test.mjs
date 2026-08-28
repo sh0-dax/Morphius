@@ -8,6 +8,11 @@ import {
   getSpeakHint,
   displayClass,
   canRunCameraPipeline,
+  shouldRunVisionFrame,
+  clampVisionFps,
+  DEFAULT_VISION_FPS,
+  MIN_VISION_FPS,
+  MAX_VISION_FPS,
 } from '../js/visionLogic.js';
 
 describe('VISION_FEELING_MAP / VISION_SPEAK_CLASSES', () => {
@@ -171,5 +176,56 @@ describe('canRunCameraPipeline (device-tier GPU concurrency gate)', () => {
   it('rejects an unknown requested pipeline', () => {
     expect(canRunCameraPipeline({ tier: 'high', requested: 'unknown', otherActive: false }))
       .toEqual({ allowed: false, reason: 'invalid' });
+  });
+});
+
+describe('shouldRunVisionFrame (rAF-free detection throttling)', () => {
+  it('runs the very first frame unconditionally', () => {
+    const r = shouldRunVisionFrame({ lastRun: 0, now: 0, fps: 8 });
+    expect(r.shouldRun).toBe(true);
+    expect(r.intervalMs).toBe(Math.round(1000 / 8));
+  });
+  it('runs immediately when the interval has elapsed', () => {
+    const r = shouldRunVisionFrame({ lastRun: 1000, now: 1125, fps: 8 });
+    expect(r.shouldRun).toBe(true);
+    expect(r.nextDelayMs).toBe(0);
+  });
+  it('skips when the interval has not yet elapsed and offers a wait', () => {
+    const r = shouldRunVisionFrame({ lastRun: 1000, now: 1060, fps: 8 });
+    expect(r.shouldRun).toBe(false);
+    expect(r.nextDelayMs).toBe(Math.round(1000 / 8) - 60);
+  });
+  it('defaults to DEFAULT_VISION_FPS when fps is omitted', () => {
+    const r = shouldRunVisionFrame({ lastRun: 0, now: 0 });
+    expect(r.intervalMs).toBe(Math.round(1000 / DEFAULT_VISION_FPS));
+  });
+  it('never throttles when fps is Infinity', () => {
+    const r = shouldRunVisionFrame({ lastRun: 1000, now: 1001, fps: Infinity });
+    expect(r.shouldRun).toBe(true);
+    expect(r.intervalMs).toBe(0);
+  });
+  it('is rate-limited by the target fps', () => {
+    const r = shouldRunVisionFrame({ lastRun: 0, now: 1000, fps: 10 });
+    expect(r.intervalMs).toBe(100);
+    expect(r.shouldRun).toBe(true);
+  });
+});
+
+describe('clampVisionFps', () => {
+  it('pins 0 / undefined / NaN to the default', () => {
+    expect(clampVisionFps(0)).toBe(DEFAULT_VISION_FPS);
+    expect(clampVisionFps(undefined)).toBe(DEFAULT_VISION_FPS);
+    expect(clampVisionFps(NaN)).toBe(DEFAULT_VISION_FPS);
+  });
+  it('clamps to the min/max window', () => {
+    expect(clampVisionFps(0.5)).toBe(MIN_VISION_FPS);
+    expect(clampVisionFps(999)).toBe(MAX_VISION_FPS);
+  });
+  it('rounds fractional fps into the window', () => {
+    expect(clampVisionFps(8.6)).toBe(9);
+    expect(clampVisionFps(8.2)).toBe(8);
+  });
+  it('passes Infinity through as unlimited', () => {
+    expect(clampVisionFps(Infinity)).toBe(Infinity);
   });
 });

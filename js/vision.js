@@ -28,6 +28,7 @@
 // ============================================================
 
 import { parseYoloOneToOne } from './pure.js';
+import { shouldRunVisionFrame, clampVisionFps, DEFAULT_VISION_FPS } from './visionLogic.js';
 
 let YOLO_MODEL_URL = './models/yolo26n_int8.onnx'; // see scripts/export_model.py
 const YOLO_INPUT_SIZE = 640;
@@ -53,12 +54,12 @@ let backend = null;          // 'yolo-webgpu' | 'coco-ssd-webgl'
 let session = null;          // onnxruntime session (YOLO path)
 let cocoModel = null;        // coco-ssd model instance (fallback path)
 let videoEl = null;
-let rafId = null;
+let timerId = null;
 let running = false;
 let detectCallback = null;
 let offscreen = null;
 let offCtx = null;
-let maxFps = 0;              // 0 = unlimited
+let maxFps = DEFAULT_VISION_FPS; // detection frames/sec (decoupled from rAF)
 let lastRun = 0;
 let dimsLogged = false;      // log output.dims exactly once, then stay quiet
 
@@ -115,13 +116,15 @@ async function initCocoSsd() {
  * @param {object} [opts]
  * @param {'yolo'|'coco-ssd'} [opts.forceBackend]  force a specific backend
  * @param {string} [opts.modelUrl]                 override the default YOLO model URL
- * @param {number} [opts.maxFPS]                   throttle inference to ~N fps (0 = unlimited)
+ * @param {number} [opts.maxFPS]                   detection frames/sec (clamped 1-30; default 8; Infinity = unlimited)
  * @returns {Promise<string>} the active backend
  */
 async function init(video, { forceBackend, modelUrl, maxFPS } = {}) {
   videoEl = video;
   if (modelUrl) YOLO_MODEL_URL = modelUrl;
-  maxFps = maxFPS && maxFPS > 0 ? maxFPS : 0;
+  // Clamp + pin the default detection rate. 0/undefined -> DEFAULT_VISION_FPS;
+  // pass Infinity to explicitly opt out of throttling.
+  maxFps = maxFPS === Infinity ? Infinity : clampVisionFps(maxFPS);
   offscreen = document.createElement('canvas');
   offCtx = offscreen.getContext('2d', { willReadFrequently: true });
 
@@ -228,35 +231,43 @@ async function detectCocoSsd() {
 
 async function loop(now) {
   if (!running) return;
-  rafId = requestAnimationFrame(loop);
 
-  // Optional throttling via performance.now() delta (not just rAF cadence).
-  if (maxFps > 0 && now - lastRun < 1000 / maxFps) return;
   // Skip inference while the video isn't ready to avoid garbage frames.
-  if (!videoEl || videoEl.paused || videoEl.readyState < 2) return;
-  lastRun = now;
+  if (!videoEl || videoEl.paused || videoEl.readyState < 2) { scheduleNext(0); return; }
 
-  try {
-    const detections = backend === 'yolo-webgpu' ? await detectYolo() : await detectCocoSsd();
-    detectCallback?.(detections, backend);
-  } catch (err) {
-    console.error('[vision] inference error', err);
+  const gate = shouldRunVisionFrame({ lastRun, now, fps: maxFps });
+  if (gate.shouldRun) {
+    lastRun = now;
+    try {
+      const detections = backend === 'yolo-webgpu' ? await detectYolo() : await detectCocoSsd();
+      detectCallback?.(detections, backend);
+    } catch (err) {
+      console.error('[vision] inference error', err);
+    }
   }
+  scheduleNext(gate.nextDelayMs);
 }
 
-/** Start the detection loop. Callback fires once per frame with results. */
+// Detection is decoupled from requestAnimationFrame so it never competes with
+// the Three.js render loop for frame budget on the main thread. We self-
+// schedule with a fixed interval and only wake when a frame is due.
+function scheduleNext(delayMs) {
+  if (!running) return;
+  timerId = setTimeout(() => loop(performance.now()), delayMs);
+}
+
+/** Start the detection loop. Callback fires approx. maxFPS times/sec. */
 function start(onDetections) {
   if (!backend) throw new Error('vision: call Vision.init() before start()');
   detectCallback = onDetections;
   running = true;
   lastRun = 0;
-  if (!rafId) rafId = requestAnimationFrame(loop);
+  if (!timerId) timerId = setTimeout(() => loop(performance.now()), 0);
 }
 
 function stop() {
   running = false;
-  if (rafId) cancelAnimationFrame(rafId);
-  rafId = null;
+  if (timerId) { clearTimeout(timerId); timerId = null; }
 }
 
 function getBackend() {
@@ -270,6 +281,22 @@ async function describeScene() {
   console.warn('[vision] describeScene() not yet wired to a VLM backend');
   return { available: false, description: null };
 }
+
+// Stop the detection loop when the tab is hidden to avoid burning CPU/GPU on
+// an invisible page (matches the mirror module's behaviour), and resume it
+// automatically when the tab comes back if it was running before.
+let wasRunningBeforeHide = false;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    wasRunningBeforeHide = running;
+    stop();
+  } else if (wasRunningBeforeHide && backend && !running) {
+    wasRunningBeforeHide = false;
+    running = true;
+    lastRun = 0;
+    if (!timerId) timerId = setTimeout(() => loop(performance.now()), 0);
+  }
+});
 
 export const Vision = { init, start, stop, getBackend, describeScene };
 export default Vision;
