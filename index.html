@@ -319,6 +319,47 @@
         </div>
       </div>
 
+      <!-- Section 3c: AI Vision -->
+      <div class="settings-section">
+        <button class="settings-section-header" type="button">
+          <span data-i18n="settings.visionTitle">Vision</span>
+          <span class="chevron">&#x25BC;</span>
+        </button>
+        <div class="settings-section-body">
+          <div class="field-group">
+            <label>
+              <input type="checkbox" id="cfgVision">
+              <span data-i18n="settings.visionLive">Real-time object detection (AI Vision)</span>
+            </label>
+            <small data-i18n="settings.visionLiveHint">Detects objects from your camera on-device (YOLO26n via WebGPU, or COCO-SSD fallback). Frames stay on your device.</small>
+          </div>
+          <div class="field-group" id="visionBackendGroup" style="display:none;">
+            <label data-i18n="settings.visionBackend">Vision Backend</label>
+            <select id="cfgVisionBackend">
+              <option value="auto">Auto</option>
+              <option value="yolo">WebGPU YOLO</option>
+              <option value="coco">COCO-SSD (WebGL)</option>
+            </select>
+            <small data-i18n="settings.visionBackendHint">Auto picks WebGPU YOLO when available, otherwise falls back to COCO-SSD on WebGL.</small>
+          </div>
+          <div class="field-group" id="visionFpsGroup" style="display:none;">
+            <label data-i18n="settings.visionMaxFps">Max detection rate (FPS)</label>
+            <input type="number" id="cfgVisionMaxFps" min="1" max="30" step="1" value="8">
+          </div>
+          <div class="field-group" id="visionReactGroup" style="display:none;">
+            <label>
+              <input type="checkbox" id="cfgVisionReact" checked>
+              <span data-i18n="settings.visionReact">React when a person is detected</span>
+            </label>
+            <small data-i18n="settings.visionReactHint">Nudges the avatar into a subtle engaged look while a person is in view.</small>
+          </div>
+          <div class="field-group" id="visionPauseGroup" style="display:none;">
+            <button id="btnVisionPause" class="btn" type="button" style="width:100%;" data-i18n="settings.visionPause">Pause Vision</button>
+          </div>
+          <div id="visionStatus" class="status-pill warn">VISION: OFF</div>
+        </div>
+      </div>
+
       <!-- Section 4: Advanced -->
       <div class="settings-section">
         <button class="settings-section-header" type="button">

@@ -9,6 +9,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { Mirror, startMirror, stopMirror } from './mirror.js';
+import { Vision } from './vision.js';
 import { LocalSpeech, startLocalSTT, stopLocalSTT, generateLocalAudio, playLocalAudio, setLocalCallbacks, stopLocalAudio, setWhisperModel, applyMasterSettings } from './localSpeech.js';
 import { modelProgress } from './progress.js';
 import { getMasterVolume, setMasterVolume, setOutputDevice, routeOutput } from './masterBus.js';
@@ -288,6 +289,12 @@ const FEELING_TARGETS = {
   scared: { eyeWideLeft: 0.7, eyeWideRight: 0.7, browInnerUp: 0.5, browOuterUpLeft: 0.4, browOuterUpRight: 0.4, jawOpen: 0.2, mouthStretchLeft: 0.15, mouthStretchRight: 0.15 },
   love: { mouthSmileLeft: 0.45, mouthSmileRight: 0.45, cheekPuff: 0.1, browInnerUp: 0.2, eyeSquintLeft: 0.2, eyeSquintRight: 0.2 },
   neutral: {},
+};
+
+// Expression overlay applied when AI Vision detects a person while the avatar
+// is idle. Subtle "engaged" look layered like emotion/feeling targets.
+const VISION_TARGETS = {
+  active: { eyeLookUpLeft: 0.3, eyeLookUpRight: 0.3, browInnerUp: 0.25, mouthSmileLeft: 0.2, mouthSmileRight: 0.2 },
 };
 
 // Optional manual morph-name remap (set by the morph mapping screen).
@@ -1341,7 +1348,8 @@ async function initScene() {
       const stateTarget = STATE_TARGETS[S.currentState] || {};
       const emotionTarget = (emotionMode && EMOTION_TARGETS[Mirror.emotion]) || {};
       const feelingTarget = FEELING_TARGETS[S.feeling] || {};
-      const target = Object.assign({}, stateTarget, emotionTarget, feelingTarget);
+      const visionTarget = (visionReact && visionPersonPresent && IDLE_LIFE_STATES.includes(S.currentState)) ? VISION_TARGETS.active : {};
+      const target = Object.assign({}, stateTarget, emotionTarget, feelingTarget, visionTarget);
 
       const slots = currentVRM ? ALL_SLOT_NAMES : Object.keys(dict);
 
@@ -1772,6 +1780,151 @@ cfgMicEngine.addEventListener('change', () => { updateWhisperUI(); saveSettings(
 cfgTtsEngine.addEventListener('change', () => { saveSettings(); });
 window.addEventListener('pagehide', () => { if (Mirror.active) stopMirror(); });
 
+// ---- AI Vision (on-device object detection) ----
+const cfgVision = document.getElementById('cfgVision');
+const cfgVisionBackend = document.getElementById('cfgVisionBackend');
+const cfgVisionMaxFps = document.getElementById('cfgVisionMaxFps');
+const cfgVisionReact = document.getElementById('cfgVisionReact');
+const btnVisionPause = document.getElementById('btnVisionPause');
+const visionStatus = document.getElementById('visionStatus');
+const visionBackendGroup = document.getElementById('visionBackendGroup');
+const visionFpsGroup = document.getElementById('visionFpsGroup');
+const visionReactGroup = document.getElementById('visionReactGroup');
+const visionPauseGroup = document.getElementById('visionPauseGroup');
+let visionActive = false;
+let visionPaused = false;
+let visionReact = true;
+let visionPersonPresent = false;
+let visionBackendName = '';
+let visionVideo = null;
+let visionStream = null;
+
+function handleVisionDetections(detections) {
+  visionPersonPresent = detections.some((d) => d.class === 'person');
+  let summary = '';
+  const counts = {};
+  for (const d of detections) counts[d.class] = (counts[d.class] || 0) + 1;
+  const labels = Object.keys(counts).slice(0, 3).map((c) => (counts[c] > 1 ? counts[c] + ' ' + c : c));
+  if (labels.length) summary = labels.join(', ');
+  const label = t('vision.status.label', 'VISION: {backend} \u00b7 {summary}')
+    .replace('{backend}', visionBackendName)
+    .replace('{summary}', summary);
+  setVisionStatus('on', label);
+}
+
+function setVisionStatus(state, extra) {
+  if (!visionStatus) return;
+  if (state === 'off') {
+    visionStatus.className = 'status-pill warn';
+    visionStatus.textContent = t('vision.status.off', 'VISION: OFF');
+  } else if (state === 'starting') {
+    visionStatus.className = 'status-pill warn';
+    visionStatus.textContent = t('vision.status.starting', 'VISION: STARTING...');
+  } else if (state === 'err') {
+    visionStatus.className = 'status-pill err';
+    visionStatus.textContent = t('vision.status.error', 'VISION: UNAVAILABLE');
+  } else if (state === 'on') {
+    visionStatus.className = 'status-pill ok';
+    visionStatus.textContent = extra || visionBackendName;
+  }
+}
+
+function updateVisionUI() {
+  const on = cfgVision.checked;
+  const hidden = on ? 'block' : 'none';
+  if (visionBackendGroup) visionBackendGroup.style.display = hidden;
+  if (visionFpsGroup) visionFpsGroup.style.display = hidden;
+  if (visionReactGroup) visionReactGroup.style.display = hidden;
+  if (visionPauseGroup) visionPauseGroup.style.display = hidden;
+  if (!on) {
+    setVisionStatus('off');
+    if (btnVisionPause) btnVisionPause.textContent = t('settings.visionPause') || 'Pause Vision';
+  }
+}
+
+async function startVision() {
+  if (visionActive) return true;
+  try {
+    if (!visionVideo) {
+      visionVideo = document.createElement('video');
+      visionVideo.muted = true;
+      visionVideo.setAttribute('playsinline', '');
+      visionVideo.setAttribute('autoplay', '');
+      visionVideo.style.display = 'none';
+      document.body.appendChild(visionVideo);
+    }
+    visionStream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+    });
+    visionVideo.srcObject = visionStream;
+    try { await visionVideo.play(); } catch (e) {}
+
+    const forceBackend = cfgVisionBackend && cfgVisionBackend.value !== 'auto'
+      ? (cfgVisionBackend.value === 'yolo' ? 'yolo' : 'coco-ssd')
+      : undefined;
+    const maxFPS = cfgVisionMaxFps ? Math.max(1, Math.min(30, parseInt(cfgVisionMaxFps.value, 10) || 8)) : 8;
+    setVisionStatus('starting');
+    const backend = await Vision.init(visionVideo, { forceBackend, maxFPS });
+    visionBackendName = backend === 'yolo-webgpu' ? 'YOLO (WebGPU)' : 'COCO-SSD (WebGL)';
+    visionActive = true;
+    visionPaused = false;
+    visionReact = cfgVisionReact ? cfgVisionReact.checked : true;
+    Vision.start(handleVisionDetections);
+    if (btnVisionPause) btnVisionPause.textContent = t('settings.visionPause') || 'Pause Vision';
+    setVisionStatus('on');
+    return true;
+  } catch (err) {
+    console.warn('[vision] start failed:', err);
+    stopVision();
+    setVisionStatus('err');
+    return false;
+  }
+}
+
+function stopVision() {
+  visionActive = false;
+  visionPaused = false;
+  visionPersonPresent = false;
+  try { Vision.stop(); } catch (e) {}
+  if (visionStream) { visionStream.getTracks().forEach((t) => t.stop()); visionStream = null; }
+  if (visionVideo) { visionVideo.srcObject = null; }
+}
+
+function toggleVisionPause() {
+  if (!visionActive) return;
+  visionPaused = !visionPaused;
+  if (visionPaused) {
+    Vision.stop();
+    if (btnVisionPause) btnVisionPause.textContent = t('settings.visionResume') || 'Resume Vision';
+  } else {
+    Vision.start(handleVisionDetections);
+    if (btnVisionPause) btnVisionPause.textContent = t('settings.visionPause') || 'Pause Vision';
+    setVisionStatus('on');
+  }
+}
+
+cfgVision.addEventListener('change', async () => {
+  if (cfgVision.checked) {
+    const ok = await startVision();
+    if (!ok) cfgVision.checked = false;
+  } else {
+    stopVision();
+  }
+  updateVisionUI();
+  saveSettings();
+});
+cfgVisionBackend.addEventListener('change', () => {
+  saveSettings();
+  if (visionActive) { stopVision(); startVision(); }
+});
+cfgVisionMaxFps.addEventListener('change', () => {
+  saveSettings();
+  if (visionActive) { stopVision(); startVision(); }
+});
+cfgVisionReact.addEventListener('change', () => { visionReact = cfgVisionReact.checked; saveSettings(); });
+if (btnVisionPause) btnVisionPause.addEventListener('click', toggleVisionPause);
+window.addEventListener('pagehide', () => { if (visionActive) stopVision(); });
+
 cfgLiveVoice.addEventListener('change', () => {
   liveVoiceFields.style.display = cfgLiveVoice.checked ? 'block' : 'none';
   updateMicButtonsMode();
@@ -2010,6 +2163,10 @@ async function saveSettings() {
     outputDevice: cfgOutputDevice ? cfgOutputDevice.value : 'default',
     autoRestoreChat: cfgAutoRestoreChat.checked,
     locale: cfgLocale ? cfgLocale.value : 'en',
+    vision: cfgVision ? cfgVision.checked : false,
+    visionBackend: cfgVisionBackend ? cfgVisionBackend.value : 'auto',
+    visionMaxFps: cfgVisionMaxFps ? cfgVisionMaxFps.value : '8',
+    visionReact: cfgVisionReact ? cfgVisionReact.checked : true,
   };
   localStorage.setItem('aiface_llm_settings', JSON.stringify(settings));
   showStatus('Settings saved (keys encrypted locally)', 'ok');
@@ -2061,6 +2218,16 @@ async function loadSettings() {
     if (cfgFeelingMode) cfgFeelingMode.value = s.feelingMode || 'auto';
     if (!cfgMirror.checked) stopMirror();
     updateMirrorUI();
+    if (cfgVision) {
+      cfgVision.checked = s.vision !== undefined ? s.vision : false;
+      if (cfgVisionBackend) cfgVisionBackend.value = s.visionBackend || 'auto';
+      if (cfgVisionMaxFps) cfgVisionMaxFps.value = s.visionMaxFps || '8';
+      if (cfgVisionReact) cfgVisionReact.checked = s.visionReact !== undefined ? s.visionReact : true;
+      visionReact = cfgVisionReact.checked;
+      updateVisionUI();
+      if (cfgVision.checked) startVision();
+      else stopVision();
+    }
     cfgMicEngine.value = s.micEngine || 'browser';
     cfgTtsEngine.value = s.ttsEngine || 'browser';
     if (cfgWhisperTier) cfgWhisperTier.value = s.whisperTier || 'Xenova/whisper-tiny';

@@ -7,7 +7,7 @@
 // app keeps working through CDN outages and offline. Offline still works via
 // cache fallbacks.
 // Bump CACHE_NAME on any shell change to invalidate old caches automatically.
-const CACHE_NAME = 'aiface-shell-v25';
+const CACHE_NAME = 'aiface-shell-v26';
 const CDN_CACHE = 'aiface-cdn-v1';
 
 // Exact pinned CDN resources (substring match against href). These are cached
@@ -19,7 +19,10 @@ const CDN_PINS = [
   'cdn.jsdelivr.net/npm/kokoro-js@1.2.1',
   'cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.1.2',
   'cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/facecap.glb',
-  'esm.run/@mlc-ai/web-llm'
+  'esm.run/@mlc-ai/web-llm',
+  'cdn.jsdelivr.net/npm/onnxruntime-web/dist',
+  'cdn.jsdelivr.net/npm/@tensorflow/tfjs/dist',
+  'cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd/dist'
 ];
 
 function isCdnPinned(url) {
@@ -32,6 +35,7 @@ const SHELL_FILES = [
   './js/app.js',
   './js/pure.js',
   './js/mirror.js',
+  './js/vision.js',
   './js/localSpeech.js',
   './js/chatStore.js',
   './js/masterBus.js',
@@ -46,7 +50,8 @@ const SHELL_FILES = [
   './assets/icon.svg',
   './assets/icon-192.png',
   './assets/icon-512.png',
-  './models/manifest.json'
+  './models/manifest.json',
+  './models/yolo26n_int8.onnx'
 ];
 
 self.addEventListener('install', (event) => {

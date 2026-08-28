@@ -20,9 +20,11 @@
 // in normalized [0..1] video-space coordinates, so callers don't need to
 // know the source video's pixel size.
 //
-// NOTE: this module is currently STANDALONE — it is not imported by
-// app.js or referenced from index.html. Drive it from the console for
-// verification. UI wiring is a later, separate stage.
+// NOTE: wired into the UI via js/app.js — an opt-in Settings option
+// ("Real-time object detection") starts/stops this module with the device
+// camera. Detections drive a status pill, a live label, and an optional
+// avatar "engaged" reaction when a person is present. Can also be driven
+// manually from the console (Vision.init/start/stop) for verification.
 // ============================================================
 
 import { parseYoloOneToOne } from './pure.js';

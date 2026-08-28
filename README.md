@@ -48,6 +48,7 @@ They render text. Morphius **reacts**.
 | Requires an API key to do anything | **Fully local WebLLM mode** — keyless, serverless, 100% in-browser via WebGPU |
 | Single language | **6 locales** (en / ar / fr / de / es / ja), auto-detected, parity-test-enforced |
 | Text-only memory | **Encrypted IndexedDB sessions** — restore, rename, export, multimodal images |
+| No perception | **Real-time AI Vision** — on-device object detection (`vision.js`): YOLO26n one-to-one via WebGPU, COCO-SSD fallback on WebGL. Lives in a Vision status pill with a live detections label; optional avatar "engaged" reaction when a person is detected. Frames never leave the device. |
 
 ## 1\. System Architecture Overview
 
@@ -78,6 +79,7 @@ graph TD
 | **Master Audio Bus** | Pure volume gain + `OutputDevice.setSinkId` routing for every playback source |
 | **Viseme Engine** | `visemeFor(ch)` maps each character to a phoneme morph key; typing burst + hold sustain |
 | **Encrypted Vault** | AES-GCM via Web Crypto; non-extractable CryptoKey in IndexedDB |
+| **Vision Engine** | `vision.js` — on-device object detection: YOLO26n one-to-one ONNX via onnxruntime-web (WebGPU) with COCO-SSD/TensorFlow.js (WebGL) fallback; letterbox preprocess + `parseYoloOneToOne` |
 | **PWA Shell** | `sw.js` app-shell cache + installable manifest with 192/512 PNG + SVG icons |
 
 ---
@@ -205,6 +207,7 @@ Key internal modules:
 | `pure.js` | `detectFeeling`, `visemeFor`, `VISEME_KEYS`, `contentToText`, `contentImages`, `buildUserContent`, `geminiContentParts`, `dataUrlMeta` |
 | `chatStore.js` | IndexedDB session CRUD + persistence |
 | `masterBus.js` | master gain, output device routing |
+| `vision.js` | `Vision.init/start/stop/getBackend/describeScene` — on-device object detection (YOLO26n one-to-one via onnxruntime-web/WebGPU, COCO-SSD fallback) |
 | `localSpeech.js` | `setWhisperModel`, `applyMasterSettings`, TTS drivers |
 
 ---
@@ -212,11 +215,22 @@ Key internal modules:
 ## 10\. Advanced Features
 
 - **Webcam face mirror** (`mirror.js`) — copy your own expressions to the avatar.
+- **AI Vision** (`vision.js`) — opt-in Settings toggle; real-time on-device object detection (YOLO26n one-to-one via WebGPU, COCO-SSD fallback). Live detections label + status pill, pause/resume button, and an optional avatar reaction when a person is detected.
 - **SiriWave alternative** — toggleable without changing the default face.
 - **Encrypted key vault** — AES-GCM, non-extractable, IndexedDB (never plain text).
 - **Onboarding flow** — first-run step-by-step setup.
 - **Model downloads** — progress surfaced to the HUD via `progress.js`.
 - **7 bundled GLB models** including FaceCap (CDN), ARKit 52, robot, raccoon, android, and more.
+
+### AI Vision
+
+Toggle **Settings → Vision** and enable **Real-time object detection (AI Vision)** to start on-device object detection from your webcam. Vision is **off by default** (opt-in, to avoid a camera prompt on first launch).
+
+- Backend is chosen **automatically** — YOLO26n one-to-one via onnxruntime-web on **WebGPU** when available, otherwise **COCO-SSD** on WebGL. A `Vision Backend` setting can force either.
+- Detections appear live in the `VISION` status pill (e.g. `YOLO (WebGPU) · 1 person`), throttled by `Max detection rate (FPS)`.
+- **Pause / Resume** suspends inference without releasing the camera.
+- When **React when a person is detected** is on, the avatar adopts a subtle engaged expression while a person is in view.
+- All frames are processed locally — images never leave the device. The int8 model (`models/yolo26n_int8.onnx`) is precached by the service worker.
 
 ---
 
@@ -226,6 +240,7 @@ Key internal modules:
 |---|---|
 | Core app / face rendering | Any modern browser with WebGL2 (Chrome, Edge, Firefox, Safari) |
 | WebLLM (local models) | Chrome or Edge with WebGPU enabled |
+| AI Vision (YOLO) | Chrome or Edge with WebGPU enabled (falls back to COCO-SSD on WebGL) |
 | Microphone / STT | Secure context (`https://` or `localhost`) |
 | PWA install | Chromium-based browsers; Safari has partial PWA support |
 
