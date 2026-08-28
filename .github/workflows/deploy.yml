@@ -15,7 +15,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  test:
+    name: Test gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax check (all browser JS)
+        run: |
+          set -e
+          for f in js/*.js; do
+            node --check "$f"
+          done
+          echo "Syntax OK"
+
+      - name: Run unit tests
+        run: npm test
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     environment:
       name: github-pages

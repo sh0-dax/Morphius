@@ -28,6 +28,31 @@ When you enter a cloud provider's API key in **Settings**, Morphius:
    to the provider's own API endpoint (e.g. `api.openai.com`) — never to
    any Morphius-operated server, because there isn't one.
 
+### What this protects — and what it does not
+
+Being honest about the limits of client-side encryption:
+
+- **It protects *data at rest*.** Anyone who later reads your IndexedDB or
+  local storage (a stolen device, another extension, a backup export, a
+  forensic copy) cannot recover the raw key or your plaintext API key.
+- **It does NOT protect against XSS or malicious code running in this
+  page.** Morphius and any third-party script bundled into the page can
+  call `crypto.subtle.decrypt()` on exactly the key it needs, at the exact
+  moment it uses the key. A non-extractable `CryptoKey` is a browser-level
+  guard against *exporting* the key material — it does not stop code that
+  is already executing in the page from using the key. If you navigate to
+  a compromised build of this site, that build can read your key while it
+  makes a request.
+- **It does not protect against provider-side storage.** Once your key
+  travels to `api.openai.com` (or the provider you chose), it exists in
+  that provider's systems and is subject to *their* security and logging.
+
+Bottom line: AES-GCM at rest + non-extractable key is a meaningful defense
+against offline data theft, not a guarantee of absolute security. The
+strongest protection for a secret is still **not to store it at all** —
+use a local/self-hosted provider (WebLLM, Ollama, a local endpoint) for
+sensitive conversations when possible.
+
 ## WebLLM (local) mode
 
 When you select **WebLLM** as your provider, inference runs **entirely

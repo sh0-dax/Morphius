@@ -14,6 +14,8 @@ import { LocalSpeech, startLocalSTT, stopLocalSTT, generateLocalAudio, playLocal
 import { modelProgress } from './progress.js';
 import { getMasterVolume, setMasterVolume, setOutputDevice, routeOutput } from './masterBus.js';
 import { detectFeeling, visemeFor, DEFAULT_VISEME, VISEME_KEYS, contentToText, contentImages, buildUserContent, geminiContentParts, detectDeviceTier, recommendedWebLlmModel, createEventBus } from './pure.js';
+import { computeVisionFeeling, decideVisionCommentary, getSpeakHint, displayClass, VISION_SPEAK_CLASSES, canRunCameraPipeline } from './visionLogic.js';
+import { STATE_TARGETS, EMOTION_TARGETS, FEELING_TARGETS, VISION_TARGETS, STATE_COLORS, FEELING_COLORS, LIGHT_PRESETS } from './presets.js';
 import { saveSession, loadSession, listSessions, deleteSession, getLastSession, buildSession, makeSessionId, sanitizeMessages, sessionTitle } from './chatStore.js';
 
 // ---- i18n (lightweight loader, EN fallback, dir flip for RTL) ----
@@ -262,41 +264,8 @@ function resetIdleLife() {
   headBaseY = null;
 }
 
-const STATE_TARGETS = {
-  idle: { eyeBlinkLeft: 0.12, eyeBlinkRight: 0.12, mouthClose: 0.15, jawOpen: 0.0 },
-  listening: { eyeWideLeft: 0.55, eyeWideRight: 0.55, browInnerUp: 0.45, browOuterUpLeft: 0.3, browOuterUpRight: 0.3, jawOpen: 0.12, mouthPucker: 0.1 },
-  thinking: { eyeLookUpLeft: 0.6, eyeLookUpRight: 0.6, browDownLeft: 0.4, browDownRight: 0.35, mouthPucker: 0.35, mouthRollLower: 0.2, jawOpen: 0.05 },
-  responding: { mouthSmileLeft: 0.55, mouthSmileRight: 0.55, jawOpen: 0.35, cheekPuff: 0.15, eyeSquintLeft: 0.2, eyeSquintRight: 0.2, browInnerUp: 0.25 },
-  alert: { eyeWideLeft: 0.95, eyeWideRight: 0.95, browDownLeft: 0.75, browDownRight: 0.75, mouthFrownLeft: 0.55, mouthFrownRight: 0.55, jawOpen: 0.25, noseSneerLeft: 0.3, noseSneerRight: 0.3 },
-};
-
-// Expression overlay used in "emotion detect" mirror mode (layer on top of STATE_TARGETS).
-const EMOTION_TARGETS = {
-  happy: { mouthSmileLeft: 0.5, mouthSmileRight: 0.5, cheekPuff: 0.12, eyeSquintLeft: 0.25, eyeSquintRight: 0.25 },
-  upset: { browDownLeft: 0.5, browDownRight: 0.45, mouthFrownLeft: 0.45, mouthFrownRight: 0.45, jawOpen: 0.1 },
-  surprised: { eyeWideLeft: 0.6, eyeWideRight: 0.6, browInnerUp: 0.5, browOuterUpLeft: 0.4, browOuterUpRight: 0.4, jawOpen: 0.25 },
-  curious: { browInnerUp: 0.45, eyeLookUpLeft: 0.35, eyeLookUpRight: 0.35, mouthPucker: 0.2 },
-  neutral: {},
-};
-
-// Expression overlay used by sentiment-driven feeling colors (layered last,
-// so it wins over state/mirror defaults while the sentiment is active).
-const FEELING_TARGETS = {
-  happy: { mouthSmileLeft: 0.5, mouthSmileRight: 0.5, cheekPuff: 0.12, eyeSquintLeft: 0.25, eyeSquintRight: 0.25 },
-  sad: { browInnerUp: 0.35, browDownLeft: 0.3, browDownRight: 0.3, mouthFrownLeft: 0.35, mouthFrownRight: 0.35, eyeSquintLeft: 0.2, eyeSquintRight: 0.2 },
-  angry: { browDownLeft: 0.65, browDownRight: 0.6, mouthFrownLeft: 0.45, mouthFrownRight: 0.45, eyeSquintLeft: 0.3, eyeSquintRight: 0.3, noseSneerLeft: 0.25, noseSneerRight: 0.25 },
-  surprised: EMOTION_TARGETS.surprised,
-  scared: { eyeWideLeft: 0.7, eyeWideRight: 0.7, browInnerUp: 0.5, browOuterUpLeft: 0.4, browOuterUpRight: 0.4, jawOpen: 0.2, mouthStretchLeft: 0.15, mouthStretchRight: 0.15 },
-  love: { mouthSmileLeft: 0.45, mouthSmileRight: 0.45, cheekPuff: 0.1, browInnerUp: 0.2, eyeSquintLeft: 0.2, eyeSquintRight: 0.2 },
-  neutral: {},
-};
-
-// Expression overlay applied when AI Vision detects a person while the avatar
-// is idle. Subtle "engaged" look layered like emotion/feeling targets.
-const VISION_TARGETS = {
-  active: { eyeLookUpLeft: 0.3, eyeLookUpRight: 0.3, browInnerUp: 0.25, mouthSmileLeft: 0.2, mouthSmileRight: 0.2 },
-};
-
+// Expression/preset data tables (STATE_TARGETS, EMOTION_TARGETS,
+// FEELING_TARGETS, VISION_TARGETS) now live in js/presets.js.
 // Optional manual morph-name remap (set by the morph mapping screen).
 // Maps a canonical slot name (e.g. 'jawOpen') to a different morph name on the model.
 let morphMap = null;
@@ -429,33 +398,8 @@ function buildDefaultVrmMap(vrm) {
   } catch (e) { defaultVrmMap = null; }
 }
 
-const STATE_COLORS = {
-  idle:     { emissive: 0x2f81f7, wire: 0x7dd3fc, ambient: 0x020810, pulse: '#070c16', pulseOp: 0.0 },
-  listening:{ emissive: 0x00d4aa, wire: 0x5fffd4, ambient: 0x001a12, pulse: '#003d2e', pulseOp: 0.15 },
-  thinking: { emissive: 0xffaa00, wire: 0xffd700, ambient: 0x1a1200, pulse: '#3d2e00', pulseOp: 0.2 },
-  responding:{ emissive: 0x00aaff, wire: 0x88ddff, ambient: 0x001a33, pulse: '#003d66', pulseOp: 0.25 },
-  alert:    { emissive: 0xff2244, wire: 0xff6b7a, ambient: 0x1a0005, pulse: '#3d000a', pulseOp: 0.4 },
-};
-
-// Sentiment-driven feeling colors (blended over STATE_COLORS while active).
-const FEELING_COLORS = {
-  happy:     { emissive: 0xffb84d, wire: 0xffe0a3, ambient: 0x3a2a08, pulse: '#ffb84d', pulseOp: 0.30 },
-  sad:       { emissive: 0x5b8bf7, wire: 0xa9c4ff, ambient: 0x08123a, pulse: '#3f5bd9', pulseOp: 0.25 },
-  angry:     { emissive: 0xff4747, wire: 0xff9a8a, ambient: 0x3a0808, pulse: '#ff4747', pulseOp: 0.35 },
-  surprised: { emissive: 0xc46bff, wire: 0xe6c2ff, ambient: 0x26083a, pulse: '#c46bff', pulseOp: 0.30 },
-  scared:    { emissive: 0x7fd4ff, wire: 0xc2ecff, ambient: 0x08263a, pulse: '#7fd4ff', pulseOp: 0.25 },
-  love:      { emissive: 0xff7ab5, wire: 0xffc2dc, ambient: 0x3a0820, pulse: '#ff7ab5', pulseOp: 0.30 },
-  neutral:   { emissive: 0x2f81f7, wire: 0x7dd3fc, ambient: 0x020810, pulse: '#070c16', pulseOp: 0.0 },
-};
-
-// Global lighting presets (configurable). The ambient light lerps toward these values.
-const LIGHT_PRESETS = {
-  blueprint: { color: 0x2f81f7, intensity: 0.4 },
-  matrix:    { color: 0x00ff7f, intensity: 0.5 },
-  warm:      { color: 0xffb56b, intensity: 0.62 },
-  soft:      { color: 0xf4f7ff, intensity: 0.5 },
-  noir:      { color: 0xffffff, intensity: 0.22 },
-};
+// Color/lighting preset tables (STATE_COLORS, FEELING_COLORS, LIGHT_PRESETS)
+// now live in js/presets.js.
 let lightPresetName = 'blueprint';
 const lightTargetColor = new THREE.Color(LIGHT_PRESETS.blueprint.color);
 let lightTargetIntensity = LIGHT_PRESETS.blueprint.intensity;
@@ -1763,6 +1707,14 @@ function updateMirrorUI() {
 
 cfgMirror.addEventListener('change', async () => {
   if (cfgMirror.checked) {
+    const gate = canRunCameraPipeline({ tier: detectDeviceTier(), requested: 'mirror', otherActive: visionActive });
+    if (!gate.allowed) {
+      cfgMirror.checked = false;
+      if (mirrorStatus) { mirrorStatus.className = 'status-pill warn'; mirrorStatus.textContent = 'MIRROR OFF — AI VISION IS USING THE CAMERA (LOW-POWER DEVICE)'; }
+      updateMirrorUI();
+      saveSettings();
+      return;
+    }
     const ok = await startMirror();
     if (!ok) {
       cfgMirror.checked = false;
@@ -1806,16 +1758,8 @@ let visionLastCommentAt = 0;
 let visionFeelingActive = false;
 let visionFeelingLabel = '';
 
+// App-level cooldown for proactive commentary (pure decision logic lives in visionLogic.js).
 const VISION_COMMENT_COOLDOWN = 25000;
-// Map seen COCO classes to a feeling label for avatar sentiment.
-const VISION_FEELING_MAP = {
-  'person': 'love',
-  'cat': 'happy', 'dog': 'happy', 'horse': 'happy', 'sheep': 'happy',
-  'cow': 'happy', 'elephant': 'happy', 'bear': 'happy', 'zebra': 'happy',
-  'giraffe': 'happy', 'bird': 'happy',
-};
-// Classes the avatar will proactively call out (out loud) when they appear.
-const VISION_SPEAK_CLASSES = new Set(['person', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', 'bird']);
 
 function handleVisionDetections(detections) {
   visionPersonPresent = detections.some((d) => d.class === 'person');
@@ -1824,29 +1768,20 @@ function handleVisionDetections(detections) {
   const newClasses = new Set([...classes].filter((c) => !visionLastClasses.has(c)));
   visionLastClasses = classes;
 
-  // ---- Vision -> Feeling (always applies) ----
+  // ---- Vision -> Feeling (pure decision, applied as a side effect) ----
   if (visionReact && cfgFeelingMode && cfgFeelingMode.value !== 'off') {
-    if (visionPersonPresent && VISION_FEELING_MAP.person) {
-      setVisionFeeling(VISION_FEELING_MAP.person, 0);
-    } else if (newClasses.size) {
-      const firstNew = [...newClasses][0];
-      if (VISION_FEELING_MAP[firstNew]) setVisionFeeling(VISION_FEELING_MAP[firstNew], 0);
-      else { setVisionFeeling('surprised', 1600); }
-    } else if (classes.size === 0) {
-      clearVisionFeeling();
-    } else {
-      const anyMapped = [...classes].find((c) => VISION_FEELING_MAP[c]);
-      if (anyMapped) setVisionFeeling(VISION_FEELING_MAP[anyMapped], 0);
-    }
+    const feeling = computeVisionFeeling({ personPresent: visionPersonPresent, classes, prevClasses: visionLastClasses });
+    if (feeling.action === 'clear') clearVisionFeeling();
+    else if (feeling.action === 'feeling') setVisionFeeling(feeling.label, feeling.lingerMs);
   }
 
-  // ---- Vision -> Audio (proactive commentary) ----
-  if (visionActive && !visionPaused && visionCommentary && newClasses.size) {
-    const firstNew = [...newClasses][0];
-    if (VISION_SPEAK_CLASSES.has(firstNew) || firstNew === 'person') {
-      speakVisionCommentary(firstNew);
-    }
-  }
+  // ---- Vision -> Audio (pure decision, applied as a side effect) ----
+  const comment = decideVisionCommentary({
+    active: visionActive, paused: visionPaused, commentaryEnabled: visionCommentary,
+    state: S.currentState, speaking: S.speaking, ttsSpeaking: S.isTtsSpeaking, ttsMuted: S.ttsMuted,
+    newClasses, nowMs: performance.now(), lastCommentAt: visionLastCommentAt, cooldownMs: VISION_COMMENT_COOLDOWN,
+  });
+  if (comment.speak) speakVisionCommentary(comment.className);
 
   // ---- Status pill ----
   let summary = '';
@@ -1875,17 +1810,15 @@ function clearVisionFeeling() {
 }
 
 function speakVisionCommentary(className) {
-  if (S.speaking || S.isTtsSpeaking || S.ttsMuted) return;
-  if (S.currentState !== 'idle') return;
   const now = performance.now();
-  if (now - visionLastCommentAt < VISION_COMMENT_COOLDOWN) return;
   let line;
-  if (className === 'person') {
+  const hint = getSpeakHint(className, VISION_SPEAK_CLASSES);
+  if (hint.type === 'person') {
     line = t('vision.comment.person', 'I see a person.');
-  } else if (VISION_SPEAK_CLASSES.has(className)) {
-    line = t('vision.comment.animal', 'I see {obj}!').replace('{obj}', className);
+  } else if (hint.type === 'animal') {
+    line = t('vision.comment.animal', 'I see {obj}!').replace('{obj}', displayClass(className));
   } else {
-    line = t('vision.comment.generic', 'I see {obj}.').replace('{obj}', className);
+    line = t('vision.comment.generic', 'I see {obj}.').replace('{obj}', displayClass(className));
   }
   visionLastCommentAt = now;
   speakUnified(line, cfgTtsLang ? cfgTtsLang.value : 'en-US');
@@ -1990,6 +1923,13 @@ function toggleVisionPause() {
 
 cfgVision.addEventListener('change', async () => {
   if (cfgVision.checked) {
+    const gate = canRunCameraPipeline({ tier: detectDeviceTier(), requested: 'vision', otherActive: Mirror.active });
+    if (!gate.allowed) {
+      cfgVision.checked = false;
+      if (visionStatus) { visionStatus.className = 'status-pill warn'; visionStatus.textContent = 'VISION: PAUSED — FACE MIRROR IS USING THE CAMERA (LOW-POWER DEVICE)'; }
+      updateVisionUI();
+      return;
+    }
     const ok = await startVision();
     if (!ok) cfgVision.checked = false;
   } else {

@@ -12,7 +12,8 @@
 [![WebLLM](https://img.shields.io/badge/WebLLM-100%25_Local-ffaa00?style=for-the-badge&logo=webgpu&logoColor=white)]()
 [![PWA](https://img.shields.io/badge/Installable-PWA-2f81f7?style=for-the-badge&logo=pwa&logoColor=white)]()
 [![i18n](https://img.shields.io/badge/i18n-6_Locales-ec4899?style=for-the-badge&logo=google-translate&logoColor=white)]()
-[![Build](https://img.shields.io/badge/Build-None_Required-00d4aa?style=for-the-badge&logo=node.js&logoColor=white)]()
+[![Tests](https://img.shields.io/badge/Tests-98_passing-00d4aa?style=for-the-badge&logo=vitest&logoColor=white)]()
+[![CI](https://github.com/sh0-dax/Morphius/actions/workflows/deploy.yml/badge.svg)](https://github.com/sh0-dax/Morphius/actions/workflows/deploy.yml)
 [![Status](https://img.shields.io/badge/Status-v6.0.0_Ready-22c55e?style=for-the-badge)]()
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](./LICENSE)
 
@@ -171,7 +172,7 @@ Run the test suite:
 
 ```bash
 npm install
-npm test        # vitest run → 47/47 passing
+npm test        # vitest run → all suites pass (see CI/CD §12)
 ```
 
 ---
@@ -217,7 +218,7 @@ Key internal modules:
 - **Webcam face mirror** (`mirror.js`) — copy your own expressions to the avatar.
 - **AI Vision** (`vision.js`) — opt-in Settings toggle; real-time on-device object detection (YOLO26n one-to-one via WebGPU, COCO-SSD fallback). Live detections label + status pill, pause/resume button, and an optional avatar reaction when a person is detected.
 - **SiriWave alternative** — toggleable without changing the default face.
-- **Encrypted key vault** — AES-GCM, non-extractable, IndexedDB (never plain text).
+- **Encrypted key vault** — AES-GCM, non-extractable, IndexedDB (never plain text). *Limits: this protects data at rest; it does not stop XSS or in-page code from using the key while a request runs (see [PRIVACY.md](PRIVACY.md)).*
 - **Onboarding flow** — first-run step-by-step setup.
 - **Model downloads** — progress surfaced to the HUD via `progress.js`.
 - **7 bundled GLB models** including FaceCap (CDN), ARKit 52, robot, raccoon, android, and more.
@@ -261,14 +262,17 @@ Toggle **Settings → Vision** and enable **Real-time object detection (AI Visio
 
 ## 12\. CI/CD & QA
 
-Deploys automatically to **GitHub Pages** on every push to `main` via `.github/workflows/deploy.yml` (pages-artifact → deploy-pages).
+Every push to `main` runs a **mandatory test gate** (`.github/workflows/deploy.yml` → `test` job): `node --check` on every JS module plus the full vitest suite. If any check fails, the **deploy is blocked** — broken code never reaches production Pages. The `deploy` job only runs after the `test` gate passes.
 
 | Suite | File | Tests |
 |------|------|-------|
 | Chat store (IndexedDB) | `tests/chatStore.test.mjs` | 13 |
-| Pure helpers | `tests/pure.test.mjs` | 27 |
+| Pure helpers | `tests/pure.test.mjs` | 47 |
+| AI Vision logic (pure) | `tests/visionLogic.test.mjs` | 31 |
 | i18n parity | `tests/i18n.test.mjs` | 7 |
-| **Total (unit)** | | **47** |
+| **Total (unit)** | | **98** |
+
+CodeQL static analysis also runs on push/PR (`.github/workflows/codeql.yml`).
 
 Per-phase Playwright E2E gates across development phases A–H (chat, multimodal, models, audio bus, i18n, PWA, idle-life, lighting): **126 checks passing**.
 
