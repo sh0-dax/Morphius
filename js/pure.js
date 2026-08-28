@@ -182,3 +182,74 @@ export function createEventBus(onHandlerError) {
   }
   return { on, off, emit };
 }
+
+// ============================================================
+// Vision helpers (DOM-free) — used by js/vision.js and unit-tested
+// in tests so the parsing math doesn't need a browser.
+// ============================================================
+
+// Intersection-over-Union of two [x, y, w, h] boxes.
+export function iou(a, b) {
+  const [ax, ay, aw, ah] = a.bbox;
+  const [bx, by, bw, bh] = b.bbox;
+  const x1 = Math.max(ax, bx), y1 = Math.max(ay, by);
+  const x2 = Math.min(ax + aw, bx + bw), y2 = Math.min(ay + ah, by + bh);
+  const inter = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+  const union = aw * ah + bw * bh - inter;
+  return union <= 0 ? 0 : inter / union;
+}
+
+// Greedy non-max-suppression. NOTE: currently UNUSED by the live YOLO26
+// one-to-one path in vision.js (one-to-one already returns final boxes, so no
+// NMS is needed). Kept here only for a possible future one-to-many export or
+// for tests — don't assume it's part of the active pipeline.
+export function nonMaxSuppression(boxes, iouThreshold = 0.5) {
+  const sorted = [...boxes].sort((a, b) => b.score - a.score);
+  const keep = [];
+  while (sorted.length) {
+    const best = sorted.shift();
+    keep.push(best);
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      if (iou(best, sorted[i]) > iouThreshold) sorted.splice(i, 1);
+    }
+  }
+  return keep;
+}
+
+// Parse a YOLO26 ONNX **one-to-one** output tensor into normalized detections.
+// Contract (see vision.js for the full rationale / Ultralytics link):
+//   - output is a flat array shaped [1, 300, 6]  (300 boxes per image)
+//   - each box row is [x1, y1, x2, y2, score, class] in ABSOLUTE pixel coords
+//     in letterboxed (640x640) input space
+//   - one-to-one outputs are already end-to-end NMS-free
+// Returns detections of the form { class, score, bbox: [x, y, w, h] } where
+// bbox is normalized to [0..1] in the ORIGINAL video's coordinate space.
+// `letterbox` = { scale, dx, dy } from preprocessForYolo() so we can undo the
+// letterbox; `videoW`/`videoH` are the source video's pixel dimensions.
+export function parseYoloOneToOne(data, dims, { scale, dx, dy, videoW, videoH, scoreThreshold = 0.45 }) {
+  // dims is [1, 300, 6] → 300 boxes, 6 values each. The box count is the
+  // middle dimension (dims[1]); each iteration reads a 6-wide row at i*6.
+  const numBoxes = dims[1];
+  const out = [];
+  for (let i = 0; i < numBoxes; i++) {
+    const row = i * 6;
+    const score = data[row + 4];
+    if (score < scoreThreshold) continue;
+    const x1 = data[row + 0];
+    const y1 = data[row + 1];
+    const x2 = data[row + 2];
+    const y2 = data[row + 3];
+    const cls = data[row + 5];
+    // undo letterbox to original video space, then normalize
+    const x = (x1 - dx) / scale;
+    const y = (y1 - dy) / scale;
+    const w = (x2 - x1) / scale;
+    const h = (y2 - y1) / scale;
+    out.push({
+      class: Math.round(cls),
+      score,
+      bbox: [x / videoW, y / videoH, w / videoW, h / videoH],
+    });
+  }
+  return out;
+}

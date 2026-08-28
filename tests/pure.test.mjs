@@ -13,6 +13,9 @@ import {
   detectDeviceTier,
   recommendedWebLlmModel,
   createEventBus,
+  iou,
+  nonMaxSuppression,
+  parseYoloOneToOne,
 } from '../js/pure.js';
 import { getMasterVolume, setMasterVolume, getOutputDevice, setOutputDevice, routeOutput } from '../js/masterBus.js';
 
@@ -277,5 +280,91 @@ describe('createEventBus', () => {
   it('does nothing when emitting an event with no listeners', () => {
     const bus = createEventBus();
     expect(() => bus.emit('unknownEvent', {})).not.toThrow();
+  });
+});
+
+describe('iou / nonMaxSuppression (vision helpers)', () => {
+  it('computes IoU = 1 for identical boxes', () => {
+    expect(iou({ bbox: [0, 0, 10, 10] }, { bbox: [0, 0, 10, 10] })).toBeCloseTo(1, 5);
+  });
+
+  it('computes IoU = 0 for non-overlapping boxes', () => {
+    expect(iou({ bbox: [0, 0, 10, 10] }, { bbox: [20, 20, 10, 10] })).toBe(0);
+  });
+
+  it('computes a fractional IoU for partial overlap', () => {
+    // box A 10x10; box B w=5,h=10 shifted right by 5 → overlap 5x10=50,
+    // union = 100 + 50 - 50 = 100 → IoU = 0.5
+    expect(iou({ bbox: [0, 0, 10, 10] }, { bbox: [5, 0, 5, 10] })).toBeCloseTo(0.5, 5);
+  });
+
+  it('drops overlapping lower-scored boxes (NMS)', () => {
+    const keep = nonMaxSuppression([
+      { bbox: [0, 0, 10, 10], score: 0.9 },
+      { bbox: [1, 1, 10, 10], score: 0.3 },
+      { bbox: [50, 50, 10, 10], score: 0.8 },
+    ]);
+    expect(keep.length).toBe(2);
+    expect(keep.map((d) => d.score).sort((a, b) => b - a)).toEqual([0.9, 0.8]);
+  });
+
+  it('respects a custom IoU threshold', () => {
+    const keep = nonMaxSuppression([
+      { bbox: [0, 0, 10, 10], score: 0.9 },
+      { bbox: [1, 1, 10, 10], score: 0.3 },
+    ], 0.05); // tiny threshold → even small overlap collapses the pair
+    expect(keep.length).toBe(1);
+  });
+});
+
+describe('parseYoloOneToOne (YOLO26 one-to-one output)', () => {
+  // Square 640x640 video → scale=1, dx=0, dy=0; normalized == absolute/640.
+  const lb = { scale: 1, dx: 0, dy: 0, videoW: 640, videoH: 640 };
+
+  it('parses [1, 300, 6] rows into normalized [x, y, w, h] bboxes in [0..1]', () => {
+    // One confident box "person" (class 0) covering [160,160,320,320] (→ 0.25,0.25,0.25,0.25)
+    const data = new Float32Array(300 * 6);
+    data.fill(0);
+    // box 0: score 0.9, class 0
+    data[0 + 0] = 160; data[0 + 1] = 160; data[0 + 2] = 320; data[0 + 3] = 320;
+    data[0 + 4] = 0.9; data[0 + 5] = 0;
+
+    const dets = parseYoloOneToOne(data, [1, 300, 6], lb);
+    expect(dets.length).toBe(1);
+    expect(dets[0].score).toBeCloseTo(0.9, 5);
+    expect(dets[0].class).toBe(0);
+    expect(dets[0].bbox[0]).toBeCloseTo(0.25, 5);
+    expect(dets[0].bbox[1]).toBeCloseTo(0.25, 5);
+    expect(dets[0].bbox[2]).toBeCloseTo(0.25, 5);
+    expect(dets[0].bbox[3]).toBeCloseTo(0.25, 5);
+    expect(dets[0].bbox.every((v) => v >= 0 && v <= 1)).toBe(true);
+  });
+
+  it('filters out boxes below the score threshold', () => {
+    const data = new Float32Array(300 * 6);
+    data.fill(0);
+    data[0 + 4] = 0.1; // low confidence
+    data[6 + 4] = 0.99; // high confidence (box 1)
+    const dets = parseYoloOneToOne(data, [1, 300, 6], lb);
+    expect(dets.length).toBe(1);
+    expect(dets[0].score).toBeCloseTo(0.99, 5);
+  });
+
+  it('undoes letterbox so coords land in original video space', () => {
+    // 1280x720 video scaled to 640x640 → scale=0.5, dx=0, dy=140
+    const letterbox = { scale: 0.5, dx: 0, dy: 140, videoW: 1280, videoH: 720 };
+    const data = new Float32Array(300 * 6);
+    data.fill(0);
+    // a box [0,140,640,500] in letterbox space covers the full real frame
+    data[0 + 0] = 0; data[0 + 1] = 140; data[0 + 2] = 640; data[0 + 3] = 500;
+    data[0 + 4] = 0.8; data[0 + 5] = 1; // "bicycle"
+
+    const dets = parseYoloOneToOne(data, [1, 300, 6], letterbox);
+    expect(dets.length).toBe(1);
+    // x1=(0-0)/0.5/1280=0 ; y1=(140-140)/0.5/720=0 ; w=640/0.5/1280=1 ; h=360/0.5/720=1
+    expect(dets[0].bbox[0]).toBeCloseTo(0, 5);
+    expect(dets[0].bbox[1]).toBeCloseTo(0, 5);
+    expect(dets[0].bbox[2]).toBeCloseTo(1, 5);
+    expect(dets[0].bbox[3]).toBeCloseTo(1, 5);
   });
 });
