@@ -1271,12 +1271,12 @@ async function initScene() {
 
   const colorA = new THREE.Color();
   const colorB = new THREE.Color();
-  let t = 0;
+  let animT = 0;
 
   function animate() {
     timer.update();
     const delta = timer.getDelta();
-    t += delta;
+    animT += delta;
     if (mixer) mixer.update(delta);
 
     S.talkPulse = Math.max(0, S.talkPulse - delta * 1.8);
@@ -1353,7 +1353,7 @@ async function initScene() {
       }
 
       if (S.speaking || S.phonemeIntensity > 0.03) {
-        applyPhonemeShape(t);
+        applyPhonemeShape(animT);
       }
 
       if (currentVRM && currentVRM.expressionManager) {
@@ -1370,7 +1370,7 @@ async function initScene() {
         }
       }
 
-      const pillTick = Math.floor(t * 2);
+      const pillTick = Math.floor(animT * 2);
       if (_mirrorPillTick !== pillTick && Mirror.active && cfgMirror && cfgMirror.checked && mirrorStatus) {
         _mirrorPillTick = pillTick;
         updateMirrorUI();
@@ -1380,7 +1380,7 @@ async function initScene() {
         const li = morphIndex('eyeWideLeft');
         const ri = morphIndex('eyeWideRight');
         if (li !== undefined && ri !== undefined) {
-          const twitch = Math.sin(t * 15) * 0.08;
+          const twitch = Math.sin(animT * 15) * 0.08;
           influences[li] += twitch;
           influences[ri] += twitch;
         }
@@ -1388,8 +1388,8 @@ async function initScene() {
 
       if (head) {
         const intensity = S.currentState === 'alert' ? 2.5 : (S.currentState === 'responding' ? 1.5 : 1);
-        head.rotation.y = Math.sin(t * 0.4 * intensity) * 0.06;
-        head.rotation.x = Math.sin(t * 0.28 * intensity) * 0.03;
+        head.rotation.y = Math.sin(animT * 0.4 * intensity) * 0.06;
+        head.rotation.x = Math.sin(animT * 0.28 * intensity) * 0.03;
       }
     }
 
@@ -1447,7 +1447,7 @@ async function initScene() {
       document.getElementById('elapsedLabel').textContent = '';
     }
 
-    document.getElementById('hudCoord').textContent = 'X:' + (Math.sin(t * 0.7) * 99 + 150).toFixed(0).padStart(3, '0') + ' Y:' + (Math.cos(t * 0.5) * 99 + 150).toFixed(0).padStart(3, '0');
+    document.getElementById('hudCoord').textContent = 'X:' + (Math.sin(animT * 0.7) * 99 + 150).toFixed(0).padStart(3, '0') + ' Y:' + (Math.cos(animT * 0.5) * 99 + 150).toFixed(0).padStart(3, '0');
     document.getElementById('hudClock').textContent = new Date().toTimeString().slice(0, 8);
     const freqLive = audioAnalyser || LocalSpeech.analyser;
     const hudFreqEl = document.getElementById('hudFreq');
