@@ -104,6 +104,8 @@ async function initCocoSsd() {
   // eslint-disable-next-line no-undef
   await tf.setBackend('webgl');
   // eslint-disable-next-line no-undef
+  await tf.ready(); // resolve once the WebGL backend is fully initialized to avoid a race with the model load
+  // eslint-disable-next-line no-undef
   cocoModel = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
   backend = 'coco-ssd-webgl';
 }

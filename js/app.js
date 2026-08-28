@@ -1834,7 +1834,9 @@ function setVisionStatus(state, extra) {
     visionStatus.textContent = t('vision.status.starting', 'VISION: STARTING...');
   } else if (state === 'err') {
     visionStatus.className = 'status-pill err';
-    visionStatus.textContent = t('vision.status.error', 'VISION: UNAVAILABLE');
+    const base = t('vision.status.error', 'VISION: UNAVAILABLE');
+    visionStatus.textContent = extra ? `${base} (${extra})` : base;
+    visionStatus.title = extra ? base : '';
   } else if (state === 'on') {
     visionStatus.className = 'status-pill ok';
     visionStatus.textContent = extra || visionBackendName;
@@ -1892,7 +1894,8 @@ async function startVision() {
   } catch (err) {
     console.warn('[vision] start failed:', err);
     stopVision();
-    setVisionStatus('err');
+    const reason = err && err.message ? String(err.message).slice(0, 70) : 'error';
+    setVisionStatus('err', reason);
     return false;
   }
 }
