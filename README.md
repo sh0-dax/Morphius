@@ -1,14 +1,3 @@
-```
- ███╗   ███╗ ██████╗ ██████╗ ██████╗ ██╗  ██╗██╗██╗   ██╗███████╗
- ████╗ ████║██╔═══██╗██╔══██╗██╔══██╗██║  ██║██║██║   ██║██╔════╝
- ██╔████╔██║██║   ██║██████╔╝██████╔╝███████║██║██║   ██║███████╗
- ██║╚██╔╝██║██║   ██║██╔══██╗██╔══██╗██╔══██║██║██║   ██║╚════██║
- ██║ ╚═╝ ██║╚██████╔╝██║  ██║██║  ██║██║  ██║██║╚██████╔╝███████║
- ╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝ ╚═════╝ ╚══════╝
-```
-
----
-
 # Morphius — Reactive AI Face & Voice Assistant
 
 <p align="center">
@@ -38,7 +27,7 @@
 
 **Table of Contents**
 
-[Why Morphius?](#why-morphius) · [1. System Architecture](#1-system-architecture-overview) · [2. Face & State Engine](#2-face--state-engine) · [3. Voice & Audio](#3-voice--audio) · [4. Chat & Persistence](#4-chat--persistence) · [5. i18n & Platform](#5-i18n--platform) · [6. Repository Layout](#6-repository-layout) · [7. Quick Start](#7-quick-start) · [8. Providers](#8-providers) · [9. Runtime API](#9-runtime-api--programmatic-control) · [10. Advanced Features](#10-advanced-features) · [11. Browser Support](#11-browser-support) · [12. CI/CD & QA](#12-cicd--qa) · [13. Roadmap](#13-roadmap) · [14. Contributing](#14-contributing) · [15. License](#15-license)
+[Why Morphius?](#why-morphius) · [1. System Architecture](#1-system-architecture-overview) · [2. Face & State Engine](#2-face--state-engine) · [3. Voice & Audio](#3-voice--audio) · [4. Chat & Persistence](#4-chat--persistence) · [5. i18n & Platform](#5-i18n--platform) · [7. Quick Start](#7-quick-start) · [8. Providers](#8-providers) · [9. Runtime API](#9-runtime-api--programmatic-control) · [10. Advanced Features](#10-advanced-features) · [11. Browser Support](#11-browser-support) · [12. CI/CD & QA](#12-cicd--qa) · [13. Roadmap](#13-roadmap) · [14. Contributing](#14-contributing) · [15. License](#15-license)
 
 ---
 
@@ -95,22 +84,6 @@ User Input
 ## 1\. System Architecture Overview
 
 Morphius is a zero-build client-side application. All logic is plain ES modules loaded directly by the browser; a service worker provides an offline app shell and cache-first delivery for pinned dependencies.
-
-### Runtime Request Flow
-
-```mermaid
-graph TD
-    A[User message] --> B[chatStore persist]
-    B --> C[state -> thinking]
-    C --> D[Provider router]
-    D -- cloud --> E[Gemini / OpenAI / Ollama]
-    D -- local --> F[WebLLM (WebGPU)]
-    E --> G[stream tokens]
-    F --> G
-    G --> H[state -> responding]
-    H --> I[viseme + TTS synthesis]
-    I --> J[face morphs + audio render]
-```
 
 ### Core Pillars
 
@@ -194,34 +167,6 @@ Real `AudioAnalyser` data drives the HUD (waveform · energy · frequency) with 
 - **BOM-free JSON**: enforced to avoid encoding corruption.
 - **PWA**: installable, offline app shell, 192/512 + maskable icons, SVG favicon.
 - **Accessibility**: `prefers-reduced-motion`, visible `:focus-visible`, `aria-live` regions.
-
----
-
-## 6\. Repository Layout
-
-```
-Morphius/
-├── .github/
-│   └── workflows/deploy.yml          # GitHub Pages CD (push to main)
-├── css/
-│   └── styles.css                    # Design tokens, layout, components, responsive
-├── js/
-│   ├── app.js                        # Core: face engine, states, providers, settings
-│   ├── pure.js                       # DOM-free helpers (feelings, visemes, URL/parts utils)
-│   ├── mirror.js                     # Webcam → blendshape mirror
-│   ├── localSpeech.js                # Whisper STT · Kokoro/MMS TTS
-│   ├── chatStore.js                  # IndexedDB session store
-│   ├── masterBus.js                  # Volume + output-device routing
-│   └── progress.js                   # Model-download progress → HUD
-├── i18n/                             # en · ar · fr · de · es · ja (145 keys each)
-├── models/                           # 7 GLB face models + models/manifest.json
-├── assets/                           # icon-192/512.png · icon.svg · screenshots/
-├── tests/                            # Vitest suites (47 tests)
-├── index.html                        # App shell
-├── sw.js                             # Service worker (app-shell cache)
-├── manifest.json                     # PWA manifest
-├── package.json · LICENSE · README.md
-```
 
 ---
 
