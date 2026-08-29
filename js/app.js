@@ -958,7 +958,7 @@ let orbitControls = null;
 let projectionShowActive = false;
 
 // ---- Reusable model loader ----
-const FACECAP_URL = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/facecap.glb';
+const FACECAP_URL = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r183/examples/models/gltf/facecap.glb';
 let sceneFitFn = null;
 let sceneMatsFn = null;
 

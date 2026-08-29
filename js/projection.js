@@ -48,19 +48,19 @@ const PROJECTION_GALLERY = [
   {
     id: 'damaged_helmet',
     name: 'خوذة متضررة',
-    url: 'https://cdn.jsdelivr.net/gh/khronos/gltf-sample-models@main/Models/DamagedHelmet/glTF/DamagedHelmet.gltf',
+    url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/DamagedHelmet/glTF/DamagedHelmet.gltf',
     sizeKB: 1700,
   },
   {
     id: 'fox',
     name: 'ثعلب',
-    url: 'https://cdn.jsdelivr.net/gh/khronos/gltf-sample-models@main/Models/Fox/glTF/Fox.gltf',
+    url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/Fox/glTF/Fox.gltf',
     sizeKB: 200,
   },
   {
     id: 'water_bottle',
     name: 'قارورة ماء',
-    url: 'https://cdn.jsdelivr.net/gh/khronos/gltf-sample-models@main/Models/WaterBottle/glTF/WaterBottle.gltf',
+    url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/WaterBottle/glTF/WaterBottle.gltf',
     sizeKB: 1100,
   },
 ];
