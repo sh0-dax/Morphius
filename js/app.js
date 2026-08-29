@@ -18,6 +18,7 @@ import { computeVisionFeeling, decideVisionCommentary, getSpeakHint, displayClas
 import { STATE_TARGETS, EMOTION_TARGETS, FEELING_TARGETS, VISION_TARGETS, STATE_COLORS, FEELING_COLORS, LIGHT_PRESETS } from './presets.js';
 import { saveSession, loadSession, listSessions, deleteSession, getLastSession, buildSession, makeSessionId, sanitizeMessages, sessionTitle } from './chatStore.js';
 import { createProjectionManager } from './projection.js';
+import { startHandTracking, stopHandTracking } from './handTracking.js';
 
 // ---- i18n (lightweight loader, EN fallback, dir flip for RTL) ----
 const I18N_FILES = { en: 'i18n/en.json', ar: 'i18n/ar.json', fr: 'i18n/fr.json', de: 'i18n/de.json', es: 'i18n/es.json', ja: 'i18n/ja.json' };
@@ -1284,8 +1285,13 @@ async function initScene() {
     headRef: () => head,
     onStatus: (msg, type) => showStatus(msg, type),
     onProjectionChange: (s) => {
-      if (s && s.hasModel && !projectionShowActive) enterModelShow();
-      else if ((!s || !s.hasModel) && projectionShowActive) exitModelShow();
+      if (s && s.hasModel && !projectionShowActive) {
+        enterModelShow();
+        startHandTrackingForProjection();
+      } else if ((!s || !s.hasModel) && projectionShowActive) {
+        exitModelShow();
+        stopHandTrackingForProjection();
+      }
     },
   });
 
@@ -3206,9 +3212,185 @@ function exitModelShow() {
   }
 }
 
-// ============================================================
-// Speech-to-Text
-// ============================================================
+// ------------------------------------------------------------
+// Hand Tracking for Projection Gesture Control
+// ------------------------------------------------------------
+let handTrackingActive = false;
+let handTrackingHUD = null;
+
+function createHandTrackingHUD() {
+  if (handTrackingHUD) return handTrackingHUD;
+  const el = document.createElement('div');
+  el.id = 'handTrackingHUD';
+  el.style.cssText = `
+    position: fixed;
+    bottom: 80px;
+    right: 16px;
+    z-index: 1000;
+    background: rgba(7, 12, 22, 0.85);
+    border: 1px solid rgba(0, 255, 200, 0.35);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: var(--font-ui, system-ui, sans-serif);
+    font-size: 13px;
+    color: #00ffc8;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    min-width: 160px;
+  `;
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+      <span id="handHUDIcon" style="font-size:16px;">&#x270B;</span>
+      <span id="handHUDStatus" style="font-weight:600;">جاري التهيئة...</span>
+    </div>
+    <div style="height:6px;background:rgba(0,0,0,0.5);border-radius:3px;overflow:hidden;">
+      <div id="handHUDPinchBar" style="height:100%;width:0%;background:linear-gradient(90deg,#00ffc8,#0088ff);transition:width 0.1s;"></div>
+    </div>
+    <div id="handHUDHint" style="margin-top:4px;font-size:11px;opacity:0.7;"></div>
+  `;
+  document.body.appendChild(el);
+  handTrackingHUD = el;
+  return el;
+}
+
+function updateHandTrackingHUD(state) {
+  const hud = createHandTrackingHUD();
+  const statusEl = document.getElementById('handHUDStatus');
+  const pinchBar = document.getElementById('handHUDPinchBar');
+  const hintEl = document.getElementById('handHUDHint');
+  const iconEl = document.getElementById('handHUDIcon');
+
+  if (!statusEl || !pinchBar || !hintEl || !iconEl) return;
+
+  if (state.active) {
+    hud.style.opacity = '1';
+    if (state.hasHand) {
+      statusEl.textContent = t('handTracking.active', 'يد: نشط');
+      iconEl.textContent = '&#x270B;';
+      iconEl.style.opacity = '1';
+      pinchBar.style.width = `${Math.round((state.pinchStrength || 0) * 100)}%`;
+      hintEl.textContent = t('handTracking.hint', 'قرّب الإبهام والسبابة للتكبير، حرّك اليد للتدوير');
+    } else {
+      statusEl.textContent = t('handTracking.noHand', 'يد: لا توجد يد في الإطار');
+      iconEl.textContent = '&#x270B;';
+      iconEl.style.opacity = '0.4';
+      pinchBar.style.width = '0%';
+      hintEl.textContent = t('handTracking.showHand', 'أظهر يدك للكاميرا');
+    }
+  } else {
+    hud.style.opacity = '0';
+  }
+}
+
+function removeHandTrackingHUD() {
+  if (handTrackingHUD) {
+    handTrackingHUD.remove();
+    handTrackingHUD = null;
+  }
+}
+
+async function ensureVisionStreamForHandTracking() {
+  // If vision stream already running (from Vision or Mirror), reuse it
+  if (visionStream && visionVideo && visionVideo.readyState >= 2) {
+    return true;
+  }
+  // Otherwise prompt for camera specifically for hand tracking
+  const msg = t('handTracking.cameraPrompt', 'لتفعيل التحكم بالأصابع، نحتاج إذن الكاميرا');
+  const confirmed = window.confirm(msg);
+  if (!confirmed) {
+    showStatus(t('handTracking.cameraDeclined', 'تم رفض إذن الكاميرا — سيعمل الماوس/اللمس فقط'), 'warn');
+    return false;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+    });
+    if (!visionVideo) {
+      visionVideo = document.createElement('video');
+      visionVideo.muted = true;
+      visionVideo.setAttribute('playsinline', '');
+      visionVideo.setAttribute('autoplay', '');
+      visionVideo.style.display = 'none';
+      document.body.appendChild(visionVideo);
+    }
+    visionStream = stream;
+    visionVideo.srcObject = stream;
+    await visionVideo.play();
+    return true;
+  } catch (e) {
+    console.warn('Hand tracking camera denied:', e);
+    showStatus(t('handTracking.cameraError', 'تعذر الوصول للكاميرا'), 'err');
+    return false;
+  }
+}
+
+let handTrackingCleanup = null;
+
+async function startHandTrackingForProjection() {
+  if (handTrackingActive) return;
+  handTrackingActive = true;
+
+  const ok = await ensureVisionStreamForHandTracking();
+  if (!ok) {
+    handTrackingActive = false;
+    return;
+  }
+
+  if (!visionVideo) {
+    handTrackingActive = false;
+    return;
+  }
+
+  try {
+    handTrackingCleanup = await startHandTracking(visionVideo, {
+      onGesture: (delta) => {
+        if (!orbitControls) return;
+        // Pinch zoom: delta.pinchDist is normalized pinch distance
+        // We track previous pinch to compute relative delta
+        if (delta.pinchDist !== undefined) {
+          if (typeof startHandTrackingForProjection.prevPinch === 'number') {
+            const pinchDelta = startHandTrackingForProjection.prevPinch - delta.pinchDist; // positive = pinch closer = zoom in
+            if (Math.abs(pinchDelta) > 0.015) { // dead zone
+              const zoomFactor = 1 + pinchDelta * 2.5; // sensitivity
+              const newDist = orbitControls.distance * zoomFactor;
+              orbitControls.distance = THREE.MathUtils.clamp(newDist, orbitControls.minDistance, orbitControls.maxDistance);
+              orbitControls.update();
+            }
+          }
+          startHandTrackingForProjection.prevPinch = delta.pinchDist;
+        } else {
+          startHandTrackingForProjection.prevPinch = undefined;
+        }
+
+        // Rotate: horizontal = azimuth, vertical = polar
+        if (delta.rotateDeltaX !== undefined && Math.abs(delta.rotateDeltaX) > 0.001) {
+          orbitControls.rotateLeft(-delta.rotateDeltaX * 3); // sensitivity
+        }
+        if (delta.rotateDeltaY !== undefined && Math.abs(delta.rotateDeltaY) > 0.001) {
+          orbitControls.rotateUp(delta.rotateDeltaY * 3);
+        }
+      },
+      onStatusChange: (state) => {
+        updateHandTrackingHUD(state);
+      },
+    });
+    showStatus(t('handTracking.started', 'تتبع اليد نشط — استخدم الإيماءات للتحكم بالنموذج'), 'ok');
+  } catch (e) {
+    console.warn('Hand tracking start failed:', e);
+    showStatus(t('handTracking.initFailed', 'تعذر تهيئة تتبع اليد — سيعمل الماوس/اللمس فقط'), 'warn');
+    handTrackingActive = false;
+  }
+}
+
+function stopHandTrackingForProjection() {
+  if (!handTrackingActive) return;
+  handTrackingActive = false;
+  stopHandTracking();
+  removeHandTrackingHUD();
+  if (typeof startHandTrackingForProjection.prevPinch !== 'undefined') {
+    startHandTrackingForProjection.prevPinch = undefined;
+  }
+}
 const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognizer = null;
 let recognizing = false;

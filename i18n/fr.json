@@ -166,5 +166,14 @@
   "projection.title": "Projeter dans la scène",
   "projection.dropHint": "Déposez une image ou un modèle",
   "projection.unsupportedFormat": "Type de fichier non pris en charge",
-  "projection.done": "Projeté dans la scène"
+  "projection.done": "Projeté dans la scène",
+  "handTracking.active": "Main : Actif",
+  "handTracking.noHand": "Main : Aucune main détectée",
+  "handTracking.hint": "Pincez pouce + index pour zoomer, bougez la main pour pivoter",
+  "handTracking.showHand": "Montrez votre main à la caméra",
+  "handTracking.cameraPrompt": "Pour activer le contrôle au doigt, nous avons besoin de la permission caméra",
+  "handTracking.cameraDeclined": "Permission caméra refusée — souris/tactile uniquement",
+  "handTracking.cameraError": "Impossible d'accéder à la caméra",
+  "handTracking.started": "Suivi de main actif — utilisez les gestes pour contrôler le modèle",
+  "handTracking.initFailed": "Échec initialisation suivi main — souris/tactile uniquement"
 }

@@ -166,5 +166,14 @@
   "projection.title": "Project into scene",
   "projection.dropHint": "Drop image or model",
   "projection.unsupportedFormat": "Unsupported file type",
-  "projection.done": "Projected into the scene"
+  "projection.done": "Projected into the scene",
+  "handTracking.active": "Hand: Active",
+  "handTracking.noHand": "Hand: No hand in frame",
+  "handTracking.hint": "Pinch thumb + index to zoom, move hand to rotate",
+  "handTracking.showHand": "Show your hand to the camera",
+  "handTracking.cameraPrompt": "To enable finger control, we need camera permission",
+  "handTracking.cameraDeclined": "Camera permission declined — mouse/touch only",
+  "handTracking.cameraError": "Could not access camera",
+  "handTracking.started": "Hand tracking active — use gestures to control the model",
+  "handTracking.initFailed": "Failed to initialize hand tracking — mouse/touch only"
 }

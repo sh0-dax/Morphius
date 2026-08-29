@@ -166,5 +166,14 @@
   "projection.title": "عرض في المشهد",
   "projection.dropHint": "أفلت صورة أو نموذجًا هنا",
   "projection.unsupportedFormat": "نوع الملف غير مدعوم",
-  "projection.done": "تم العرض في المشهد"
+  "projection.done": "تم العرض في المشهد",
+  "handTracking.active": "يد: نشط",
+  "handTracking.noHand": "يد: لا توجد يد في الإطار",
+  "handTracking.hint": "قرّب الإبهام والسبابة للتكبير، حرّك اليد للتدوير",
+  "handTracking.showHand": "أظهر يدك للكاميرا",
+  "handTracking.cameraPrompt": "لتفعيل التحكم بالأصابع، نحتاج إذن الكاميرا",
+  "handTracking.cameraDeclined": "تم رفض إذن الكاميرا — سيعمل الماوس/اللمس فقط",
+  "handTracking.cameraError": "تعذر الوصول للكاميرا",
+  "handTracking.started": "تتبع اليد نشط — استخدم الإيماءات للتحكم بالنموذج",
+  "handTracking.initFailed": "تعذر تهيئة تتبع اليد — سيعمل الماوس/اللمس فقط"
 }

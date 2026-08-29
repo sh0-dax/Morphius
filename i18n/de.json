@@ -166,5 +166,14 @@
   "projection.title": "In die Szene projizieren",
   "projection.dropHint": "Bild oder Modell hier ablegen",
   "projection.unsupportedFormat": "Dateityp wird nicht unterstützt",
-  "projection.done": "In die Szene projiziert"
+  "projection.done": "In die Szene projiziert",
+  "handTracking.active": "Hand: Aktiv",
+  "handTracking.noHand": "Hand: Keine Hand erkannt",
+  "handTracking.hint": "Daumen + Zeigefinger zusammenziehen zum Zoomen, Hand bewegen zum Drehen",
+  "handTracking.showHand": "Zeigen Sie Ihre Hand der Kamera",
+  "handTracking.cameraPrompt": "Für Fingersteuerung benötigen wir Kamerazugriff",
+  "handTracking.cameraDeclined": "Kamerazugriff verweigert — nur Maus/Touch",
+  "handTracking.cameraError": "Kein Kamerazugriff möglich",
+  "handTracking.started": "Handtracking aktiv — nutzen Sie Gesten zur Modellsteuerung",
+  "handTracking.initFailed": "Handtracking-Initialisierung fehlgeschlagen — nur Maus/Touch"
 }

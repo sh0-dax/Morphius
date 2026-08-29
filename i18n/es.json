@@ -166,5 +166,14 @@
   "projection.title": "Proyectar en la escena",
   "projection.dropHint": "Suelta una imagen o modelo aquí",
   "projection.unsupportedFormat": "Tipo de archivo no compatible",
-  "projection.done": "Proyectado en la escena"
+  "projection.done": "Proyectado en la escena",
+  "handTracking.active": "Mano: Activa",
+  "handTracking.noHand": "Mano: No se detecta mano",
+  "handTracking.hint": "Pellizca pulgar + índice para zoom, mueve la mano para rotar",
+  "handTracking.showHand": "Muestra tu mano a la cámara",
+  "handTracking.cameraPrompt": "Para activar el control con dedos, necesitamos permiso de cámara",
+  "handTracking.cameraDeclined": "Permiso de cámara denegado — solo ratón/táctil",
+  "handTracking.cameraError": "No se pudo acceder a la cámara",
+  "handTracking.started": "Seguimiento de mano activo — usa gestos para controlar el modelo",
+  "handTracking.initFailed": "Falló la inicialización del seguimiento de mano — solo ratón/táctil"
 }

@@ -166,5 +166,14 @@
   "projection.title": "シーンに投影",
   "projection.dropHint": "画像またはモデルをドロップ",
   "projection.unsupportedFormat": "サポートされていないファイル形式です",
-  "projection.done": "シーンに投影しました"
+  "projection.done": "シーンに投影しました",
+  "handTracking.active": "手: アクティブ",
+  "handTracking.noHand": "手: 手が検出されません",
+  "handTracking.hint": "親指と人差し指を近づけてズーム、手を動かして回転",
+  "handTracking.showHand": "カメラに手を見せてください",
+  "handTracking.cameraPrompt": "指での操作を有効にするには、カメラの許可が必要です",
+  "handTracking.cameraDeclined": "カメラの許可が拒否されました — マウス/タッチのみ",
+  "handTracking.cameraError": "カメラにアクセスできません",
+  "handTracking.started": "手のトラッキングが有効 — ジェスチャーでモデルを操作",
+  "handTracking.initFailed": "手のトラッキング初期化に失敗 — マウス/タッチのみ"
 }
