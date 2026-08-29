@@ -964,7 +964,11 @@ let sceneMatsFn = null;
 
 function loadModel(url, fitFn, buildMatsFn) {
   return new Promise((resolve, reject) => {
-    if (!_gltfLoader || !_scene) { reject(new Error('Scene not ready')); return; }
+    if (!_scene) { reject(new Error('Scene not ready')); return; }
+
+    // Use plain loader for FaceCap (no KTX2), full loader for others
+    const loader = (url === FACECAP_URL && _plainGltfLoader) ? _plainGltfLoader : _gltfLoader;
+    if (!loader) { reject(new Error('Scene not ready')); return; }
 
     const loadMsg = document.getElementById('loadMsg');
     if (loadMsg) loadMsg.textContent = 'Loading model...';
@@ -980,7 +984,7 @@ function loadModel(url, fitFn, buildMatsFn) {
       return;
     }
 
-    _gltfLoader.load(url, (gltf) => {
+    loader.load(url, (gltf) => {
       clearTimeout(loadTimeout);
       dbg('GLTF loaded: ' + url.substring(0, 60), 'ok');
 
@@ -1333,6 +1337,9 @@ async function initScene() {
 
   const gltfLoader = new GLTFLoader().setKTX2Loader(ktx2Loader).setMeshoptDecoder(MeshoptDecoder);
   _gltfLoader = gltfLoader;
+
+  // Plain GLTFLoader for FaceCap (no KTX2 needed, avoids transcoder issues)
+  _plainGltfLoader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 
   const MODEL_MAP = {
     facecap: FACECAP_URL,
