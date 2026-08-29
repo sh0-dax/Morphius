@@ -162,5 +162,9 @@
   "voice.muted": "ミュート中",
   "voice.off": "音声 OFF",
   "voice.on": "音声 ON",
-  "voice.speaking": "発話中..."
+  "voice.speaking": "発話中...",
+  "projection.title": "シーンに投影",
+  "projection.dropHint": "画像またはモデルをドロップ",
+  "projection.unsupportedFormat": "サポートされていないファイル形式です",
+  "projection.done": "シーンに投影しました"
 }

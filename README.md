@@ -12,7 +12,7 @@
 [![WebLLM](https://img.shields.io/badge/WebLLM-100%25_Local-ffaa00?style=for-the-badge&logo=webgpu&logoColor=white)]()
 [![PWA](https://img.shields.io/badge/Installable-PWA-2f81f7?style=for-the-badge&logo=pwa&logoColor=white)]()
 [![i18n](https://img.shields.io/badge/i18n-6_Locales-ec4899?style=for-the-badge&logo=google-translate&logoColor=white)]()
-[![Tests](https://img.shields.io/badge/Tests-121_passing-00d4aa?style=for-the-badge&logo=vitest&logoColor=white)]()
+[![Tests](https://img.shields.io/badge/Tests-129_passing-00d4aa?style=for-the-badge&logo=vitest&logoColor=white)]()
 [![CI](https://github.com/sh0-dax/Morphius/actions/workflows/deploy.yml/badge.svg)](https://github.com/sh0-dax/Morphius/actions/workflows/deploy.yml)
 [![Status](https://img.shields.io/badge/Status-v6.0.0_Ready-22c55e?style=for-the-badge)]()
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](./LICENSE)
@@ -222,6 +222,7 @@ Key internal modules:
 - **Onboarding flow** — first-run step-by-step setup.
 - **Model downloads** — progress surfaced to the HUD via `progress.js`.
 - **7 bundled GLB models** including FaceCap (CDN), ARKit 52, robot, raccoon, android, and more.
+- **Scene projection** (`projection.js`) — drop or pick an image / `GLB` / `GLTF` / `VRM` file to beam it into the 3D scene as a hologram. Raycast gestures (pan, pinch-scale, rotate, double-tap reset, wheel) interact with the item while leaving OrbitControls untouched. Projecting a **model** enters a "show mode": the avatar face hides, the stage expands, the camera auto-frames and free-orbits the model, then everything restores on clear. Optional [anime.js v4](https://animejs.com) entry/float/**exit**/speaking-pulse polish degrades cleanly when offline or `prefers-reduced-motion`. Driven by the **⓪ projector** button in the composer or by drag-and-drop anywhere on the page; exposed programmatically via `window.AIFace.projectImage() / projectModel() / clearProjections()`.
 
 ### AI Vision
 
@@ -267,10 +268,10 @@ Every push to `main` runs a **mandatory test gate** (`.github/workflows/deploy.y
 | Suite | File | Tests |
 |-------|------|-------|
 | Chat store (IndexedDB) | `tests/chatStore.test.mjs` | 13 |
-| Pure helpers | `tests/pure.test.mjs` | 50 |
+| Pure helpers | `tests/pure.test.mjs` | 58 |
 | AI Vision logic (pure) | `tests/visionLogic.test.mjs` | 51 |
 | i18n parity | `tests/i18n.test.mjs` | 7 |
-| **Total (unit)** | | **121** |
+| **Total (unit)** | | **129** |
 
 CodeQL static analysis also runs on push/PR (`.github/workflows/codeql.yml`).
 

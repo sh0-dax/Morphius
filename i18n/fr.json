@@ -162,5 +162,9 @@
   "voice.muted": "COUPÉE",
   "voice.off": "Voix INACTIVE",
   "voice.on": "Voix ACTIVE",
-  "voice.speaking": "PARLE..."
+  "voice.speaking": "PARLE...",
+  "projection.title": "Projeter dans la scène",
+  "projection.dropHint": "Déposez une image ou un modèle",
+  "projection.unsupportedFormat": "Type de fichier non pris en charge",
+  "projection.done": "Projeté dans la scène"
 }

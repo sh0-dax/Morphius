@@ -196,6 +196,41 @@ export function lerpWeight(current, goal, rate) {
   return c + (goal - c) * rate;
 }
 
+// ---- Projection math (DOM-free, unit-tested) ----
+
+// Clamps a projection scale into the allowed range (0.3..4 in the UI).
+export function clampProjectionScale(scale, min = 0.3, max = 4) {
+  const s = Number.isFinite(scale) ? scale : 1;
+  return Math.min(max, Math.max(min, s));
+}
+
+// Fits an image of (w,h) to a target max width preserving aspect ratio.
+// Returns { w, h }. Falls back to a 1:1 plane for missing/zero dims.
+export function projectionFitAspect(imageW, imageH, maxWidth = 1.6) {
+  const w = Number.isFinite(imageW) && imageW > 0 ? imageW : 1;
+  const h = Number.isFinite(imageH) && imageH > 0 ? imageH : 1;
+  const aspect = w / h || 1;
+  const pw = maxWidth;
+  const ph = pw / aspect;
+  if (!Number.isFinite(ph) || ph <= 0) return { w: pw, h: pw };
+  return { w: pw, h: ph };
+}
+
+// Maps a raw pointer/touch state to a projection gesture intent.
+// Returns 'none' | 'pan' | 'pinch' | 'tap'. Used by the gesture layer to
+// decide whether to handle an event or pass it through to OrbitControls.
+export function classifyProjectionGesture(type, touchCount, moved, previous) {
+  if (type === 'pointerdown' || type === 'touchstart') {
+    if (touchCount >= 2) return 'pinch';
+    return 'pan';
+  }
+  if (type === 'pointerup' || type === 'touchend') {
+    if (touchCount < 2 && !moved) return 'tap';
+    return 'none';
+  }
+  return 'none';
+}
+
 // Intersection-over-Union of two [x, y, w, h] boxes.
 export function iou(a, b) {
   const [ax, ay, aw, ah] = a.bbox;

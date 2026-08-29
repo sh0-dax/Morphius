@@ -162,5 +162,9 @@
   "voice.muted": "MUTED",
   "voice.off": "Voice OFF",
   "voice.on": "Voice ON",
-  "voice.speaking": "SPEAKING..."
+  "voice.speaking": "SPEAKING...",
+  "projection.title": "Project into scene",
+  "projection.dropHint": "Drop image or model",
+  "projection.unsupportedFormat": "Unsupported file type",
+  "projection.done": "Projected into the scene"
 }

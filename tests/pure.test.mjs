@@ -17,6 +17,9 @@ import {
   nonMaxSuppression,
   parseYoloOneToOne,
   lerpWeight,
+  clampProjectionScale,
+  projectionFitAspect,
+  classifyProjectionGesture,
 } from '../js/pure.js';
 import { getMasterVolume, setMasterVolume, getOutputDevice, setOutputDevice, routeOutput } from '../js/masterBus.js';
 
@@ -385,5 +388,51 @@ describe('lerpWeight', () => {
     expect(Number.isNaN(r)).toBe(false);
     expect(r).toBeCloseTo(0.04, 5);
     expect(Number.isNaN(lerpWeight(NaN, 0.5, 0.08))).toBe(false);
+  });
+});
+
+describe('clampProjectionScale', () => {
+  it('clamps into the allowed range', () => {
+    expect(clampProjectionScale(0.1)).toBe(0.3);
+    expect(clampProjectionScale(99)).toBe(4);
+    expect(clampProjectionScale(1.5)).toBe(1.5);
+  });
+  it('honours custom min/max', () => {
+    expect(clampProjectionScale(0.01, 0.05, 6)).toBe(0.05);
+    expect(clampProjectionScale(50, 0.05, 6)).toBe(6);
+  });
+  it('falls back to 1 for NaN/undefined (no corruption)', () => {
+    expect(clampProjectionScale(NaN)).toBe(1);
+    expect(clampProjectionScale(undefined)).toBe(1);
+  });
+});
+
+describe('projectionFitAspect', () => {
+  it('fits landscape and portrait preserving aspect', () => {
+    const l = projectionFitAspect(2, 1, 1.6);
+    expect(l.w).toBeCloseTo(1.6, 5);
+    expect(l.h).toBeCloseTo(0.8, 5);
+    const p = projectionFitAspect(1, 2, 1.6);
+    expect(p.w).toBeCloseTo(1.6, 5);
+    expect(p.h).toBeCloseTo(3.2, 5);
+  });
+  it('falls back to 1:1 square for missing/zero dims', () => {
+    expect(projectionFitAspect(0, 0)).toEqual({ w: 1.6, h: 1.6 });
+  });
+});
+
+describe('classifyProjectionGesture', () => {
+  it('classifies touch start', () => {
+    expect(classifyProjectionGesture('touchstart', 1, false, null)).toBe('pan');
+    expect(classifyProjectionGesture('touchstart', 2, false, null)).toBe('pinch');
+  });
+  it('classifies touch end as tap only when not moved', () => {
+    expect(classifyProjectionGesture('touchend', 1, false, null)).toBe('tap');
+    expect(classifyProjectionGesture('touchend', 1, true, null)).toBe('none');
+    expect(classifyProjectionGesture('touchend', 2, false, null)).toBe('none');
+  });
+  it('returns none for everything else', () => {
+    expect(classifyProjectionGesture('pointermove', 1, false, null)).toBe('none');
+    expect(classifyProjectionGesture('wheel', 0, false, null)).toBe('none');
   });
 });

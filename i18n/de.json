@@ -162,5 +162,9 @@
   "voice.muted": "STUMM",
   "voice.off": "STIMME AUS",
   "voice.on": "STIMME AN",
-  "voice.speaking": "SPRICHT..."
+  "voice.speaking": "SPRICHT...",
+  "projection.title": "In die Szene projizieren",
+  "projection.dropHint": "Bild oder Modell hier ablegen",
+  "projection.unsupportedFormat": "Dateityp wird nicht unterstützt",
+  "projection.done": "In die Szene projiziert"
 }

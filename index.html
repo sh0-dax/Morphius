@@ -524,7 +524,9 @@
           <button id="imageChipRemove" aria-label="Remove image" style="padding:2px 8px;font-size:13px;border-color:var(--alert);color:var(--alert);background:transparent;">&#x2715;</button>
         </div>
         <input type="file" id="imageInput" accept="image/*" style="display:none">
+        <input type="file" id="projectionFileInput" accept="image/*,.glb,.gltf,.gltf,.bin,.vrm" style="display:none">
         <button id="attachBtn" class="mic-btn" title="Attach image" aria-label="Attach image">&#x1F5BC;</button>
+        <button id="btnProject" class="mic-btn" title="Project image or model into the scene" aria-label="Project image or model" data-tip="projection.title">&#x1F4F1;</button>
         <button id="micBtn" class="mic-btn" title="Talk (Ctrl+M)" aria-label="Start or stop voice input">&#x1F3A4;</button>
         <input type="text" id="chatInput" data-i18n-placeholder="chat.placeholder" placeholder="Type your message... or press mic" autocomplete="off">
         <button id="btnSend" aria-label="Send message" data-i18n="btn.send">Send</button>
@@ -630,7 +632,8 @@
       "@mediapipe/tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14",
       "@huggingface/transformers": "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1",
       "kokoro-js": "https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/dist/kokoro.web.js",
-      "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.1.2"
+      "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.1.2",
+      "animejs": "https://cdn.jsdelivr.net/npm/animejs@4.0.0/lib/anime.esm.min.js"
     }
   }
   </script>

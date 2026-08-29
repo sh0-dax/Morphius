@@ -162,5 +162,9 @@
   "voice.muted": "مكتوم",
   "voice.off": "الصوت معطل",
   "voice.on": "الصوت مفعل",
-  "voice.speaking": "يتحدث..."
+  "voice.speaking": "يتحدث...",
+  "projection.title": "عرض في المشهد",
+  "projection.dropHint": "أفلت صورة أو نموذجًا هنا",
+  "projection.unsupportedFormat": "نوع الملف غير مدعوم",
+  "projection.done": "تم العرض في المشهد"
 }

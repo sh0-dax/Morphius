@@ -1677,3 +1677,45 @@ body.state-responding #bgPulse, body.state-listening #bgPulse { opacity: 0.25; }
   border-radius: 6px;
   border: 1px solid var(--panel-border);
 }
+
+
+/* ============================================================
+   Projection subsystem
+   ============================================================ */
+
+/* #btnProject shares .mic-btn styling; add a projector glyph accent. */
+#btnProject:hover { filter: brightness(1.2); }
+
+/* Full-window drag & drop overlay (highlight when files hovered). */
+body.drag-over::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  border: 3px dashed rgba(0, 255, 200, 0.45);
+  background: rgba(2, 3, 6, 0.45);
+  z-index: 9998;
+  pointer-events: none;
+}
+body.drag-over::after {
+  content: attr(data-drop-hint);
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #00ffc8;
+  font-size: 18px;
+  font-family: var(--font-ui, system-ui, sans-serif);
+  background: rgba(7, 12, 22, 0.85);
+  border: 1px solid rgba(0, 255, 200, 0.35);
+  border-radius: 10px;
+  padding: 14px 22px;
+  z-index: 9999;
+  pointer-events: none;
+}
+[dir="rtl"] body.drag-over::after { direction: rtl; }
+
+/* Model show mode — expanded stage while a model projection is active. */
+.stage.show-mode {
+  width: min(94vw, 92vh);
+  transition: width 0.45s ease;
+}

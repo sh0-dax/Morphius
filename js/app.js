@@ -17,6 +17,7 @@ import { detectFeeling, visemeFor, DEFAULT_VISEME, VISEME_KEYS, contentToText, c
 import { computeVisionFeeling, decideVisionCommentary, getSpeakHint, displayClass, VISION_SPEAK_CLASSES, canRunCameraPipeline, computeNewClasses, splitBands } from './visionLogic.js';
 import { STATE_TARGETS, EMOTION_TARGETS, FEELING_TARGETS, VISION_TARGETS, STATE_COLORS, FEELING_COLORS, LIGHT_PRESETS } from './presets.js';
 import { saveSession, loadSession, listSessions, deleteSession, getLastSession, buildSession, makeSessionId, sanitizeMessages, sessionTitle } from './chatStore.js';
+import { createProjectionManager } from './projection.js';
 
 // ---- i18n (lightweight loader, EN fallback, dir flip for RTL) ----
 const I18N_FILES = { en: 'i18n/en.json', ar: 'i18n/ar.json', fr: 'i18n/fr.json', de: 'i18n/de.json', es: 'i18n/es.json', ja: 'i18n/ja.json' };
@@ -875,6 +876,7 @@ function setSpeaking(v) {
   S.lastActivityAt = performance.now();
   document.getElementById('stateVal').textContent = stateLabelText(S.currentState);
   if (v !== was) emitAIFaceEvent('speakingChange', { speaking: v });
+  if (projection && typeof projection.setSpeaking === 'function') projection.setSpeaking(!!v);
 }
 
 function onToken() {
@@ -950,6 +952,9 @@ let _ktx2Loader = null;
 let _camera = null;
 let _currentModelGroup = null;
 let currentVRM = null;
+let projection = null;
+let orbitControls = null;
+let projectionShowActive = false;
 
 // ---- Reusable model loader ----
 const FACECAP_URL = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/facecap.glb';
@@ -1274,6 +1279,16 @@ async function initScene() {
   faceCanvas = renderer.domElement;
   _renderer = renderer;
 
+  projection = createProjectionManager({
+    scene, camera, renderer,
+    headRef: () => head,
+    onStatus: (msg, type) => showStatus(msg, type),
+    onProjectionChange: (s) => {
+      if (s && s.hasModel && !projectionShowActive) enterModelShow();
+      else if ((!s || !s.hasModel) && projectionShowActive) exitModelShow();
+    },
+  });
+
   const environment = new RoomEnvironment();
   const pmremGenerator = new THREE.PMREMGenerator(renderer);
   scene.environment = pmremGenerator.fromScene(environment, 0.04).texture;
@@ -1289,6 +1304,7 @@ async function initScene() {
   controls.maxAzimuthAngle = Math.PI / 2;
   controls.maxPolarAngle = Math.PI / 1.8;
   controls.target.set(0, 0.15, -0.2);
+  orbitControls = controls;
 
   function fit() {
     const rect = stage.getBoundingClientRect();
@@ -3038,6 +3054,157 @@ if (imageInput) imageInput.addEventListener('change', async () => {
   }
 });
 if (imageChipRemove) imageChipRemove.addEventListener('click', clearImageChip);
+
+// ============================================================
+// Projection (image holograms + GLB/GLTF/VRM models)
+// ============================================================
+const btnProject = document.getElementById('btnProject');
+const projectionFileInput = document.getElementById('projectionFileInput');
+
+const MODEL_EXTS = ['glb', 'gltf', 'vrm'];
+const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif'];
+
+function fileKind(file) {
+  const ext = (file.name || '').split('.').pop().toLowerCase();
+  if (MODEL_EXTS.includes(ext)) return 'model';
+  if (IMAGE_TYPES.includes(file.type) || (file.type || '').startsWith('image/')) return 'image';
+  return null;
+}
+
+async function handleProjectionFile(file) {
+  if (!projection || !file) return;
+  const kind = fileKind(file);
+  if (kind === 'image') {
+    const item = await projection.projectImage(file);
+    if (item) showStatus(t('projection.done', 'Projected image'), 'ok');
+  } else if (kind === 'model') {
+    const item = await projection.projectModel(file);
+    if (item) showStatus(t('projection.done', 'Projected model'), 'ok');
+  } else {
+    showStatus(t('projection.unsupportedFormat', 'Unsupported file'), 'warn');
+  }
+}
+
+if (btnProject) {
+  btnProject.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (projectionFileInput) projectionFileInput.click();
+  });
+}
+
+if (projectionFileInput) {
+  projectionFileInput.addEventListener('change', async () => {
+    const file = projectionFileInput.files && projectionFileInput.files[0];
+    projectionFileInput.value = '';
+    if (file) await handleProjectionFile(file);
+  });
+}
+
+// Drag & drop (anywhere in the app shell) for images and models.
+let dragDepth = 0;
+document.body.setAttribute('data-drop-hint', t('projection.dropHint', 'Drop image or model'));
+window.addEventListener('dragenter', (e) => {
+  e.preventDefault();
+  if (e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files')) {
+    dragDepth++;
+    document.body.classList.add('drag-over');
+  }
+});
+window.addEventListener('dragover', (e) => { e.preventDefault(); });
+window.addEventListener('dragleave', (e) => {
+  e.preventDefault();
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (dragDepth === 0) document.body.classList.remove('drag-over');
+});
+window.addEventListener('drop', async (e) => {
+  e.preventDefault();
+  dragDepth = 0;
+  document.body.classList.remove('drag-over');
+  const files = Array.from((e.dataTransfer && e.dataTransfer.files) || []);
+  if (!files.length) return;
+  await handleProjectionFile(files[0]);
+});
+
+// Expose projection on the public embedding API.
+Object.assign(window.AIFace, {
+  projectImage: (src) => projection && projection.projectImage(src),
+  projectModel: (src) => projection && projection.projectModel(src),
+  clearProjections: () => projection && projection.clear(),
+});
+
+// ------------------------------------------------------------
+// Model "show mode" — face-hide, stage-expand, auto-frame,
+// free-orbit, restore. Driven by onProjectionChange({hasModel}).
+// ------------------------------------------------------------
+let projectionSavedOrbit = null;
+
+function projectionModelVisible() {
+  return !!(projection && projection.items().some((i) => i.userData && i.userData.type === 'model'));
+}
+
+function enterModelShow() {
+  if (projectionShowActive) return;
+  const stage = document.querySelector('.stage');
+  const c = orbitControls;
+  projectionShowActive = true;
+
+  // free-orbit: save + widen constraints so the user can orbit the model
+  if (c && !projectionSavedOrbit) {
+    projectionSavedOrbit = {
+      minAzimuthAngle: c.minAzimuthAngle,
+      maxAzimuthAngle: c.maxAzimuthAngle,
+      maxPolarAngle: c.maxPolarAngle,
+      minDistance: c.minDistance,
+      maxDistance: c.maxDistance,
+      target: c.target ? c.target.clone() : null,
+      cameraPos: _camera ? _camera.position.clone() : null,
+      currentModelVisible: _currentModelGroup ? _currentModelGroup.visible : true,
+    };
+    c.minAzimuthAngle = -Math.PI;
+    c.maxAzimuthAngle = Math.PI;
+    c.maxPolarAngle = Math.PI * 0.9;
+    c.minDistance = 1.2;
+    c.maxDistance = 12;
+  }
+
+  // stage-expand
+  if (stage) stage.classList.add('show-mode');
+
+  // face-hide: hide the avatar while a model projection is shown
+  if (_currentModelGroup) _currentModelGroup.visible = false;
+
+  // auto-frame: point the orbit target at the projected model center
+  const mi = projection && projection.items().find((i) => i.userData && i.userData.type === 'model');
+  if (mi && c && c.target) {
+    const box = new THREE.Box3().setFromObject(mi);
+    const center = box.getCenter(new THREE.Vector3());
+    c.target.copy(center);
+  }
+}
+
+function exitModelShow() {
+  if (!projectionShowActive) return;
+  const stage = document.querySelector('.stage');
+  const c = orbitControls;
+  projectionShowActive = false;
+
+  if (stage) stage.classList.remove('show-mode');
+
+  // restore face visibility unless a projection still owns that state
+  if (!projectionModelVisible() && _currentModelGroup) {
+    _currentModelGroup.visible = projectionSavedOrbit ? projectionSavedOrbit.currentModelVisible : true;
+  }
+
+  if (c && projectionSavedOrbit) {
+    c.minAzimuthAngle = projectionSavedOrbit.minAzimuthAngle;
+    c.maxAzimuthAngle = projectionSavedOrbit.maxAzimuthAngle;
+    c.maxPolarAngle = projectionSavedOrbit.maxPolarAngle;
+    c.minDistance = projectionSavedOrbit.minDistance;
+    c.maxDistance = projectionSavedOrbit.maxDistance;
+    if (projectionSavedOrbit.target && c.target) c.target.copy(projectionSavedOrbit.target);
+    projectionSavedOrbit = null;
+  }
+}
 
 // ============================================================
 // Speech-to-Text

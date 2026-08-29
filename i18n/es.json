@@ -162,5 +162,9 @@
   "voice.muted": "SILENCIADO",
   "voice.off": "VOZ DESACTIVADA",
   "voice.on": "VOZ ACTIVADA",
-  "voice.speaking": "HABLANDO..."
+  "voice.speaking": "HABLANDO...",
+  "projection.title": "Proyectar en la escena",
+  "projection.dropHint": "Suelta una imagen o modelo aquí",
+  "projection.unsupportedFormat": "Tipo de archivo no compatible",
+  "projection.done": "Proyectado en la escena"
 }
