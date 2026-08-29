@@ -17,7 +17,7 @@ import { detectFeeling, visemeFor, DEFAULT_VISEME, VISEME_KEYS, contentToText, c
 import { computeVisionFeeling, decideVisionCommentary, getSpeakHint, displayClass, VISION_SPEAK_CLASSES, canRunCameraPipeline, computeNewClasses, splitBands } from './visionLogic.js';
 import { STATE_TARGETS, EMOTION_TARGETS, FEELING_TARGETS, VISION_TARGETS, STATE_COLORS, FEELING_COLORS, LIGHT_PRESETS } from './presets.js';
 import { saveSession, loadSession, listSessions, deleteSession, getLastSession, buildSession, makeSessionId, sanitizeMessages, sessionTitle } from './chatStore.js';
-import { createProjectionManager } from './projection.js';
+import { createProjectionManager, PROJECTION_GALLERY, MATERIAL_MODES } from './projection.js';
 import { startHandTracking, stopHandTracking } from './handTracking.js';
 
 // ---- i18n (lightweight loader, EN fallback, dir flip for RTL) ----
@@ -3084,7 +3084,7 @@ async function handleProjectionFile(file) {
     const item = await projection.projectImage(file);
     if (item) showStatus(t('projection.done', 'Projected image'), 'ok');
   } else if (kind === 'model') {
-    const item = await projection.projectModel(file);
+    const item = await projection.loadProjectionFromSource(file);
     if (item) showStatus(t('projection.done', 'Projected model'), 'ok');
   } else {
     showStatus(t('projection.unsupportedFormat', 'Unsupported file'), 'warn');
@@ -3104,6 +3104,115 @@ if (projectionFileInput) {
     projectionFileInput.value = '';
     if (file) await handleProjectionFile(file);
   });
+}
+
+// Inject gallery UI and material mode toggle
+injectProjectionGalleryUI();
+injectMaterialModeToggle();
+
+// ------------------------------------------------------------
+// Gallery picker UI
+// ------------------------------------------------------------
+function createProjectionGalleryUI() {
+  const container = document.createElement('div');
+  container.id = 'projectionGallery';
+  container.style.cssText = 'display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;';
+  container.setAttribute('dir', 'ltr');
+
+  PROJECTION_GALLERY.forEach((model) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'gallery-btn';
+    btn.dataset.galleryId = model.id;
+    btn.title = `${model.name} (${model.sizeKB} KB)`;
+    btn.style.cssText = `
+      display:flex;flex-direction:column;align-items:center;gap:4px;
+      padding:8px 12px;background:rgba(0,255,200,0.08);
+      border:1px solid rgba(0,255,200,0.3);border-radius:8px;
+      color:#00ffc8;font-size:12px;cursor:pointer;
+      transition:all 0.2s;min-width:70px;
+    `;
+    btn.innerHTML = `<span style="font-size:20px;">${getModelEmoji(model.id)}</span><span>${model.name}</span>`;
+    btn.addEventListener('mouseenter', () => btn.style.background = 'rgba(0,255,200,0.18)');
+    btn.addEventListener('mouseleave', () => btn.style.background = 'rgba(0,255,200,0.08)');
+    btn.addEventListener('click', async () => {
+      if (!projection) return;
+      showStatus(t('projection.loadingGallery', 'جاري تحميل {name}...', { name: model.name }), 'info');
+      const item = await projection.loadProjectionFromSource(model.url);
+      if (item) {
+        showStatus(t('projection.done', 'Projected {name}', { name: model.name }), 'ok');
+        // Persist gallery selection
+        await saveProjectionState({ type: 'gallery', id: model.id, materialMode: projection.getMaterialMode() });
+      } else {
+        showStatus(t('projection.loadFailed', 'فشل تحميل {name}', { name: model.name }), 'err');
+      }
+    });
+    container.appendChild(btn);
+  });
+
+  return container;
+}
+
+function getModelEmoji(id) {
+  const emojis = { damaged_helmet: '🪖', fox: '🦊', water_bottle: '🍼' };
+  return emojis[id] || '📦';
+}
+
+// Inject gallery UI after projection file input
+function injectProjectionGalleryUI() {
+  const projectionFileInput = document.getElementById('projectionFileInput');
+  if (!projectionFileInput) return;
+  const existing = document.getElementById('projectionGallery');
+  if (existing) existing.remove();
+  const galleryUI = createProjectionGalleryUI();
+  projectionFileInput.parentNode.insertBefore(galleryUI, projectionFileInput.nextSibling);
+}
+
+// Material mode toggle UI
+function createMaterialModeToggle() {
+  const container = document.createElement('div');
+  container.id = 'materialModeToggle';
+  container.style.cssText = 'margin-top:12px;padding:10px;background:rgba(0,255,200,0.05);border:1px solid rgba(0,255,200,0.2);border-radius:8px;';
+  container.innerHTML = `
+    <label style="display:flex;align-items:center;gap:8px;color:#00ffc8;font-size:13px;cursor:pointer;">
+      <input type="checkbox" id="materialModeCheckbox" style="width:18px;height:18px;accent-color:#00ffc8;">
+      <span id="materialModeLabel">${t('projection.materialModeBlueprint', 'الوضع: Blueprint (سلكي + توهج)')}</span>
+    </label>
+  `;
+  const checkbox = container.querySelector('#materialModeCheckbox');
+  const label = container.querySelector('#materialModeLabel');
+  // Set initial state from projection manager
+  if (projection) {
+    checkbox.checked = projection.getMaterialMode() === MATERIAL_MODES.BLUEPRINT;
+    label.textContent = checkbox.checked
+      ? t('projection.materialModeBlueprint', 'الوضع: Blueprint (سلكي + توهج)')
+      : t('projection.materialModeRealistic', 'الوضع: Realistic (المواد الأصلية)');
+  }
+  checkbox.addEventListener('change', () => {
+    const mode = checkbox.checked ? MATERIAL_MODES.BLUEPRINT : MATERIAL_MODES.REALISTIC;
+    if (projection) projection.setMaterialMode(mode);
+    label.textContent = checkbox.checked
+      ? t('projection.materialModeBlueprint', 'الوضع: Blueprint (سلكي + توهج)')
+      : t('projection.materialModeRealistic', 'الوضع: Realistic (المواد الأصلية)');
+    showStatus(checkbox.checked
+      ? t('projection.modeSwitchedBlueprint', 'تم التبديل إلى Blueprint')
+      : t('projection.modeSwitchedRealistic', 'تم التبديل إلى Realistic'), 'ok');
+    // Persist material mode preference
+    saveProjectionState({ materialMode: mode });
+  });
+  return container;
+}
+
+function injectMaterialModeToggle() {
+  const projectionFileInput = document.getElementById('projectionFileInput');
+  if (!projectionFileInput) return;
+  const existing = document.getElementById('materialModeToggle');
+  if (existing) existing.remove();
+  const toggleUI = createMaterialModeToggle();
+  // Insert after gallery if exists, else after projectionFileInput
+  const gallery = document.getElementById('projectionGallery');
+  const refNode = gallery || projectionFileInput;
+  refNode.parentNode.insertBefore(toggleUI, refNode.nextSibling);
 }
 
 // Drag & drop (anywhere in the app shell) for images and models.
@@ -3135,6 +3244,9 @@ window.addEventListener('drop', async (e) => {
 Object.assign(window.AIFace, {
   projectImage: (src) => projection && projection.projectImage(src),
   projectModel: (src) => projection && projection.projectModel(src),
+  loadProjectionFromSource: (src) => projection && projection.loadProjectionFromSource(src),
+  setMaterialMode: (mode) => projection && projection.setMaterialMode(mode),
+  getMaterialMode: () => projection && projection.getMaterialMode(),
   clearProjections: () => projection && projection.clear(),
 });
 
@@ -3391,6 +3503,89 @@ function stopHandTrackingForProjection() {
     startHandTrackingForProjection.prevPinch = undefined;
   }
 }
+
+// ------------------------------------------------------------
+// Projection Persistence (IndexedDB) — follows vault pattern
+// ------------------------------------------------------------
+const PROJECTION_DB = 'aiface_projection_store';
+const PROJECTION_STORE = 'state';
+
+function openProjectionDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(PROJECTION_DB, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(PROJECTION_STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function saveProjectionState(state) {
+  try {
+    const db = await openProjectionDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(PROJECTION_STORE, 'readwrite');
+      const store = tx.objectStore(PROJECTION_STORE);
+      const putReq = store.put(state, 'lastProjection');
+      putReq.onsuccess = () => resolve();
+      putReq.onerror = () => reject(putReq.error);
+    });
+  } catch (e) {
+    console.warn('Projection state save failed:', e);
+  }
+}
+
+async function loadProjectionState() {
+  try {
+    const db = await openProjectionDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(PROJECTION_STORE, 'readonly');
+      const store = tx.objectStore(PROJECTION_STORE);
+      const getReq = store.get('lastProjection');
+      getReq.onsuccess = () => resolve(getReq.result || null);
+      getReq.onerror = () => reject(getReq.error);
+    });
+  } catch (e) {
+    console.warn('Projection state load failed:', e);
+    return null;
+  }
+}
+
+async function restoreProjectionState() {
+  const state = await loadProjectionState();
+  if (!state) return;
+
+  // Restore material mode preference
+  if (state.materialMode && projection) {
+    projection.setMaterialMode(state.materialMode);
+  }
+
+  // If last model was a gallery entry, offer to restore
+  if (state.type === 'gallery' && state.id) {
+    const galleryItem = PROJECTION_GALLERY.find(m => m.id === state.id);
+    if (galleryItem) {
+      const confirmed = window.confirm(t('projection.restorePrompt', 'استعادة آخر نموذج ({name})؟', { name: galleryItem.name }));
+      if (confirmed) {
+        showStatus(t('projection.loadingGallery', 'جاري تحميل {name}...', { name: galleryItem.name }), 'info');
+        const item = await projection.loadProjectionFromSource(galleryItem.url);
+        if (item) {
+          showStatus(t('projection.done', 'Projected {name}', { name: galleryItem.name }), 'ok');
+          await saveProjectionState({ type: 'gallery', id: galleryItem.id, materialMode: projection.getMaterialMode() });
+        } else {
+          showStatus(t('projection.loadFailed', 'فشل تحميل {name}', { name: galleryItem.name }), 'err');
+        }
+      }
+    }
+  } else if (state.type === 'file') {
+    // User-uploaded file - can't restore the file, but material mode preference was restored above
+    if (state.materialMode) {
+      showStatus(t('projection.modeRestored', 'تم استعادة تفضيل الوضع: {mode}', { mode: state.materialMode }), 'ok');
+    }
+  }
+}
+
+// Call restore on app init (after projection manager is created)
+setTimeout(() => restoreProjectionState(), 1500);
+
 const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognizer = null;
 let recognizing = false;
@@ -3442,6 +3637,22 @@ if (!SpeechRecognitionCtor) {
     const combined = (finalTranscript + interim).trim();
     chatInput.value = combined;
     showCaption(combined);
+
+    // Voice-triggered projection activation
+    const cmd = combined.toLowerCase();
+    const projTriggers = [
+      'عرض النموذج', 'افتح النموذج', 'project model', 'show model',
+      'افتح البروجيكت', 'projection', 'البروجيكت'
+    ];
+    if (projTriggers.some(t => cmd.includes(t))) {
+      // Prevent sending to chat
+      chatInput.value = '';
+      // Trigger file input (or gallery)
+      const projectionFileInput = document.getElementById('projectionFileInput');
+      if (projectionFileInput) projectionFileInput.click();
+      showStatus(t('projection.voiceActivated', 'أمر صوتي: فتح مشروع النموذج'), 'ok');
+      return; // Don't send to chat
+    }
   };
 
   recognizer.onerror = (e) => {

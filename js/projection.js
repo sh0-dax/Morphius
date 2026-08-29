@@ -19,6 +19,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clampProjectionScale, projectionFitAspect, classifyProjectionGesture } from './pure.js';
+import { modelProgress } from './progress.js';
 
 let anime = null;
 try {
@@ -31,6 +32,38 @@ try {
 const FRAME_COLOR = 0x00ffc8;
 const SCALE_MIN = 0.3;
 const SCALE_MAX = 4;
+
+// Blueprint material style constants
+const BLUEPRINT_EMISSIVE = new THREE.Color(FRAME_COLOR);
+const BLUEPRINT_EMISSIVE_INTENSITY = 0.6;
+const BLUEPRINT_WIREFRAME_OPACITY = 0.35;
+const BLUEPRINT_WIREFRAME_LINEWIDTH = 1;
+
+const MATERIAL_MODES = {
+  BLUEPRINT: 'blueprint',
+  REALISTIC: 'realistic',
+};
+
+const PROJECTION_GALLERY = [
+  {
+    id: 'damaged_helmet',
+    name: 'خوذة متضررة',
+    url: 'https://cdn.jsdelivr.net/gh/khronos/gltf-sample-models@main/Models/DamagedHelmet/glTF/DamagedHelmet.gltf',
+    sizeKB: 1700,
+  },
+  {
+    id: 'fox',
+    name: 'ثعلب',
+    url: 'https://cdn.jsdelivr.net/gh/khronos/gltf-sample-models@main/Models/Fox/glTF/Fox.gltf',
+    sizeKB: 200,
+  },
+  {
+    id: 'water_bottle',
+    name: 'قارورة ماء',
+    url: 'https://cdn.jsdelivr.net/gh/khronos/gltf-sample-models@main/Models/WaterBottle/glTF/WaterBottle.gltf',
+    sizeKB: 1100,
+  },
+];
 
 function prefersReducedMotion() {
   return typeof window !== 'undefined' && window.matchMedia &&
@@ -45,7 +78,7 @@ export function createProjectionManager(opts = {}) {
     onProjectionChange = () => {},
   } = opts;
 
-  const noopApi = { projectImage: () => null, projectModel: () => null, clear: () => {}, destroy: () => {}, dispose: () => {} };
+  const noopApi = { projectImage: () => null, projectModel: () => null, loadProjectionFromSource: () => null, clear: () => {}, destroy: () => {}, dispose: () => {}, setMaterialMode: () => {} };
   if (!scene || !camera || !renderer) return noopApi;
 
   const dom = renderer.domElement;
@@ -56,6 +89,28 @@ export function createProjectionManager(opts = {}) {
   const items = new Set();
   let modelItem = null;
   const reducedMotion = prefersReducedMotion();
+
+  // Material registry: Map<Mesh, Material[]> - stores original materials per mesh
+  const materialRegistry = new Map();
+  let currentMaterialMode = MATERIAL_MODES.BLUEPRINT;
+
+  // Blueprint shared materials (reused across models, never disposed)
+  const blueprintMat = new THREE.MeshStandardMaterial({
+    color: 0x001122,
+    metalness: 0.1,
+    roughness: 0.8,
+    emissive: BLUEPRINT_EMISSIVE,
+    emissiveIntensity: BLUEPRINT_EMISSIVE_INTENSITY,
+    transparent: false,
+    depthWrite: true,
+  });
+  const blueprintWireMat = new THREE.MeshBasicMaterial({
+    color: FRAME_COLOR,
+    wireframe: true,
+    transparent: true,
+    opacity: BLUEPRINT_WIREFRAME_OPACITY,
+    depthWrite: false,
+  });
 
   const tmpVec = new THREE.Vector3();
   const raycaster = new THREE.Raycaster();
@@ -146,6 +201,72 @@ export function createProjectionManager(opts = {}) {
     rafId = requestAnimationFrame(loop);
   }
 
+  // ---- Blueprint / Realistic material mode handling ----
+  function captureOriginalMaterials(model) {
+    materialRegistry.clear();
+    model.traverse((child) => {
+      if (child.isMesh && child.material) {
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        // Clone materials to preserve originals (don't store references that could be modified)
+        const clonedMats = mats.map(m => m.clone());
+        materialRegistry.set(child, clonedMats);
+      }
+    });
+  }
+
+  function applyBlueprintStyle(model) {
+    model.traverse((child) => {
+      if (!child.isMesh) return;
+      // Apply blueprint material
+      child.material = blueprintMat;
+      // Add wireframe overlay
+      if (!child.userData.blueprintWireframe) {
+        const wire = new THREE.Mesh(child.geometry, blueprintWireMat);
+        wire.userData.blueprintWireframe = true;
+        wire.renderOrder = child.renderOrder + 1;
+        child.add(wire);
+        child.userData.blueprintWireframe = wire;
+      }
+    });
+  }
+
+  function restoreRealisticStyle(model) {
+    model.traverse((child) => {
+      if (!child.isMesh) return;
+      // Remove wireframe overlay
+      if (child.userData.blueprintWireframe) {
+        child.remove(child.userData.blueprintWireframe);
+        child.userData.blueprintWireframe = null;
+      }
+      // Restore original materials
+      const originalMats = materialRegistry.get(child);
+      if (originalMats) {
+        child.material = originalMats.length === 1 ? originalMats[0] : originalMats;
+      }
+    });
+  }
+
+  function setMaterialMode(mode) {
+    if (!MATERIAL_MODES[mode.toUpperCase()]) return false;
+    const newMode = MATERIAL_MODES[mode.toUpperCase()];
+    if (newMode === currentMaterialMode && !modelItem) return true;
+
+    currentMaterialMode = newMode;
+
+    if (!modelItem) return true;
+
+    if (newMode === MATERIAL_MODES.BLUEPRINT) {
+      applyBlueprintStyle(modelItem);
+    } else {
+      restoreRealisticStyle(modelItem);
+    }
+    return true;
+  }
+
+  function getMaterialMode() {
+    return currentMaterialMode;
+  }
+
   // ---- image projection ----
   async function loadTexture(source) {
     if (source instanceof Blob || (source && source.name)) {
@@ -209,8 +330,8 @@ export function createProjectionManager(opts = {}) {
     }
   }
 
-  // ---- GLB/VRM projection (self-contained loader) ----
-  async function projectModel(source) {
+  // ---- GLB/VRM projection with progress ----
+  async function loadProjectionFromSource(source) {
     let url;
     let owned = false;
     if (source instanceof Blob || (source && source.name)) {
@@ -219,47 +340,102 @@ export function createProjectionManager(opts = {}) {
     } else {
       url = String(source);
     }
-    try {
+
+    return new Promise((resolve, reject) => {
       const loader = new GLTFLoader();
-      const gltf = await loader.loadAsync(url);
-      const model = gltf.scene;
 
-      model.updateMatrixWorld(true);
-      const box = new THREE.Box3().setFromObject(model);
-      const size = box.getSize(new THREE.Vector3());
-      const center = box.getCenter(new THREE.Vector3());
-      model.position.sub(center);
-      const maxDim = Math.max(size.x, size.y, size.z) || 1;
-      const scale = clampProjectionScale(1.4 / maxDim, 0.05, 6);
-      model.scale.setScalar(scale);
+      // Show progress (indeterminate initially)
+      modelProgress(-1, 'جاري تحميل النموذج...');
 
-      const wrapper = new THREE.Group();
-      wrapper.name = 'model-projection';
-      wrapper.userData.isProjection = true;
-      wrapper.userData.type = 'model';
-      wrapper.userData.baseScale = 1;
-      wrapper.position.set(0, 0.1, 0);
-      wrapper.add(model);
+      loader.load(
+        url,
+        (gltf) => {
+          modelProgress(null);
+          try {
+            const model = gltf.scene;
 
-      if (modelItem) removeItem(modelItem);
-      modelItem = wrapper;
-      items.add(wrapper);
-      root.add(wrapper);
-      modelItem = wrapper;
+            model.updateMatrixWorld(true);
+            const box = new THREE.Box3().setFromObject(model);
+            const size = box.getSize(new THREE.Vector3());
+            const center = box.getCenter(new THREE.Vector3());
+            model.position.sub(center);
+            const maxDim = Math.max(size.x, size.y, size.z) || 1;
+            const scale = clampProjectionScale(1.4 / maxDim, 0.05, 6);
+            model.scale.setScalar(scale);
 
-      entryAnimate(wrapper);
-      floatAnimate(wrapper, 0.1);
-      emitItems();
-      return wrapper;
-    } catch (e) {
-      onStatus('Projection load failed', 'err');
-      return null;
-    } finally {
+            // Capture original materials BEFORE any style is applied
+            captureOriginalMaterials(model);
+
+            const wrapper = new THREE.Group();
+            wrapper.name = 'model-projection';
+            wrapper.userData.isProjection = true;
+            wrapper.userData.type = 'model';
+            wrapper.userData.baseScale = 1;
+            wrapper.position.set(0, 0.1, 0);
+            wrapper.add(model);
+
+            if (modelItem) removeItem(modelItem);
+            modelItem = wrapper;
+            items.add(wrapper);
+            root.add(wrapper);
+            modelItem = wrapper;
+
+            // Apply current material mode
+            if (currentMaterialMode === MATERIAL_MODES.BLUEPRINT) {
+              applyBlueprintStyle(wrapper);
+            }
+
+            entryAnimate(wrapper);
+            floatAnimate(wrapper, 0.1);
+            emitItems();
+            resolve(wrapper);
+          } catch (e) {
+            modelProgress(null);
+            onStatus('Projection load failed', 'err');
+            resolve(null);
+          }
+        },
+        (xhr) => {
+          if (xhr.lengthComputable) {
+            const pct = Math.round((xhr.loaded / xhr.total) * 100);
+            modelProgress(pct, 'جاري تحميل النموذج...');
+          } else {
+            modelProgress(-1, 'جاري تحميل النموذج...');
+          }
+        },
+        (err) => {
+          modelProgress(null);
+          onStatus('Projection load failed', 'err');
+          resolve(null);
+        }
+      );
+
       if (owned && url) setTimeout(() => URL.revokeObjectURL(url), 1000);
-    }
+    });
+  }
+
+  // Backward compatibility
+  async function projectModel(source) {
+    return loadProjectionFromSource(source);
   }
 
   function disposeItem(item) {
+    // Dispose captured original materials for this item
+    item.traverse((child) => {
+      if (child.isMesh) {
+        const originalMats = materialRegistry.get(child);
+        if (originalMats) {
+          originalMats.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+          materialRegistry.delete(child);
+        }
+        // Remove wireframe if present
+        if (child.userData.blueprintWireframe) {
+          child.remove(child.userData.blueprintWireframe);
+          child.userData.blueprintWireframe = null;
+        }
+      }
+    });
+
     item.traverse((c) => {
       if (c.geometry) c.geometry.dispose();
       const mats = c.material ? (Array.isArray(c.material) ? c.material : [c.material]) : [];
@@ -293,6 +469,8 @@ export function createProjectionManager(opts = {}) {
   }
 
   function clear() {
+    // Clear material registry on full clear
+    materialRegistry.clear();
     [...items].forEach(removeItem);
   }
 
@@ -353,6 +531,7 @@ export function createProjectionManager(opts = {}) {
       stopPulse();
     }
   }
+
   // ---- gesture event handling ----
   function gesturePoint(ev, i) {
     return ev.touches ? ev.touches[i] : ev;
@@ -453,6 +632,9 @@ export function createProjectionManager(opts = {}) {
   return {
     projectImage,
     projectModel,
+    loadProjectionFromSource,
+    setMaterialMode,
+    getMaterialMode,
     clear,
     setSpeaking,
     items: () => [...items],
@@ -470,3 +652,5 @@ export function createProjectionManager(opts = {}) {
     },
   };
 }
+
+export { PROJECTION_GALLERY, MATERIAL_MODES };
