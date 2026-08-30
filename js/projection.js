@@ -44,26 +44,7 @@ const MATERIAL_MODES = {
   REALISTIC: 'realistic',
 };
 
-const PROJECTION_GALLERY = [
-  {
-    id: 'damaged_helmet',
-    name: 'خوذة متضررة',
-    url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/DamagedHelmet/glTF/DamagedHelmet.gltf',
-    sizeKB: 1700,
-  },
-  {
-    id: 'fox',
-    name: 'ثعلب',
-    url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/Fox/glTF/Fox.gltf',
-    sizeKB: 200,
-  },
-  {
-    id: 'water_bottle',
-    name: 'قارورة ماء',
-    url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/WaterBottle/glTF/WaterBottle.gltf',
-    sizeKB: 1100,
-  },
-];
+
 
 function prefersReducedMotion() {
   return typeof window !== 'undefined' && window.matchMedia &&
@@ -547,7 +528,8 @@ export function createProjectionManager(opts = {}) {
         dist: dist2(ev.touches[0], ev.touches[1]),
         angle: angle2(ev.touches[0], ev.touches[1]),
         startScale: gesture.item.scale.x || 1,
-        startRot: gesture.item.rotation.y || 0,
+        startRotY: gesture.item.rotation.y || 0,
+        lastMidY: (ev.touches[0].clientY + ev.touches[1].clientY) / 2,
       };
       return;
     }
@@ -567,8 +549,13 @@ export function createProjectionManager(opts = {}) {
       const d = dist2(ev.touches[0], ev.touches[1]);
       const scale = clampProjectionScale(pinch.startScale * (d / Math.max(1, pinch.dist)), SCALE_MIN, SCALE_MAX);
       gesture.item.scale.setScalar(scale);
+      // Yaw from the angle between the two fingers
       const a = angle2(ev.touches[0], ev.touches[1]);
-      gesture.item.rotation.y = pinch.startRot + (a - pinch.angle);
+      gesture.item.rotation.y = pinch.startRotY + (a - pinch.angle);
+      // Pitch from vertical movement of the two-finger midpoint (free 3D rotate)
+      const midY = (ev.touches[0].clientY + ev.touches[1].clientY) / 2;
+      gesture.item.rotation.x += (pinch.lastMidY - midY) * 0.008;
+      pinch.lastMidY = midY;
       return;
     }
     const p0 = gesturePoint(ev, 0);
@@ -653,4 +640,4 @@ export function createProjectionManager(opts = {}) {
   };
 }
 
-export { PROJECTION_GALLERY, MATERIAL_MODES };
+export { MATERIAL_MODES };

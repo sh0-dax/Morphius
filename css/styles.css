@@ -1719,39 +1719,7 @@ body.drag-over::after {
   width: min(94vw, 92vh);
   transition: width 0.45s ease;
 }
-/* Projection Gallery & Material Mode Toggle */
-#projectionGallery {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-  flex-wrap: wrap;
-}
-
-.gallery-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 12px;
-  background: rgba(0, 255, 200, 0.08);
-  border: 1px solid rgba(0, 255, 200, 0.3);
-  border-radius: 8px;
-  color: #00ffc8;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-  min-width: 70px;
-}
-
-.gallery-btn:hover {
-  background: rgba(0, 255, 200, 0.18);
-  transform: translateY(-1px);
-}
-
-.gallery-btn:active {
-  transform: translateY(0);
-}
-
+/* Material Mode Toggle */
 #materialModeToggle {
   margin-top: 12px;
   padding: 10px;

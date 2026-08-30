@@ -17,7 +17,7 @@ import { detectFeeling, visemeFor, DEFAULT_VISEME, VISEME_KEYS, contentToText, c
 import { computeVisionFeeling, decideVisionCommentary, getSpeakHint, displayClass, VISION_SPEAK_CLASSES, canRunCameraPipeline, computeNewClasses, splitBands } from './visionLogic.js';
 import { STATE_TARGETS, EMOTION_TARGETS, FEELING_TARGETS, VISION_TARGETS, STATE_COLORS, FEELING_COLORS, LIGHT_PRESETS } from './presets.js';
 import { saveSession, loadSession, listSessions, deleteSession, getLastSession, buildSession, makeSessionId, sanitizeMessages, sessionTitle } from './chatStore.js';
-import { createProjectionManager, PROJECTION_GALLERY, MATERIAL_MODES } from './projection.js';
+import { createProjectionManager, MATERIAL_MODES } from './projection.js';
 import { startHandTracking, stopHandTracking } from './handTracking.js';
 
 // ---- i18n (lightweight loader, EN fallback, dir flip for RTL) ----
@@ -3115,69 +3115,12 @@ if (projectionFileInput) {
   });
 }
 
-// Inject gallery UI and material mode toggle
-injectProjectionGalleryUI();
+// Inject material mode toggle
 injectMaterialModeToggle();
 
 // ------------------------------------------------------------
-// Gallery picker UI
-// ------------------------------------------------------------
-function createProjectionGalleryUI() {
-  const container = document.createElement('div');
-  container.id = 'projectionGallery';
-  container.style.cssText = 'display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;';
-  container.setAttribute('dir', 'ltr');
-
-  PROJECTION_GALLERY.forEach((model) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'gallery-btn';
-    btn.dataset.galleryId = model.id;
-    btn.title = `${model.name} (${model.sizeKB} KB)`;
-    btn.style.cssText = `
-      display:flex;flex-direction:column;align-items:center;gap:4px;
-      padding:8px 12px;background:rgba(0,255,200,0.08);
-      border:1px solid rgba(0,255,200,0.3);border-radius:8px;
-      color:#00ffc8;font-size:12px;cursor:pointer;
-      transition:all 0.2s;min-width:70px;
-    `;
-    btn.innerHTML = `<span style="font-size:20px;">${getModelEmoji(model.id)}</span><span>${model.name}</span>`;
-    btn.addEventListener('mouseenter', () => btn.style.background = 'rgba(0,255,200,0.18)');
-    btn.addEventListener('mouseleave', () => btn.style.background = 'rgba(0,255,200,0.08)');
-    btn.addEventListener('click', async () => {
-      if (!projection) return;
-      showStatus(t('projection.loadingGallery', 'جاري تحميل {name}...', { name: model.name }), 'info');
-      const item = await projection.loadProjectionFromSource(model.url);
-      if (item) {
-        showStatus(t('projection.done', 'Projected {name}', { name: model.name }), 'ok');
-        // Persist gallery selection
-        await saveProjectionState({ type: 'gallery', id: model.id, materialMode: projection.getMaterialMode() });
-      } else {
-        showStatus(t('projection.loadFailed', 'فشل تحميل {name}', { name: model.name }), 'err');
-      }
-    });
-    container.appendChild(btn);
-  });
-
-  return container;
-}
-
-function getModelEmoji(id) {
-  const emojis = { damaged_helmet: '🪖', fox: '🦊', water_bottle: '🍼' };
-  return emojis[id] || '📦';
-}
-
-// Inject gallery UI after projection file input
-function injectProjectionGalleryUI() {
-  const projectionFileInput = document.getElementById('projectionFileInput');
-  if (!projectionFileInput) return;
-  const existing = document.getElementById('projectionGallery');
-  if (existing) existing.remove();
-  const galleryUI = createProjectionGalleryUI();
-  projectionFileInput.parentNode.insertBefore(galleryUI, projectionFileInput.nextSibling);
-}
-
 // Material mode toggle UI
+// ------------------------------------------------------------
 function createMaterialModeToggle() {
   const container = document.createElement('div');
   container.id = 'materialModeToggle';
@@ -3218,10 +3161,7 @@ function injectMaterialModeToggle() {
   const existing = document.getElementById('materialModeToggle');
   if (existing) existing.remove();
   const toggleUI = createMaterialModeToggle();
-  // Insert after gallery if exists, else after projectionFileInput
-  const gallery = document.getElementById('projectionGallery');
-  const refNode = gallery || projectionFileInput;
-  refNode.parentNode.insertBefore(toggleUI, refNode.nextSibling);
+  projectionFileInput.parentNode.insertBefore(toggleUI, projectionFileInput.nextSibling);
 }
 
 // Drag & drop (anywhere in the app shell) for images and models.
@@ -3568,27 +3508,9 @@ async function restoreProjectionState() {
     projection.setMaterialMode(state.materialMode);
   }
 
-  // If last model was a gallery entry, offer to restore
-  if (state.type === 'gallery' && state.id) {
-    const galleryItem = PROJECTION_GALLERY.find(m => m.id === state.id);
-    if (galleryItem) {
-      const confirmed = window.confirm(t('projection.restorePrompt', 'استعادة آخر نموذج ({name})؟', { name: galleryItem.name }));
-      if (confirmed) {
-        showStatus(t('projection.loadingGallery', 'جاري تحميل {name}...', { name: galleryItem.name }), 'info');
-        const item = await projection.loadProjectionFromSource(galleryItem.url);
-        if (item) {
-          showStatus(t('projection.done', 'Projected {name}', { name: galleryItem.name }), 'ok');
-          await saveProjectionState({ type: 'gallery', id: galleryItem.id, materialMode: projection.getMaterialMode() });
-        } else {
-          showStatus(t('projection.loadFailed', 'فشل تحميل {name}', { name: galleryItem.name }), 'err');
-        }
-      }
-    }
-  } else if (state.type === 'file') {
-    // User-uploaded file - can't restore the file, but material mode preference was restored above
-    if (state.materialMode) {
-      showStatus(t('projection.modeRestored', 'تم استعادة تفضيل الوضع: {mode}', { mode: state.materialMode }), 'ok');
-    }
+  // User-uploaded files can't be restored automatically, only the preference
+  if (state.type === 'file' && state.materialMode) {
+    showStatus(t('projection.modeRestored', 'تم استعادة تفضيل الوضع: {mode}', { mode: state.materialMode }), 'ok');
   }
 }
 
