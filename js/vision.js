@@ -63,6 +63,15 @@ let maxFps = DEFAULT_VISION_FPS; // detection frames/sec (decoupled from rAF)
 let lastRun = 0;
 let dimsLogged = false;      // log output.dims exactly once, then stay quiet
 
+// Worker-based preprocessing keeps the heavy RGBA->CHW permutation off the
+// main thread so the Three.js render loop never janks (see visionWorker.js).
+let worker = null;           // Worker | null (lazily created in init)
+let workerPending = null;    // { resolve, reject } for the in-flight request
+let workerAvailable = typeof Worker !== 'undefined';
+// Preallocated output buffer reused across frames (worker returns a transferred
+// Float32Array; inline path reuses this to avoid per-frame allocation).
+let preallocFloat32 = null;  // Float32Array | null
+
 /** Feature-detect WebGPU the same way the rest of the app does for WebLLM. */
 async function hasWebGPU() {
   if (!('gpu' in navigator)) return false;
@@ -98,6 +107,80 @@ async function initYolo() {
   backend = 'yolo-webgpu';
 }
 
+// Lazily spin up the preprocessing worker. A failed worker never blocks the
+// pipeline: preprocessing simply falls back to the inline path below.
+function ensurePreprocessWorker() {
+  if (!workerAvailable || worker) return !!worker;
+  try {
+    worker = new Worker(new URL('./visionWorker.js', import.meta.url), { type: 'module' });
+    worker.onmessage = (e) => {
+      const d = e.data || {};
+      if (d.type === 'preprocess-done' && workerPending) {
+        const { resolve } = workerPending;
+        workerPending = null;
+        resolve(new Float32Array(d.float32));
+      }
+    };
+    worker.onerror = (err) => {
+      if (workerPending) {
+        const { reject } = workerPending;
+        workerPending = null;
+        reject(err);
+      }
+    };
+    return true;
+  } catch (err) {
+    console.warn('[vision] worker unavailable, preprocessing inline:', err);
+    workerAvailable = false;
+    worker = null;
+    return false;
+  }
+}
+
+function terminatePreprocessWorker() {
+  if (worker) {
+    try { worker.terminate(); } catch (e) {}
+    worker = null;
+  }
+  workerPending = null;
+}
+
+// Asynchronous RGBA->CHW permutation via the worker, with a reusable
+// preallocated output Float32Array on the main thread. Returns a Promise of
+// a Float32Array of length 3*width*height (R,G,B planes in [0..1]).
+function workerPreprocess(rgba, width, height) {
+  const size = 3 * width * height;
+  if (!preallocFloat32 || preallocFloat32.length !== size) {
+    preallocFloat32 = new Float32Array(size);
+  }
+  return new Promise((resolve, reject) => {
+    if (!worker) { reject(new Error('no worker')); return; }
+    const transfer = rgba;
+    workerPending = { resolve, reject };
+    worker.postMessage(
+      { type: 'preprocess', size, width, height, rgba },
+      [transfer]
+    );
+  });
+}
+
+// Inline fallback: same work as the worker but on the calling thread. Used
+// when Worker is unavailable. Reuses preallocFloat32 (resized as needed).
+function inlinePreprocess(rgba, width, height) {
+  const src = new Uint8ClampedArray(rgba);
+  const plane = width * height;
+  const size = 3 * plane;
+  if (!preallocFloat32 || preallocFloat32.length !== size) {
+    preallocFloat32 = new Float32Array(size);
+  }
+  for (let i = 0; i < plane; i++) {
+    const j = i * 4;
+    preallocFloat32[i] = src[j] / 255;
+    preallocFloat32[plane + i] = src[j + 1] / 255;
+    preallocFloat32[2 * plane + i] = src[j + 2] / 255;
+  }
+  return preallocFloat32;
+}
 async function initCocoSsd() {
   await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs/dist/tf.min.js');
   await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd/dist/coco-ssd.min.js');
@@ -149,14 +232,24 @@ async function init(video, { forceBackend, modelUrl, maxFPS } = {}) {
   }
 
   if (dimsLogged) dimsLogged = false; // new session → re-log once on next run
+  if (backend === 'yolo-webgpu') {
+    // Best effort: start the preprocessing worker so inference frames don't
+    // block the render loop. On failure we transparently fall back to inline.
+    if (!worker && workerAvailable) try { ensurePreprocessWorker(); } catch (err) {
+      console.warn('[vision] worker init failed, preprocessing inline:', err);
+      worker = null;
+    }
+  }
   return backend;
 }
 
 /**
  * Letterbox-resize a video frame into a square input tensor for YOLO.
- * @returns {{float32: Float32Array, scale: number, dx: number, dy: number}}
+ * The heavy RGBA->CHW conversion runs in the preprocessing worker (off the
+ * main thread); falls back to inline when a Worker is unavailable.
+ * @returns {Promise<{float32: Float32Array, scale: number, dx: number, dy: number}>}
  */
-function preprocessForYolo() {
+async function preprocessForYolo() {
   offscreen.width = YOLO_INPUT_SIZE;
   offscreen.height = YOLO_INPUT_SIZE;
   offCtx.fillStyle = '#727272';
@@ -171,14 +264,22 @@ function preprocessForYolo() {
   const dy = (YOLO_INPUT_SIZE - nh) / 2;
   offCtx.drawImage(videoEl, 0, 0, vw, vh, dx, dy, nw, nh);
 
-  const imgData = offCtx.getImageData(0, 0, YOLO_INPUT_SIZE, YOLO_INPUT_SIZE).data;
-  const float32 = new Float32Array(3 * YOLO_INPUT_SIZE * YOLO_INPUT_SIZE);
-  const plane = YOLO_INPUT_SIZE * YOLO_INPUT_SIZE;
+  // getImageData returns a fresh RGBA buffer each call; we transfer it to the
+  // worker (buffer ownership moves off the main thread), so no per-frame
+  // allocation lingers on the JS heap.
+  const rgba = offCtx.getImageData(0, 0, YOLO_INPUT_SIZE, YOLO_INPUT_SIZE).data;
 
-  for (let i = 0; i < plane; i++) {
-    float32[i] = imgData[i * 4] / 255;              // channel 0: R
-    float32[plane + i] = imgData[i * 4 + 1] / 255;  // channel 1: G
-    float32[2 * plane + i] = imgData[i * 4 + 2] / 255; // channel 2: B
+  let float32;
+  if (worker) {
+    try {
+      // Returns a transferred Float32Array (length 3*W*H).
+      float32 = await workerPreprocess(rgba.buffer, YOLO_INPUT_SIZE, YOLO_INPUT_SIZE);
+    } catch (err) {
+      // Worker hiccup — degrade to inline for this frame only.
+      float32 = inlinePreprocess(rgba.buffer, YOLO_INPUT_SIZE, YOLO_INPUT_SIZE);
+    }
+  } else {
+    float32 = inlinePreprocess(rgba.buffer, YOLO_INPUT_SIZE, YOLO_INPUT_SIZE);
   }
 
   return { float32, scale, dx, dy };
@@ -195,7 +296,7 @@ function preprocessForYolo() {
  * normalizes to [0..1] video space.
  */
 async function detectYolo() {
-  const { float32, scale, dx, dy } = preprocessForYolo();
+  const { float32, scale, dx, dy } = await preprocessForYolo();
   // eslint-disable-next-line no-undef
   const tensor = new ort.Tensor('float32', float32, [1, 3, YOLO_INPUT_SIZE, YOLO_INPUT_SIZE]);
   const feeds = { [session.inputNames[0]]: tensor };
@@ -272,6 +373,19 @@ function stop() {
   if (timerId) { clearTimeout(timerId); timerId = null; }
 }
 
+// Full teardown: stop the loop and reclaim the preprocessing worker + buffers.
+// Kept separate from stop() so pause/resume (which only calls stop/start) keeps
+// the already-created worker alive for the next resume.
+function dispose() {
+  stop();
+  terminatePreprocessWorker();
+  session = null;
+  cocoModel = null;
+  backend = null;
+  preallocFloat32 = null;
+  dimsLogged = false;
+}
+
 function getBackend() {
   return backend;
 }
@@ -300,5 +414,5 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-export const Vision = { init, start, stop, getBackend, describeScene };
+export const Vision = { init, start, stop, dispose, getBackend, describeScene };
 export default Vision;

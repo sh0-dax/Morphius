@@ -1890,6 +1890,7 @@ function handleVisionDetections(detections) {
     .replace('{backend}', visionBackendName)
     .replace('{summary}', summary);
   setVisionStatus('on', label);
+  setCameraPill(true, summary || 'SEARCHING', false);
 }
 
 function setVisionFeeling(label, lingerMs) {
@@ -1940,6 +1941,49 @@ function setVisionStatus(state, extra) {
   }
 }
 
+// ------------------------------------------------------------
+// Camera window (#camPanel) — shows the shared vision/hand-tracking
+// video automatically while EITHER feature is on, hides when both off.
+// ------------------------------------------------------------
+function getCamPanel() { return document.getElementById('camPanel'); }
+function getCamTitle() { return document.getElementById('camTitle'); }
+function getCamPill() { return document.getElementById('camPill'); }
+
+// One shared <video> that BOTH vision detection and hand tracking consume.
+// It lives inside #camPanel so it keeps decoding even while the panel is
+// hidden (display:none hides it visually but doesn't stop playback).
+function getOrCreateVisionVideo() {
+  if (visionVideo) return visionVideo;
+  visionVideo = document.createElement('video');
+  visionVideo.muted = true;
+  visionVideo.setAttribute('playsinline', '');
+  visionVideo.setAttribute('autoplay', '');
+  const panel = getCamPanel();
+  (panel || document.body).appendChild(visionVideo);
+  return visionVideo;
+}
+
+// Show when vision OR hands are running; hide when both are off.
+function updateCameraWindow() {
+  const panel = getCamPanel();
+  if (!panel) return;
+  const active = visionActive || handTrackingActive;
+  panel.style.display = active ? 'block' : 'none';
+  const title = getCamTitle();
+  if (title) {
+    title.textContent = visionActive && handTrackingActive
+      ? 'VISION + HANDS'
+      : visionActive ? 'VISION' : 'HANDS';
+  }
+}
+
+function setCameraPill(on, text, isError) {
+  const pill = getCamPill();
+  if (!pill) return;
+  pill.textContent = on ? (text || 'ON') : 'OFF';
+  pill.className = 'cam-pill' + (isError ? ' err' : (on ? ' on' : ''));
+}
+
 function updateVisionUI() {
   const on = cfgVision.checked;
   const hidden = on ? 'block' : 'none';
@@ -1958,14 +2002,7 @@ async function startVision() {
   if (visionActive) return true;
   const rid = ++visionRequestId;
   try {
-    if (!visionVideo) {
-      visionVideo = document.createElement('video');
-      visionVideo.muted = true;
-      visionVideo.setAttribute('playsinline', '');
-      visionVideo.setAttribute('autoplay', '');
-      visionVideo.style.display = 'none';
-      document.body.appendChild(visionVideo);
-    }
+    getOrCreateVisionVideo();
     visionStream = await navigator.mediaDevices.getUserMedia({
       video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
     });
@@ -1994,6 +2031,7 @@ async function startVision() {
     Vision.start(handleVisionDetections);
     if (btnVisionPause) btnVisionPause.textContent = t('settings.visionPause') || 'Pause Vision';
     setVisionStatus('on');
+    updateCameraWindow(); // auto-show the camera window while vision is on
     return true;
   } catch (err) {
     console.warn('[vision] start failed:', err);
@@ -2011,9 +2049,10 @@ function stopVision() {
   visionPersonPresent = false;
   clearVisionFeeling();
   visionLastClasses = new Set();
-  try { Vision.stop(); } catch (e) {}
+  try { Vision.dispose(); } catch (e) {}
   if (visionStream) { visionStream.getTracks().forEach((t) => t.stop()); visionStream = null; }
   if (visionVideo) { visionVideo.srcObject = null; }
+  updateCameraWindow(); // auto-hide the camera window if hands aren't running
 }
 
 function toggleVisionPause() {
@@ -3383,14 +3422,7 @@ async function ensureVisionStreamForHandTracking() {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
     });
-    if (!visionVideo) {
-      visionVideo = document.createElement('video');
-      visionVideo.muted = true;
-      visionVideo.setAttribute('playsinline', '');
-      visionVideo.setAttribute('autoplay', '');
-      visionVideo.style.display = 'none';
-      document.body.appendChild(visionVideo);
-    }
+    getOrCreateVisionVideo();
     visionStream = stream;
     visionVideo.srcObject = stream;
     await visionVideo.play();
@@ -3450,8 +3482,12 @@ async function startHandTrackingForProjection() {
       },
       onStatusChange: (state) => {
         updateHandTrackingHUD(state);
+        setCameraPill(true, state && state.active
+          ? (state.hasHand ? 'HAND ON' : 'HAND ...')
+          : (state && state.hasHand ? 'HAND' : 'NO HAND'), false);
       },
     });
+    updateCameraWindow(); // auto-show the camera window while hand tracking is on
     showStatus(t('handTracking.started', 'تتبع اليد نشط — استخدم الإيماءات للتحكم بالنموذج'), 'ok');
   } catch (e) {
     console.warn('Hand tracking start failed:', e);
@@ -3468,6 +3504,7 @@ function stopHandTrackingForProjection() {
   if (typeof startHandTrackingForProjection.prevPinch !== 'undefined') {
     startHandTrackingForProjection.prevPinch = undefined;
   }
+  updateCameraWindow(); // auto-hide the camera window if vision isn't running
 }
 
 // ------------------------------------------------------------

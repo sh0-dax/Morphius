@@ -45,6 +45,7 @@
   "metrics.title": "MÉTRIQUES SYSTÈME",
   "metrics.toggle": "Afficher/masquer le panneau de données",
   "mirror.title": "MIROIR",
+  "cam.title": "CAM",
   "morph.desc": "Faites correspondre les noms de morph de votre modèle aux emplacements canoniques de l'avatar pour que expressions, synchronisation labiale et miroir fonctionnent.",
   "morph.title": "Mapper les morph targets",
   "onboarding.step1": "Choisissez un fournisseur dans Paramètres -- Gemini, OpenAI, Ollama, ou 100% hors ligne avec WebLLM.",

@@ -3,7 +3,11 @@
 // MediaPipe HandLandmarker (WASM/GPU) for pinch-zoom + rotate
 // ============================================================
 
-import { HandLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
+// NOTE: @mediapipe/tasks-vision is intentionally imported lazily (dynamic
+// import) inside createLandmarker() rather than at the top of this file. It is
+// loaded from a CDN (jsdelivr) and static-importing it would pull that CDN
+// into the app's boot module graph — an unreachable jsdelivr would then block
+// the whole app from starting. Lazy loading keeps hand tracking optional.
 import { lerpWeight } from './pure.js';
 
 const CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
@@ -32,12 +36,13 @@ const INDEX_TIP = 8;
 const WRIST = 0;
 const MIDDLE_MCP = 9;
 
-function normalizeLandmarks(landmarks, videoWidth, videoHeight) {
-  return landmarks.map((lm) => ({
-    x: lm.x / videoWidth,
-    y: lm.y / videoHeight,
-    z: lm.z / Math.max(videoWidth, videoHeight),
-  }));
+// MediaPipe HandLandmarker already returns landmarks normalized to [0..1]
+// (relative to the video dimensions). Casting to plain {x,y,z} keeps the
+// smoothing + gesture math working on the same normalized scale; no need to
+// divide by width/height again (doing so used to collapse every point to
+// ~0.000x, which broke pinch/rotate detection).
+function normalizeLandmarks(landmarks) {
+  return landmarks.map((lm) => ({ x: lm.x, y: lm.y, z: lm.z }));
 }
 
 function distance(a, b) {
@@ -64,6 +69,7 @@ function emaUpdate(target, source, rate = 0.15) {
 }
 
 async function createLandmarker(delegate) {
+  const { HandLandmarker, FilesetResolver } = await import('@mediapipe/tasks-vision');
   const vision = await FilesetResolver.forVisionTasks(CDN + '/wasm');
   return HandLandmarker.createFromOptions(vision, {
     baseOptions: { modelAssetPath: MODEL_URL, delegate },
@@ -105,9 +111,7 @@ function detectFrame() {
     const results = landmarker.detectForVideo(handVideo, now);
     if (results.landmarks && results.landmarks.length > 0) {
       const lms = results.landmarks[0]; // single hand, 21 landmarks
-      const vw = handVideo.videoWidth;
-      const vh = handVideo.videoHeight;
-      const norm = normalizeLandmarks(lms, vw, vh);
+      const norm = normalizeLandmarks(lms);
 
       // EMA smoothing on raw landmarks
       emaState.landmarks = emaUpdate(emaState.landmarks, 

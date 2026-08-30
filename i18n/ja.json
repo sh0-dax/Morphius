@@ -45,6 +45,7 @@
   "metrics.title": "システムメトリクス",
   "metrics.toggle": "データパネルの表示/非表示",
   "mirror.title": "ミラー",
+  "cam.title": "カメラ",
   "morph.desc": "モデルのモーフ名とアバターの標準スロットを対応付けて、表情・リップシンク・ミラーを機能させます。",
   "morph.title": "モーフターゲットを割り当て",
   "onboarding.step1": "設定でプロバイダーを選択 -- Gemini、OpenAI、Ollama、または WebLLM で完全オフライン。",

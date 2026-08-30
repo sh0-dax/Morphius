@@ -45,6 +45,7 @@
   "metrics.title": "SYSTEMMETRIKEN",
   "metrics.toggle": "Datenpanel ein-/ausblenden",
   "mirror.title": "SPIEGEL",
+  "cam.title": "CAM",
   "morph.desc": "Match die Morph-Namen deines Modells mit den kanonischen Slots des Avatars, damit Ausdruck, Lippen-Sync und der Spiegel funktionieren.",
   "morph.title": "Morph-Targets zuordnen",
   "onboarding.step1": "Wähle einen Anbieter in den Einstellungen -- Gemini, OpenAI, Ollama, oder komplett offline mit WebLLM.",

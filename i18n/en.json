@@ -45,6 +45,7 @@
   "metrics.title": "SYSTEM METRICS",
   "metrics.toggle": "Show/hide data panel",
   "mirror.title": "MIRROR",
+  "cam.title": "CAM",
   "morph.desc": "Match your model's morph names to the avatar's canonical slots so expressions, lip-sync and the mirror work.",
   "morph.title": "Map Morph Targets",
   "onboarding.step1": "Pick a provider in Settings -- choose Gemini, OpenAI, Ollama, or run fully offline with WebLLM.",

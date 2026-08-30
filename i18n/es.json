@@ -45,6 +45,7 @@
   "metrics.title": "MÉTRICAS DEL SISTEMA",
   "metrics.toggle": "Mostrar/ocultar panel de datos",
   "mirror.title": "ESPEJO",
+  "cam.title": "CAM",
   "morph.desc": "Asocia los nombres de morph de tu modelo con las ranuras canónicas del avatar para que funcionen la expresión, el sincronizado de labios y el espejo.",
   "morph.title": "Asignar objetivos de morph",
   "onboarding.step1": "Elige un proveedor en Configuración -- Gemini, OpenAI, Ollama, o funciona totalmente sin conexión con WebLLM.",

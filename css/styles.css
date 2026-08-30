@@ -1402,6 +1402,54 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .mirror-pill.err { border-color: var(--alert); color: var(--alert); }
 
 /* ============================================================
+   Camera Window (vision / hand tracking) — mirrors the mirror
+   panel but floats bottom-right, above the mic float button.
+   ============================================================ */
+.cam-panel {
+  position: fixed;
+  right: 16px;
+  bottom: 96px;
+  z-index: 60;
+  background: rgba(4,10,18,0.82);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 6px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.cam-panel video {
+  width: 150px;
+  height: auto;
+  border-radius: 5px;
+  display: block;
+  transform: scaleX(-1);
+  background: #000;
+}
+.cam-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  letter-spacing: .12em;
+  padding: 2px 4px 6px;
+  color: var(--dim);
+  font-family: "Orbitron", monospace;
+}
+.cam-pill {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--dim);
+  color: var(--dim);
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cam-pill.on { border-color: var(--success); color: var(--success); }
+.cam-pill.err { border-color: var(--alert); color: var(--alert); }
+
+/* ============================================================
    Onboarding Modal
    ============================================================ */
 .onboarding-modal {
@@ -1529,6 +1577,9 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   .data-panel { width: 200px; right: 10px; top: 70px; padding: 12px; }
   .data-panel .data-label { font-size: 10px; }
   .data-panel .data-value { font-size: 10px; }
+  .cam-panel { right: 10px; bottom: 86px; }
+  .cam-panel video { width: 118px; }
+  [dir="rtl"] .cam-panel { left: 10px; }
   .mic-float { width: 54px; height: 54px; font-size: 22px; bottom: 20px; right: 16px; }
   .caption-overlay { bottom: 95px; }
   .side-panel { width: 100%; max-width: 100%; border-right: none; }
@@ -1634,6 +1685,9 @@ textarea:focus-visible, [tabindex]:focus-visible {
   [dir="rtl"] .data-panel { left: 10px; }
   [dir="rtl"] .mic-float { right: auto; left: 16px; }
 }
+[dir="rtl"] .cam-panel { right: auto; left: 16px; }
+[dir="rtl"] .cam-panel-head { flex-direction: row-reverse; }
+[dir="rtl"] .cam-panel video { transform: scaleX(1); }
 
 /* ============================================================
    Readable, responsive type scale (review: font clamp + rem)

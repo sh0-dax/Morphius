@@ -5,7 +5,11 @@
 // detected emotion while keeping the normal idle motion.
 // ============================================================
 
-import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
+// NOTE: @mediapipe/tasks-vision is intentionally imported lazily (dynamic
+// import) inside createLandmarker() rather than at the top of this file. It is
+// loaded from a CDN (jsdelivr) and static-importing it would pull that CDN
+// into the app's boot module graph — an unreachable jsdelivr would then block
+// the whole app from starting. Lazy loading keeps camera features optional.
 import { detectEmotion } from './pure.js';
 
 const CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
@@ -34,6 +38,7 @@ function setPanelPill(state) {
 }
 
 async function createLandmarker(delegate) {
+  const { FaceLandmarker, FilesetResolver } = await import('@mediapipe/tasks-vision');
   const vision = await FilesetResolver.forVisionTasks(CDN + '/wasm');
   return FaceLandmarker.createFromOptions(vision, {
     baseOptions: { modelAssetPath: MODEL_URL, delegate },
