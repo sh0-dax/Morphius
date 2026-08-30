@@ -29,14 +29,19 @@ try {
   anime = null;
 }
 
-const FRAME_COLOR = 0x00ffc8;
+const FRAME_COLOR = 0x2f81f7;
 const SCALE_MIN = 0.3;
 const SCALE_MAX = 4;
 
-// Blueprint material style constants
+// Blueprint material style constants (matched to the avatar's makeMatPair blue look)
+const BLUEPRINT_BASE_COLOR = 0x020810;
 const BLUEPRINT_EMISSIVE = new THREE.Color(FRAME_COLOR);
-const BLUEPRINT_EMISSIVE_INTENSITY = 0.6;
-const BLUEPRINT_WIREFRAME_OPACITY = 0.35;
+const BLUEPRINT_EMISSIVE_INTENSITY = 0.8;
+const BLUEPRINT_METALNESS = 0.6;
+const BLUEPRINT_ROUGHNESS = 0.3;
+const BLUEPRINT_OPACITY = 0.95;
+const BLUEPRINT_WIREFRAME_COLOR = 0x7dd3fc;
+const BLUEPRINT_WIREFRAME_OPACITY = 0.9;
 const BLUEPRINT_WIREFRAME_LINEWIDTH = 1;
 
 const MATERIAL_MODES = {
@@ -77,16 +82,17 @@ export function createProjectionManager(opts = {}) {
 
   // Blueprint shared materials (reused across models, never disposed)
   const blueprintMat = new THREE.MeshStandardMaterial({
-    color: 0x001122,
-    metalness: 0.1,
-    roughness: 0.8,
+    color: BLUEPRINT_BASE_COLOR,
+    metalness: BLUEPRINT_METALNESS,
+    roughness: BLUEPRINT_ROUGHNESS,
     emissive: BLUEPRINT_EMISSIVE,
     emissiveIntensity: BLUEPRINT_EMISSIVE_INTENSITY,
-    transparent: false,
+    transparent: true,
+    opacity: BLUEPRINT_OPACITY,
     depthWrite: true,
   });
   const blueprintWireMat = new THREE.MeshBasicMaterial({
-    color: FRAME_COLOR,
+    color: BLUEPRINT_WIREFRAME_COLOR,
     wireframe: true,
     transparent: true,
     opacity: BLUEPRINT_WIREFRAME_OPACITY,
@@ -340,6 +346,7 @@ export function createProjectionManager(opts = {}) {
             const size = box.getSize(new THREE.Vector3());
             const center = box.getCenter(new THREE.Vector3());
             model.position.sub(center);
+            model.rotation.set(0, 0, 0);
             const maxDim = Math.max(size.x, size.y, size.z) || 1;
             const scale = clampProjectionScale(1.4 / maxDim, 0.05, 6);
             model.scale.setScalar(scale);

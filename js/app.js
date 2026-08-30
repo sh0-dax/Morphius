@@ -4289,6 +4289,12 @@ function toggleDataPanel(show) {
   toggleDataBtn.innerHTML = dataPanelVisible ? svgClose : svgBars;
 }
 
+// On mobile, collapse the system matrix on load so it doesn't crowd the view
+if (typeof window !== 'undefined' && window.matchMedia &&
+    window.matchMedia('(max-width: 767px)').matches) {
+  toggleDataPanel(false);
+}
+
 toggleDataBtn.addEventListener('click', () => toggleDataPanel());
 closeDataBtn.addEventListener('click', () => toggleDataPanel(false));
 

@@ -1498,6 +1498,30 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   #debugLog { max-height: 70px; }
   .onboarding-card { padding: 24px 20px; }
   .onboarding-card h2 { font-size: 14px; }
+  .live-chat-front { width: min(94vw, 460px); margin-top: 12px; }
+  .live-chat-front .chat-history { max-height: 180px; padding: 8px; }
+  .chat-input-wrap {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .chat-input-wrap input {
+    flex: 1 1 100%;
+    min-width: 0;
+    order: 2;
+  }
+  .chat-input-wrap .mic-btn,
+  .chat-input-wrap #btnSend {
+    order: 1;
+  }
+  #liveChatFront > div:last-child {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+  #liveChatFront > div:last-child > button {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 8px 10px;
+  }
 }
 
 /* ---- Beat Pulse Animation ---- */
