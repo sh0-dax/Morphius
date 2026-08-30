@@ -958,7 +958,8 @@ let orbitControls = null;
 let projectionShowActive = false;
 
 // ---- Reusable model loader ----
-const FACECAP_URL = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r183/examples/models/gltf/facecap.glb';
+// Use threejs.org FaceCap model (same model, but might work better)
+const FACECAP_URL = 'https://threejs.org/examples/models/gltf/facecap.glb';
 let sceneFitFn = null;
 let sceneMatsFn = null;
 
@@ -966,8 +967,8 @@ function loadModel(url, fitFn, buildMatsFn) {
   return new Promise((resolve, reject) => {
     if (!_scene) { reject(new Error('Scene not ready')); return; }
 
-    // Use plain loader for FaceCap (no KTX2), full loader for others
-    const loader = (url === FACECAP_URL && _plainGltfLoader) ? _plainGltfLoader : _gltfLoader;
+    // Always use full loader with KTX2 for models that need it
+    const loader = _gltfLoader;
     if (!loader) { reject(new Error('Scene not ready')); return; }
 
     const loadMsg = document.getElementById('loadMsg');
@@ -1081,7 +1082,11 @@ function loadModel(url, fitFn, buildMatsFn) {
         mixer.clipAction(gltf.animations[0]).play();
       }
 
-      if (loadMsg) loadMsg.style.display = 'none';
+      // Hide both loading overlay and status message (use !important to override any CSS)
+      const overlay = document.getElementById('progressOverlay');
+      if (overlay) overlay.style.setProperty('display', 'none', 'important');
+      const currentLoadMsg = document.getElementById('loadMsg');
+      if (currentLoadMsg) currentLoadMsg.style.setProperty('display', 'none', 'important');
       if (fitFn) fitFn();
       toggleFaceCanvas(cfgShowFace.checked);
       resolve();
@@ -1331,15 +1336,12 @@ async function initScene() {
   sceneMatsFn = buildBlueprintMaterials;
 
   const ktx2Loader = new KTX2Loader();
-  ktx2Loader.setTranscoderPath('https://unpkg.com/three@0.183.0/examples/jsm/libs/basis/');
+  ktx2Loader.setTranscoderPath('https://cdn.jsdelivr.net/npm/three@0.183.0/examples/jsm/libs/basis/');
   await ktx2Loader.detectSupport(renderer);
   _ktx2Loader = ktx2Loader;
 
   const gltfLoader = new GLTFLoader().setKTX2Loader(ktx2Loader).setMeshoptDecoder(MeshoptDecoder);
   _gltfLoader = gltfLoader;
-
-  // Plain GLTFLoader for FaceCap (no KTX2 needed, avoids transcoder issues)
-  _plainGltfLoader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 
   const MODEL_MAP = {
     facecap: FACECAP_URL,
