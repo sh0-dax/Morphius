@@ -1541,8 +1541,13 @@ async function initScene() {
     document.getElementById('hudClock').textContent = new Date().toTimeString().slice(0, 8);
     const freqLive = audioAnalyser || LocalSpeech.analyser;
     const hudFreqEl = document.getElementById('hudFreq');
+    const speakNow = S.speaking || S.talkPulse > 0.005;
     if (freqLive) {
       const dominant = S.bass > S.mid && S.bass > S.treble ? S.bass * 250 : S.mid > S.treble ? S.mid * 2000 : S.treble * 8000;
+      hudFreqEl.textContent = String.fromCharCode(216) + ' ' + dominant.toFixed(1) + ' Hz';
+    } else if (speakNow) {
+      const I = Math.min(1, S.phonemeIntensity * 2.6 + S.talkPulse * 1.4);
+      const dominant = I * (1400 + 600 * Math.sin(animT * 9));
       hudFreqEl.textContent = String.fromCharCode(216) + ' ' + dominant.toFixed(1) + ' Hz';
     } else {
       hudFreqEl.textContent = String.fromCharCode(216) + ' --';
@@ -3124,10 +3129,10 @@ injectMaterialModeToggle();
 function createMaterialModeToggle() {
   const container = document.createElement('div');
   container.id = 'materialModeToggle';
-  container.style.cssText = 'margin-top:12px;padding:10px;background:rgba(0,255,200,0.05);border:1px solid rgba(0,255,200,0.2);border-radius:8px;';
+  container.style.cssText = 'margin-top:12px;padding:10px;background:rgba(47,129,247,0.06);border:1px solid rgba(125,211,252,0.25);border-radius:8px;';
   container.innerHTML = `
-    <label style="display:flex;align-items:center;gap:8px;color:#00ffc8;font-size:13px;cursor:pointer;">
-      <input type="checkbox" id="materialModeCheckbox" style="width:18px;height:18px;accent-color:#00ffc8;">
+    <label style="display:flex;align-items:center;gap:8px;color:#7dd3fc;font-size:13px;cursor:pointer;font-family:var(--font-mono, monospace);">
+      <input type="checkbox" id="materialModeCheckbox" style="width:18px;height:18px;accent-color:#2f81f7;">
       <span id="materialModeLabel">${t('projection.materialModeBlueprint', 'الوضع: Blueprint (سلكي + توهج)')}</span>
     </label>
   `;
@@ -3156,12 +3161,24 @@ function createMaterialModeToggle() {
 }
 
 function injectMaterialModeToggle() {
-  const projectionFileInput = document.getElementById('projectionFileInput');
-  if (!projectionFileInput) return;
+  const panel = document.getElementById('dataPanel');
+  if (!panel) return;
   const existing = document.getElementById('materialModeToggle');
   if (existing) existing.remove();
   const toggleUI = createMaterialModeToggle();
-  projectionFileInput.parentNode.insertBefore(toggleUI, projectionFileInput.nextSibling);
+  // Place the projector material-mode control inside the system-metrics panel
+  // (not in the chat composer) so the chat input stays clean.
+  toggleUI.style.marginTop = '12px';
+  toggleUI.style.padding = '10px';
+  toggleUI.style.background = 'rgba(47,129,247,0.06)';
+  toggleUI.style.border = '1px solid rgba(125,211,252,0.25)';
+  toggleUI.style.borderRadius = '8px';
+  const readouts = panel.querySelector('.data-readouts');
+  if (readouts && readouts.nextSibling) {
+    panel.insertBefore(toggleUI, readouts.nextSibling);
+  } else {
+    panel.appendChild(toggleUI);
+  }
 }
 
 // Drag & drop (anywhere in the app shell) for images and models.
@@ -4384,7 +4401,26 @@ function updateDataPanelMetrics() {
   const src = audioAnalyser || LocalSpeech.analyser || null;
   const speechActive = S.speaking || S.talkPulse > 0.005;
   const n = performance.now();
-  const amp = S.talkPulse;
+
+  // AMPLITUDE: real RMS when a live analyser is available (mic / live call /
+  // on-device TTS), otherwise derived from speech activity so browser TTS and
+  // idle states never leave the readout dead at 0.000.
+  let amp;
+  if (src) {
+    if (!audioDataArray || audioDataArray.length !== src.frequencyBinCount) audioDataArray = new Uint8Array(src.frequencyBinCount);
+    src.getByteTimeDomainData(audioDataArray);
+    let sumSq = 0;
+    for (let i = 0; i < audioDataArray.length; i++) {
+      const v = (audioDataArray[i] - 128) / 128;
+      sumSq += v * v;
+    }
+    amp = Math.min(1, Math.sqrt(sumSq / audioDataArray.length) * 3.2);
+  } else if (speechActive) {
+    amp = Math.min(1, S.phonemeIntensity * 1.2 + S.talkPulse * 0.7 + 0.02);
+  } else {
+    const breath = 0.5 + 0.3 * Math.sin(n / 1000 * 1.4);
+    amp = 0.02 * breath;
+  }
 
   // Browser TTS has no analyser (speechSynthesis audio can't be tapped by Web
   // Audio), so synthesize believable live readings from speech activity.
