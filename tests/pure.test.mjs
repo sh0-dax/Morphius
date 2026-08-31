@@ -21,6 +21,8 @@ import {
   clampProjectionScale,
   projectionFitAspect,
   classifyProjectionGesture,
+  fetchWithRetry,
+  abortableDelay,
 } from '../js/pure.js';
 import { getMasterVolume, setMasterVolume, getOutputDevice, setOutputDevice, routeOutput } from '../js/masterBus.js';
 
@@ -456,5 +458,78 @@ describe('classifyProjectionGesture', () => {
   it('returns none for everything else', () => {
     expect(classifyProjectionGesture('pointermove', 1, false, null)).toBe('none');
     expect(classifyProjectionGesture('wheel', 0, false, null)).toBe('none');
+  });
+});
+
+describe('fetchWithRetry / abortableDelay', () => {
+  function okResponse() { return { ok: true, status: 200, json: async () => ({}) }; }
+  function errResponse(status) { return { ok: false, status, json: async () => ({}) }; }
+
+  it('returns the response immediately when it succeeds', async () => {
+    const calls = [];
+    global.fetch = async () => { calls.push(1); return okResponse(); };
+    const res = await fetchWithRetry('u', {});
+    expect(res.ok).toBe(true);
+    expect(calls.length).toBe(1);
+  });
+
+  it('does not retry 4xx errors other than 429', async () => {
+    let n = 0;
+    global.fetch = async () => { n += 1; return errResponse(400); };
+    const res = await fetchWithRetry('u', {});
+    expect(res.status).toBe(400);
+    expect(n).toBe(1);
+  });
+
+  it('retries transient 5xx then succeeds', async () => {
+    let n = 0;
+    global.fetch = async () => {
+      n += 1;
+      return n < 3 ? errResponse(503) : okResponse();
+    };
+    const res = await fetchWithRetry('u', {}, { retries: 3, backoffMs: 1 });
+    expect(res.ok).toBe(true);
+    expect(n).toBe(3);
+  });
+
+  it('retries 429 (rate limit) with backoff', async () => {
+    let n = 0;
+    global.fetch = async () => {
+      n += 1;
+      return n < 3 ? errResponse(429) : okResponse();
+    };
+    const res = await fetchWithRetry('u', {}, { retries: 3, backoffMs: 1 });
+    expect(res.ok).toBe(true);
+    expect(n).toBe(3);
+  });
+
+  it('gives up after retries exhausted and returns the last failed response', async () => {
+    let n = 0;
+    global.fetch = async () => { n += 1; return errResponse(503); };
+    const res = await fetchWithRetry('u', {}, { retries: 2, backoffMs: 1 });
+    expect(res.status).toBe(503);
+    expect(n).toBe(3); // 1 initial + 2 retries
+  });
+
+  it('stops retrying when the signal is already aborted', async () => {
+    const ac = new AbortController();
+    ac.abort();
+    let n = 0;
+    global.fetch = async () => { n += 1; throw new DOMException('Aborted', 'AbortError'); };
+    await expect(fetchWithRetry('u', { signal: ac.signal }, { retries: 3, backoffMs: 1 })).rejects.toThrow();
+    expect(n).toBe(1);
+  });
+
+  it('abortableDelay resolves after ms', async () => {
+    const t0 = Date.now();
+    await abortableDelay(5);
+    expect(Date.now() - t0).toBeGreaterThanOrEqual(4);
+  });
+
+  it('abortableDelay rejects on abort', async () => {
+    const ac = new AbortController();
+    const p = abortableDelay(1000, ac.signal);
+    ac.abort();
+    await expect(p).rejects.toMatchObject({ name: 'AbortError' });
   });
 });

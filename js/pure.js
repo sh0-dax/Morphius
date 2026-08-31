@@ -315,3 +315,54 @@ export function parseYoloOneToOne(data, dims, { scale, dx, dy, videoW, videoH, s
   }
   return out;
 }
+
+// Wait `ms` milliseconds, or reject with an AbortError if `signal` fires first.
+// Lets a retry backoff still honor an abort without waiting out the full delay.
+export function abortableDelay(ms, signal) {
+  if (!signal) return new Promise((r) => setTimeout(r, ms));
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) return reject(createAbortError());
+    const t = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    function onAbort() {
+      clearTimeout(t);
+      reject(createAbortError());
+    }
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+function createAbortError() {
+  const e = new Error('aborted');
+  e.name = 'AbortError';
+  return e;
+}
+
+// fetch() with exponential backoff on transient failures (HTTP 429 and 5xx).
+// Returns the final Response so callers can inspect/throw on it normally.
+//   retries  - number of retries AFTER the first attempt (default 2)
+//   backoffMs- base delay; each attempt waits backoffMs * 2^attempt
+// Aborts (via options.signal or the `signal` arg) stop retries immediately.
+export async function fetchWithRetry(url, options, { retries = 2, backoffMs = 1000, signal } = {}) {
+  const sig = signal || (options && options.signal) || null;
+  let attempt = 0;
+  for (;;) {
+    let res;
+    try {
+      res = await fetch(url, options);
+    } catch (e) {
+      if (sig && sig.aborted) throw e;
+      if (attempt >= retries) throw e;
+      attempt += 1;
+      await abortableDelay(backoffMs * 2 ** (attempt - 1), sig);
+      continue;
+    }
+    if (res.ok) return res;
+    const retryable = res.status === 429 || res.status >= 500;
+    if (!retryable || attempt >= retries || (sig && sig.aborted)) return res;
+    attempt += 1;
+    await abortableDelay(backoffMs * 2 ** (attempt - 1), sig);
+  }
+}

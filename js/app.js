@@ -13,7 +13,7 @@ import { Vision } from './vision.js';
 import { LocalSpeech, startLocalSTT, stopLocalSTT, generateLocalAudio, playLocalAudio, setLocalCallbacks, stopLocalAudio, setWhisperModel, applyMasterSettings } from './localSpeech.js';
 import { modelProgress } from './progress.js';
 import { getMasterVolume, setMasterVolume, setOutputDevice, routeOutput } from './masterBus.js';
-import { detectFeeling, visemeFor, DEFAULT_VISEME, VISEME_KEYS, contentToText, contentImages, buildUserContent, geminiContentParts, detectDeviceTier, recommendedWebLlmModel, createEventBus, lerpWeight } from './pure.js';
+import { detectFeeling, visemeFor, DEFAULT_VISEME, VISEME_KEYS, contentToText, contentImages, buildUserContent, geminiContentParts, detectDeviceTier, recommendedWebLlmModel, createEventBus, lerpWeight, fetchWithRetry } from './pure.js';
 import { computeVisionFeeling, decideVisionCommentary, getSpeakHint, displayClass, VISION_SPEAK_CLASSES, canRunCameraPipeline, computeNewClasses, splitBands } from './visionLogic.js';
 import { STATE_TARGETS, EMOTION_TARGETS, FEELING_TARGETS, VISION_TARGETS, STATE_COLORS, FEELING_COLORS, LIGHT_PRESETS } from './presets.js';
 import { saveSession, loadSession, listSessions, deleteSession, getLastSession, buildSession, makeSessionId, sanitizeMessages, sessionTitle } from './chatStore.js';
@@ -963,6 +963,10 @@ const FACECAP_URL = 'https://threejs.org/examples/models/gltf/facecap.glb';
 let sceneFitFn = null;
 let sceneMatsFn = null;
 
+// Active custom-model blob URL (created from a local file pick). Revoked whenever
+// it is replaced by another model so we never leak object URLs (one-per-pick).
+let _customBlobUrl = null;
+
 function loadModel(url, fitFn, buildMatsFn) {
   return new Promise((resolve, reject) => {
     if (!_scene) { reject(new Error('Scene not ready')); return; }
@@ -1179,7 +1183,9 @@ if (cfgModelFile) {
   cfgModelFile.addEventListener('change', () => {
     const file = cfgModelFile.files[0];
     if (!file) return;
+    if (_customBlobUrl) { URL.revokeObjectURL(_customBlobUrl); _customBlobUrl = null; }
     const blobUrl = URL.createObjectURL(file);
+    _customBlobUrl = blobUrl;
     cfgCustomModelUrl.value = '';
     cfgModel3d.value = 'custom';
     customModelGroup.style.display = 'block';
@@ -1259,6 +1265,7 @@ if (loadModelBtn) {
   loadModelBtn.addEventListener('click', () => {
     const url = cfgCustomModelUrl.value.trim();
     if (!url) { showStatus('Enter a model URL first', 'warn'); return; }
+    if (_customBlobUrl) { URL.revokeObjectURL(_customBlobUrl); _customBlobUrl = null; }
     cfgModel3d.value = 'custom';
     customModelGroup.style.display = 'block';
     if (modelNameEl) modelNameEl.textContent = url.split('/').pop() || url;
@@ -1360,6 +1367,14 @@ async function initScene() {
   let _hudClockLast = '';
   let _hudFrame = 0;
 
+  let _safeFrame = 0;
+  function safeRun(name, fn) {
+    try {
+      fn();
+    } catch (e) {
+      if (++_safeFrame % 30 === 1) dbg('animate/' + name + ': ' + (e && e.message ? e.message : e), 'err');
+    }
+  }
   function animate() {
     timer.update();
     const delta = timer.getDelta();
@@ -1493,73 +1508,79 @@ async function initScene() {
     S.feelingBlend += (S.feelingBlendTarget - S.feelingBlend) * 0.05;
     if (S.feelingBlend < 0.01 && S.feelingBlendTarget === 0) S.feelingBlend = 0;
 
-    if (glowMat && wireMat && ambientLight) {
-      const colors = STATE_COLORS[S.currentState];
-      const fc = FEELING_COLORS[S.feeling] || FEELING_COLORS.neutral;
-      const fb = S.feelingBlend;
-      const speakingNow = S.speaking || S.isTtsSpeaking;
-      const excite = speakingNow ? Math.min(1, (audioAnalyser || LocalSpeech.analyser)
-        ? (S.bass * 0.9 + S.mid * 0.5 + S.treble * 0.3) * 2.4
-        : S.phonemeIntensity * 2.2) : 0;
-      if (colors) {
-        colorA.copy(_hexC(colors.emissive)).lerp(_hexC(fc.emissive), fb);
-        if (excite > 0.01) colorA.multiplyScalar(1 + excite * 0.5);
-        colorB.setHex(glowMat.emissive.getHex()); colorB.lerp(colorA, 0.04); glowMat.emissive.copy(colorB);
-        colorA.copy(_hexC(colors.wire)).lerp(_hexC(fc.wire), fb);
-        colorB.setHex(wireMat.color.getHex()); colorB.lerp(colorA, 0.04); wireMat.color.copy(colorB);
-        colorA.copy(_hexC(colors.ambient)).lerp(_hexC(fc.ambient), fb);
-        colorB.setHex(ambientLight.color.getHex()); colorB.lerp(colorA, 0.03); ambientLight.color.copy(colorB);
-        ambientLight.intensity += (lightTargetIntensity - ambientLight.intensity) * 0.04;
-        ambientLight.color.lerp(lightTargetColor, 0.04);
-        if (eyeDotMats.length) {
-          _feelingDotTmp.copy(_hexC(colors.wire)).lerp(_hexC(fc.wire), fb);
-          eyeDotMats.forEach((m) => { colorB.setHex(m.color.getHex()); colorB.lerp(_feelingDotTmp, 0.06); m.color.copy(colorB); });
+    safeRun('colors', () => {
+      if (glowMat && wireMat && ambientLight) {
+        const colors = STATE_COLORS[S.currentState];
+        const fc = FEELING_COLORS[S.feeling] || FEELING_COLORS.neutral;
+        const fb = S.feelingBlend;
+        const speakingNow = S.speaking || S.isTtsSpeaking;
+        const excite = speakingNow ? Math.min(1, (audioAnalyser || LocalSpeech.analyser)
+          ? (S.bass * 0.9 + S.mid * 0.5 + S.treble * 0.3) * 2.4
+          : S.phonemeIntensity * 2.2) : 0;
+        if (colors) {
+          colorA.copy(_hexC(colors.emissive)).lerp(_hexC(fc.emissive), fb);
+          if (excite > 0.01) colorA.multiplyScalar(1 + excite * 0.5);
+          colorB.setHex(glowMat.emissive.getHex()); colorB.lerp(colorA, 0.04); glowMat.emissive.copy(colorB);
+          colorA.copy(_hexC(colors.wire)).lerp(_hexC(fc.wire), fb);
+          colorB.setHex(wireMat.color.getHex()); colorB.lerp(colorA, 0.04); wireMat.color.copy(colorB);
+          colorA.copy(_hexC(colors.ambient)).lerp(_hexC(fc.ambient), fb);
+          colorB.setHex(ambientLight.color.getHex()); colorB.lerp(colorA, 0.03); ambientLight.color.copy(colorB);
+          ambientLight.intensity += (lightTargetIntensity - ambientLight.intensity) * 0.04;
+          ambientLight.color.lerp(lightTargetColor, 0.04);
+          if (eyeDotMats.length) {
+            _feelingDotTmp.copy(_hexC(colors.wire)).lerp(_hexC(fc.wire), fb);
+            eyeDotMats.forEach((m) => { colorB.setHex(m.color.getHex()); colorB.lerp(_feelingDotTmp, 0.06); m.color.copy(colorB); });
+          }
+          if (Math.abs(fb - _lastPulseBlend) > 0.03) {
+            _lastPulseBlend = fb;
+            applyFeelingPulse();
+          }
         }
-        if (Math.abs(fb - _lastPulseBlend) > 0.03) {
-          _lastPulseBlend = fb;
-          applyFeelingPulse();
+      }
+    });
+
+    safeRun('speaking', () => {
+      if (S.speaking && S.speakStartedAt !== null) {
+        const elapsedSec = (performance.now() - S.speakStartedAt) / 1000;
+        const wasLong = S.isLongResponse;
+        S.isLongResponse = elapsedSec >= 12;
+        if (S.isLongResponse !== wasLong) {
+          document.getElementById('bgPulse').classList.toggle('long-mode', S.isLongResponse);
+          document.getElementById('stateLabel').className = 'state-label' + (S.currentState === 'alert' ? ' alert-mode' : '') + (S.isLongResponse ? ' long-mode' : '');
         }
+        document.getElementById('elapsedLabel').textContent = S.isLongResponse ? t('status.extended', 'EXTENDED // ') + elapsedSec.toFixed(0) + 'S' : elapsedSec.toFixed(0) + 'S';
+        document.getElementById('elapsedLabel').className = 'elapsed-label' + (S.isLongResponse ? ' long-mode' : '');
+        if (!S.isTtsSpeaking && (performance.now() - S.lastActivityAt) / 1000 > 8) {
+          setSpeaking(false);
+        }
+      } else {
+        document.getElementById('elapsedLabel').textContent = '';
       }
-    }
+    });
 
-    if (S.speaking && S.speakStartedAt !== null) {
-      const elapsedSec = (performance.now() - S.speakStartedAt) / 1000;
-      const wasLong = S.isLongResponse;
-      S.isLongResponse = elapsedSec >= 12;
-      if (S.isLongResponse !== wasLong) {
-        document.getElementById('bgPulse').classList.toggle('long-mode', S.isLongResponse);
-        document.getElementById('stateLabel').className = 'state-label' + (S.currentState === 'alert' ? ' alert-mode' : '') + (S.isLongResponse ? ' long-mode' : '');
+    safeRun('hud', () => {
+      const _clockStr = new Date().toTimeString().slice(0, 8);
+      if (_clockStr !== _hudClockLast) {
+        _hudClockLast = _clockStr;
+        document.getElementById('hudClock').textContent = _clockStr;
       }
-      document.getElementById('elapsedLabel').textContent = S.isLongResponse ? t('status.extended', 'EXTENDED // ') + elapsedSec.toFixed(0) + 'S' : elapsedSec.toFixed(0) + 'S';
-      document.getElementById('elapsedLabel').className = 'elapsed-label' + (S.isLongResponse ? ' long-mode' : '');
-      if (!S.isTtsSpeaking && (performance.now() - S.lastActivityAt) / 1000 > 8) {
-        setSpeaking(false);
+      if (++_hudFrame % 6 === 0) {
+        document.getElementById('hudCoord').textContent = 'X:' + (Math.sin(animT * 0.7) * 99 + 150).toFixed(0).padStart(3, '0') + ' Y:' + (Math.cos(animT * 0.5) * 99 + 150).toFixed(0).padStart(3, '0');
       }
-    } else {
-      document.getElementById('elapsedLabel').textContent = '';
-    }
-
-    const _clockStr = new Date().toTimeString().slice(0, 8);
-    if (_clockStr !== _hudClockLast) {
-      _hudClockLast = _clockStr;
-      document.getElementById('hudClock').textContent = _clockStr;
-    }
-    if (++_hudFrame % 6 === 0) {
-      document.getElementById('hudCoord').textContent = 'X:' + (Math.sin(animT * 0.7) * 99 + 150).toFixed(0).padStart(3, '0') + ' Y:' + (Math.cos(animT * 0.5) * 99 + 150).toFixed(0).padStart(3, '0');
-    }
-    const freqLive = audioAnalyser || LocalSpeech.analyser;
-    const hudFreqEl = document.getElementById('hudFreq');
-    const speakNow = S.speaking || S.talkPulse > 0.005;
-    if (freqLive) {
-      const dominant = S.bass > S.mid && S.bass > S.treble ? S.bass * 250 : S.mid > S.treble ? S.mid * 2000 : S.treble * 8000;
-      hudFreqEl.textContent = String.fromCharCode(216) + ' ' + dominant.toFixed(1) + ' Hz';
-    } else if (speakNow) {
-      const I = Math.min(1, S.phonemeIntensity * 2.6 + S.talkPulse * 1.4);
-      const dominant = I * (1400 + 600 * Math.sin(animT * 9));
-      hudFreqEl.textContent = String.fromCharCode(216) + ' ' + dominant.toFixed(1) + ' Hz';
-    } else {
-      hudFreqEl.textContent = String.fromCharCode(216) + ' --';
-    }
+      const freqLive = audioAnalyser || LocalSpeech.analyser;
+      const hudFreqEl = document.getElementById('hudFreq');
+      const speakNow = S.speaking || S.talkPulse > 0.005;
+      if (freqLive) {
+        const dominant = S.bass > S.mid && S.bass > S.treble ? S.bass * 250 : S.mid > S.treble ? S.mid * 2000 : S.treble * 8000;
+        hudFreqEl.textContent = String.fromCharCode(216) + ' ' + dominant.toFixed(1) + ' Hz';
+      } else if (speakNow) {
+        const I = Math.min(1, S.phonemeIntensity * 2.6 + S.talkPulse * 1.4);
+        const dominant = I * (1400 + 600 * Math.sin(animT * 9));
+        hudFreqEl.textContent = String.fromCharCode(216) + ' ' + dominant.toFixed(1) + ' Hz';
+      } else {
+        hudFreqEl.textContent = String.fromCharCode(216) + ' --';
+      }
+    });
 
     controls.update();
     renderer.render(scene, camera);
@@ -2119,7 +2140,7 @@ cfgVisionMaxFps.addEventListener('change', () => {
 cfgVisionReact.addEventListener('change', () => { visionReact = cfgVisionReact.checked; saveSettings(); });
 if (cfgVisionCommentary) cfgVisionCommentary.addEventListener('change', () => { visionCommentary = cfgVisionCommentary.checked; saveSettings(); });
 if (btnVisionPause) btnVisionPause.addEventListener('click', toggleVisionPause);
-window.addEventListener('pagehide', () => { if (visionActive) stopVision(); });
+  window.addEventListener('pagehide', () => { if (visionActive) stopVision(); if (_customBlobUrl) { URL.revokeObjectURL(_customBlobUrl); _customBlobUrl = null; } });
 
 cfgLiveVoice.addEventListener('change', () => {
   liveVoiceFields.style.display = cfgLiveVoice.checked ? 'block' : 'none';
@@ -2894,7 +2915,7 @@ async function streamGemini(content, model, key, baseUrl, temp, maxTokens, syste
 
   const url = baseUrl + '/models/' + model + ':streamGenerateContent?alt=sse&key=' + encodeURIComponent(key);
   dbg('Gemini: ' + url.substring(0, 60) + '...', 'info');
-  const res = await fetch(url, {
+  const res = await fetchWithRetry(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ contents, generationConfig: { temperature: temp, maxOutputTokens: maxTokens } }),
@@ -2941,7 +2962,7 @@ async function streamOllama(content, model, baseUrl, temp, maxTokens, system, si
   if (lastImgs.length) last.images = lastImgs;
   msgs.push(last);
 
-  const res = await fetch(baseUrl + '/api/chat', {
+  const res = await fetchWithRetry(baseUrl + '/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model, messages: msgs, stream: true, options: { temperature: temp, num_predict: maxTokens } }),
@@ -3034,7 +3055,7 @@ async function streamCustom(content, model, key, baseUrl, temp, maxTokens, syste
   const headers = { 'Content-Type': 'application/json' };
   if (key) headers['Authorization'] = 'Bearer ' + key;
 
-  const res = await fetch(baseUrl + '/chat/completions', {
+  const res = await fetchWithRetry(baseUrl + '/chat/completions', {
     method: 'POST',
     headers,
     body: JSON.stringify({ model, messages: msgs, stream: true, temperature: temp, max_tokens: maxTokens }),
@@ -4250,6 +4271,8 @@ cfgWaveStyle.addEventListener('change', () => {
 cfgModel3d.addEventListener('change', () => {
   customModelGroup.style.display = cfgModel3d.value === 'custom' ? 'block' : 'none';
   if (cfgModel3d.value === 'facecap' && modelNameEl) modelNameEl.textContent = 'FaceCap (Classic)';
+  // Revoke the file blob when switching to a different (non-file) model.
+  if (cfgModel3d.value !== 'custom' && _customBlobUrl) { URL.revokeObjectURL(_customBlobUrl); _customBlobUrl = null; }
   // Switching back to the built-in FaceCap from a custom/VRM model should
   // reload it rather than leaving the previous model on screen.
   if (cfgModel3d.value === 'facecap' && (currentVRM || cfgModel3d.getAttribute('data-custom-loaded')) && sceneFitFn && sceneMatsFn) {
@@ -4319,6 +4342,7 @@ if (cfgLocalModels) {
   cfgLocalModels.addEventListener('change', () => {
     const url = cfgLocalModels.value;
     if (!url) return;
+    if (_customBlobUrl) { URL.revokeObjectURL(_customBlobUrl); _customBlobUrl = null; }
     cfgCustomModelUrl.value = url;
     cfgModel3d.value = 'custom';
     customModelGroup.style.display = 'block';
@@ -4364,6 +4388,10 @@ function toggleDataPanel(show) {
   dataPanel.classList.toggle('collapsed', !dataPanelVisible);
   toggleDataBtn.classList.toggle('hidden', dataPanelVisible);
   toggleDataBtn.innerHTML = dataPanelVisible ? svgClose : svgBars;
+  if (dataPanelVisible) {
+    _lastDataUpdate = 0;
+    requestAnimationFrame(dataPanelLoop);
+  }
 }
 
 // On mobile, collapse the system matrix on load so it doesn't crowd the view
@@ -4537,6 +4565,8 @@ function updateDataPanelMetrics() {
 
 let _lastDataUpdate = 0;
 function dataPanelLoop(now) {
+  // Stop the loop entirely when the panel is collapsed; toggleDataPanel restarts it.
+  if (!dataPanelVisible) return;
   requestAnimationFrame(dataPanelLoop);
   if (now - _lastDataUpdate < 50) return;
   _lastDataUpdate = now;
