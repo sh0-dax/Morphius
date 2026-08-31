@@ -27,13 +27,18 @@
 // manually from the console (Vision.init/start/stop) for verification.
 // ============================================================
 
-import { parseYoloOneToOne } from './pure.js';
+import { parseYoloOneToOne, nonMaxSuppressionPerClass } from './pure.js';
 import { shouldRunVisionFrame, clampVisionFps, DEFAULT_VISION_FPS } from './visionLogic.js';
 
 let YOLO_MODEL_URL = './models/yolo26n_int8.onnx'; // see scripts/export_model.py
 const YOLO_INPUT_SIZE = 640;
 const YOLO_SCORE_THRESHOLD = 0.45;
 const COCO_SCORE_THRESHOLD = 0.5;
+
+// Self-hosted onnxruntime-web (no CDN): the UMD build plus the wasm backends
+// we vendor under ./libs/ort/. Keeps YOLO fully CDN-independent and offline.
+const ORT_LIB_URL = './libs/ort/ort.min.js';
+const ORT_WASM_PATH = './libs/ort/wasm/';
 
 // COCO class list (80 classes) — index-aligned with YOLO/COCO-SSD outputs.
 const COCO_CLASSES = [
@@ -96,9 +101,9 @@ function loadScript(src) {
 }
 
 async function initYolo() {
-  await loadScript('https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js');
+  await loadScript(ORT_LIB_URL);
   // eslint-disable-next-line no-undef
-  ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
+  ort.env.wasm.wasmPaths = ORT_WASM_PATH;
   // eslint-disable-next-line no-undef
   session = await ort.InferenceSession.create(YOLO_MODEL_URL, {
     executionProviders: ['webgpu', 'wasm'],
@@ -291,9 +296,11 @@ async function preprocessForYolo() {
  * YOLO26n is exported with the DEFAULT "one-to-one" head
  * (see https://docs.ultralytics.com/models/yolo26/), so the ONNX output is
  * shaped [1, 300, 6] — each row = [x1, y1, x2, y2, score, class] in absolute
- * letterboxed pixels — already end-to-end NMS-free. We therefore DON'T run
- * NMS here; parseYoloOneToOne() (in pure.js) undoes the letterbox and
- * normalizes to [0..1] video space.
+ * letterboxed pixels — already end-to-end NMS-free. parseYoloOneToOne() (in
+ * pure.js) undoes the letterbox and normalizes to [0..1] video space, then a
+ * per-class NMS safety net drops any duplicate/overlapping boxes (normally a
+ * no-op for the one-to-one head, but guarantees no dupes if it ever sees a
+ * one-to-many body).
  */
 async function detectYolo() {
   const { float32, scale, dx, dy } = await preprocessForYolo();
@@ -310,12 +317,20 @@ async function detectYolo() {
     dimsLogged = true;
   }
 
-  return parseYoloOneToOne(output.data, output.dims, {
+  const dets = parseYoloOneToOne(output.data, output.dims, {
     scale, dx, dy,
     videoW: videoEl.videoWidth,
     videoH: videoEl.videoHeight,
     scoreThreshold: YOLO_SCORE_THRESHOLD,
-  }).map((d) => ({ ...d, class: COCO_CLASSES[d.class] ?? `class_${d.class}` }));
+  });
+
+  // Class-aware NMS as a safety net: the one-to-one head is NMS-free by design
+  // (so this is normally a no-op), but per-class suppression guarantees we never
+  // emit duplicate/overlapping boxes for the same object if the model ever drops
+  // a one-to-many export. numeric `class` is still intact here, before mapping.
+  const nmsDets = nonMaxSuppressionPerClass(dets, 0.5);
+
+  return nmsDets.map((d) => ({ ...d, class: COCO_CLASSES[d.class] ?? `class_${d.class}` }));
 }
 
 /** Run one COCO-SSD inference pass and return normalized detections. */

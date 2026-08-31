@@ -259,6 +259,25 @@ export function nonMaxSuppression(boxes, iouThreshold = 0.5) {
   return keep;
 }
 
+// Class-aware NMS. The generic nonMaxSuppression() is class-agnostic, so two
+// highly-overlapping boxes of DIFFERENT classes could suppress each other.
+// Object detectors should only suppress overlaps within the SAME class, so we
+// group boxes by their `class` field and run nonMaxSuppression() per group.
+// Detections must carry a numeric `class` (e.g. parseYoloOneToOne output).
+export function nonMaxSuppressionPerClass(boxes, iouThreshold = 0.5) {
+  const byClass = new Map();
+  for (const b of boxes) {
+    const key = b.class;
+    if (!byClass.has(key)) byClass.set(key, []);
+    byClass.get(key).push(b);
+  }
+  const out = [];
+  for (const group of byClass.values()) {
+    for (const kept of nonMaxSuppression(group, iouThreshold)) out.push(kept);
+  }
+  return out;
+}
+
 // Parse a YOLO26 ONNX **one-to-one** output tensor into normalized detections.
 // Contract (see vision.js for the full rationale / Ultralytics link):
 //   - output is a flat array shaped [1, 300, 6]  (300 boxes per image)

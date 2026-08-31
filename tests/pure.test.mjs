@@ -15,6 +15,7 @@ import {
   createEventBus,
   iou,
   nonMaxSuppression,
+  nonMaxSuppressionPerClass,
   parseYoloOneToOne,
   lerpWeight,
   clampProjectionScale,
@@ -318,6 +319,27 @@ describe('iou / nonMaxSuppression (vision helpers)', () => {
       { bbox: [1, 1, 10, 10], score: 0.3 },
     ], 0.05); // tiny threshold → even small overlap collapses the pair
     expect(keep.length).toBe(1);
+  });
+
+  it('suppresses overlaps only within the same class (per-class NMS)', () => {
+    // Two different classes overlapping heavily must BOTH survive per-class NMS
+    // (class-agnostic NMS would wrongly drop one).
+    const keep = nonMaxSuppressionPerClass([
+      { bbox: [0, 0, 10, 10], score: 0.9, class: 0 },
+      { bbox: [1, 1, 10, 10], score: 0.8, class: 1 },
+    ]);
+    expect(keep.length).toBe(2); // different classes → both kept
+  });
+
+  it('drops overlapping same-class boxes (per-class NMS)', () => {
+    const keep = nonMaxSuppressionPerClass([
+      { bbox: [0, 0, 10, 10], score: 0.9, class: 0 },
+      { bbox: [1, 1, 10, 10], score: 0.3, class: 0 }, // same class, low score
+      { bbox: [50, 50, 10, 10], score: 0.8, class: 0 },
+      { bbox: [0, 0, 10, 10], score: 0.7, class: 2 },
+    ]);
+    expect(keep.length).toBe(3); // 0.9, 0.8, and class-2 box
+    expect(keep.map((d) => d.score).sort((a, b) => b - a)).toEqual([0.9, 0.8, 0.7]);
   });
 });
 

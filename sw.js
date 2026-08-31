@@ -7,7 +7,7 @@
 // app keeps working through CDN outages and offline. Offline still works via
 // cache fallbacks.
 // Bump CACHE_NAME on any shell change to invalidate old caches automatically.
-const CACHE_NAME = 'aiface-shell-v43';
+const CACHE_NAME = 'aiface-shell-v44';
 const CDN_CACHE = 'aiface-cdn-v1';
 
 // Exact pinned CDN resources (substring match against href). These are cached
@@ -20,7 +20,6 @@ const CDN_PINS = [
   'cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.1.2',
   'cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/facecap.glb',
   'esm.run/@mlc-ai/web-llm',
-  'cdn.jsdelivr.net/npm/onnxruntime-web/dist',
   'cdn.jsdelivr.net/npm/@tensorflow/tfjs/dist',
   'cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd/dist'
 ];
@@ -54,7 +53,12 @@ const SHELL_FILES = [
   './assets/icon-192.png',
   './assets/icon-512.png',
   './models/manifest.json',
-  './models/yolo26n_int8.onnx'
+  './models/yolo26n_int8.onnx',
+  './libs/ort/ort.min.js',
+  './libs/ort/wasm/ort-wasm-simd-threaded.wasm',
+  './libs/ort/wasm/ort-wasm-simd-threaded.asyncify.wasm',
+  './libs/ort/wasm/ort-wasm-simd-threaded.jspi.wasm',
+  './libs/ort/wasm/ort-wasm-simd-threaded.jsep.wasm'
 ];
 
 self.addEventListener('install', (event) => {
@@ -85,7 +89,7 @@ function isMutable(url) {
 
 function isStaticCacheable(url) {
   const p = url.pathname;
-  return p.endsWith('.glb') || p.endsWith('icon.svg') || p.endsWith('.png') || p.endsWith('manifest.json');
+  return p.endsWith('.glb') || p.endsWith('.wasm') || p.endsWith('icon.svg') || p.endsWith('.png') || p.endsWith('manifest.json');
 }
 
 self.addEventListener('fetch', (event) => {
