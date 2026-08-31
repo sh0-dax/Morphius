@@ -1357,6 +1357,8 @@ async function initScene() {
   const colorA = new THREE.Color();
   const colorB = new THREE.Color();
   let animT = 0;
+  let _hudClockLast = '';
+  let _hudFrame = 0;
 
   function animate() {
     timer.update();
@@ -1537,8 +1539,14 @@ async function initScene() {
       document.getElementById('elapsedLabel').textContent = '';
     }
 
-    document.getElementById('hudCoord').textContent = 'X:' + (Math.sin(animT * 0.7) * 99 + 150).toFixed(0).padStart(3, '0') + ' Y:' + (Math.cos(animT * 0.5) * 99 + 150).toFixed(0).padStart(3, '0');
-    document.getElementById('hudClock').textContent = new Date().toTimeString().slice(0, 8);
+    const _clockStr = new Date().toTimeString().slice(0, 8);
+    if (_clockStr !== _hudClockLast) {
+      _hudClockLast = _clockStr;
+      document.getElementById('hudClock').textContent = _clockStr;
+    }
+    if (++_hudFrame % 6 === 0) {
+      document.getElementById('hudCoord').textContent = 'X:' + (Math.sin(animT * 0.7) * 99 + 150).toFixed(0).padStart(3, '0') + ' Y:' + (Math.cos(animT * 0.5) * 99 + 150).toFixed(0).padStart(3, '0');
+    }
     const freqLive = audioAnalyser || LocalSpeech.analyser;
     const hudFreqEl = document.getElementById('hudFreq');
     const speakNow = S.speaking || S.talkPulse > 0.005;
@@ -1853,6 +1861,11 @@ let visionLastClasses = new Set();
 let visionLastCommentAt = 0;
 let visionFeelingActive = false;
 let visionFeelingLabel = '';
+// Last-rendered status/camera-pill strings. We skip the DOM write when the
+// content is unchanged so per-frame detections don't force layout work that
+// steals frame budget from the Three.js render loop drawing the face.
+let _visionStatusLast = '';
+let _visionCamPillLast = '';
 
 // App-level cooldown for proactive commentary (pure decision logic lives in visionLogic.js).
 const VISION_COMMENT_COOLDOWN = 25000;
@@ -1889,8 +1902,18 @@ function handleVisionDetections(detections) {
   const label = t('vision.status.label', 'VISION: {backend} \u00b7 {summary}')
     .replace('{backend}', visionBackendName)
     .replace('{summary}', summary);
-  setVisionStatus('on', label);
-  setCameraPill(true, summary || 'SEARCHING', false);
+  // Only touch the DOM when the rendered text actually changes. Mutating
+  // textContent/className every detection frame forces style+layout work on the
+  // main thread that competes with the Three.js render loop (face draws slow).
+  if (label !== _visionStatusLast) {
+    _visionStatusLast = label;
+    setVisionStatus('on', label);
+  }
+  const camSummary = summary || 'SEARCHING';
+  if (camSummary !== _visionCamPillLast) {
+    _visionCamPillLast = camSummary;
+    setCameraPill(true, camSummary, false);
+  }
 }
 
 function setVisionFeeling(label, lingerMs) {
