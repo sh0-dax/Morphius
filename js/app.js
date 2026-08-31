@@ -14,6 +14,8 @@ import { LocalSpeech, startLocalSTT, stopLocalSTT, generateLocalAudio, playLocal
 import { modelProgress } from './progress.js';
 import { getMasterVolume, setMasterVolume, setOutputDevice, routeOutput } from './masterBus.js';
 import { detectFeeling, visemeFor, DEFAULT_VISEME, VISEME_KEYS, contentToText, contentImages, buildUserContent, geminiContentParts, detectDeviceTier, recommendedWebLlmModel, createEventBus, lerpWeight, fetchWithRetry } from './pure.js';
+import { computeBlendedWeights, shouldIdleLife } from './core/morphEngine.js';
+import { stateBodyClass, isValidState } from './core/stateChart.js';
 import { computeVisionFeeling, decideVisionCommentary, getSpeakHint, displayClass, VISION_SPEAK_CLASSES, canRunCameraPipeline, computeNewClasses, splitBands } from './visionLogic.js';
 import { STATE_TARGETS, EMOTION_TARGETS, FEELING_TARGETS, VISION_TARGETS, STATE_COLORS, FEELING_COLORS, LIGHT_PRESETS } from './presets.js';
 import { saveSession, loadSession, listSessions, deleteSession, getLastSession, buildSession, makeSessionId, sanitizeMessages, sessionTitle } from './chatStore.js';
@@ -844,13 +846,12 @@ function updateVoiceUI() {
 }
 
 function updateStateBody() {
-  const cls = S.currentState === 'responding' ? 'state-responding'
-    : (S.currentState === 'listening' ? 'state-listening' : '');
+  const cls = stateBodyClass(S.currentState);
   if (document.body.className !== cls) document.body.className = cls;
 }
 
 function setState(s) {
-  if (!STATE_TARGETS[s]) return;
+  if (!STATE_TARGETS[s] || !isValidState(s)) return;
   const previous = S.currentState;
   S.currentState = s;
   if (previous !== s) emitAIFaceEvent('stateChange', { state: s, previous });
@@ -1391,31 +1392,22 @@ async function initScene() {
       const copyMode = mirrorActive && cfgMirrorMode && cfgMirrorMode.value === 'copy';
       const emotionMode = mirrorActive && cfgMirrorMode && cfgMirrorMode.value === 'emotion';
 
-      const stateTarget = STATE_TARGETS[S.currentState] || {};
-      const emotionTarget = (emotionMode && EMOTION_TARGETS[Mirror.emotion]) || {};
-      const feelingTarget = FEELING_TARGETS[S.feeling] || {};
-      const visionTarget = (visionReact && visionPersonPresent && IDLE_LIFE_STATES.includes(S.currentState)) ? VISION_TARGETS.active : {};
-      const target = Object.assign({}, stateTarget, emotionTarget, feelingTarget, visionTarget);
-
-      // For VRM avatars we must also blend non-canonical target keys (e.g.
-      // eyeLookUpLeft/Right in STATE_TARGETS.thinking) which aren't in
-      // ALL_SLOT_NAMES, otherwise those poses never appear on VRM models.
-      const targetSlots = new Set([...(currentVRM ? ALL_SLOT_NAMES : Object.keys(dict))]);
-      for (const k of Object.keys(target)) targetSlots.add(k);
-      const slots = [...targetSlots];
-
-      for (const key of slots) {
-        let goal = target[key] !== undefined ? target[key] : 0;
-        let rate = 0.08;
-        if (copyMode && Mirror.weights && Mirror.weights[key] !== undefined) {
-          goal = Mirror.weights[key];
-          rate = 0.45;
-        }
-        S.currentWeights[key] = lerpWeight(S.currentWeights[key], goal, rate);
-      }
+      const { weights, slots } = computeBlendedWeights({
+        state: S.currentState, feeling: S.feeling, emotion: Mirror.emotion,
+        emotionMode, copyMode,
+        mirrorWeights: Mirror.weights,
+        visionTargetActive: visionReact && visionPersonPresent,
+        idleLifeStates: IDLE_LIFE_STATES,
+        stateTargets: STATE_TARGETS, emotionTargets: EMOTION_TARGETS,
+        feelingTargets: FEELING_TARGETS, visionTargets: VISION_TARGETS,
+        isVrm: !!currentVRM, allSlots: ALL_SLOT_NAMES, dictKeys: Object.keys(dict),
+        currentWeights: S.currentWeights,
+        lerp: lerpWeight,
+      });
+      S.currentWeights = weights;
 
       // ---- Idle life: autonomous blinking + soft breathing ----
-      const idleLife = !S.speaking && !S.visemePreview && IDLE_LIFE_STATES.includes(S.currentState);
+      const idleLife = shouldIdleLife({ speaking: S.speaking, visemePreview: S.visemePreview, state: S.currentState, idleLifeStates: IDLE_LIFE_STATES });
       if (idleLife) {
         idleTime += delta;
         if (idleBlinkT < 0) {

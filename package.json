@@ -4,9 +4,11 @@
   "version": "6.0.0",
   "type": "module",
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "typecheck": "tsc -p jsconfig.json"
   },
   "devDependencies": {
-    "vitest": "^3.2.1"
+    "vitest": "^3.2.1",
+    "typescript": "^5.6.0"
   }
 }
