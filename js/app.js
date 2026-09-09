@@ -269,6 +269,13 @@ function resetIdleLife() {
   headBaseY = null;
 }
 
+// Respect prefers-reduced-motion: disable autonomous idle blinking.
+const reduceMotionMq = window.matchMedia('(prefers-reduced-motion: reduce)');
+let reduceMotion = reduceMotionMq.matches;
+if (reduceMotionMq.addEventListener) {
+  reduceMotionMq.addEventListener('change', (e) => { reduceMotion = e.matches; });
+}
+
 // Expression/preset data tables (STATE_TARGETS, EMOTION_TARGETS,
 // FEELING_TARGETS, VISION_TARGETS) now live in js/presets.js.
 // Optional manual morph-name remap (set by the morph mapping screen).
@@ -1294,6 +1301,8 @@ async function initScene() {
   renderer.toneMappingExposure = 1.0;
   stage.appendChild(renderer.domElement);
   renderer.domElement.classList.add('gl');
+  renderer.domElement.setAttribute('role', 'img');
+  renderer.domElement.setAttribute('aria-label', 'Animated AI assistant face');
   faceCanvas = renderer.domElement;
   _renderer = renderer;
 
@@ -1409,21 +1418,23 @@ async function initScene() {
       // ---- Idle life: autonomous blinking + soft breathing ----
       const idleLife = shouldIdleLife({ speaking: S.speaking, visemePreview: S.visemePreview, state: S.currentState, idleLifeStates: IDLE_LIFE_STATES });
       if (idleLife) {
-        idleTime += delta;
-        if (idleBlinkT < 0) {
-          if (idleTime >= idleBlinkAt) {
-            idleBlinkT = 0;
-            idleBlinkAt = idleTime + 2.5 + Math.random() * 4;
+        if (!reduceMotion) {
+          idleTime += delta;
+          if (idleBlinkT < 0) {
+            if (idleTime >= idleBlinkAt) {
+              idleBlinkT = 0;
+              idleBlinkAt = idleTime + 2.5 + Math.random() * 4;
+            }
+          } else {
+            const step = Math.min(delta / 0.16, 0.22);
+            idleBlinkT = Math.min(1, idleBlinkT + step);
+            const blinkAmt = 0.95 * Math.sin(idleBlinkT * Math.PI);
+            if (blinkLKey) S.currentWeights[blinkLKey] = Math.max(S.currentWeights[blinkLKey] || 0, blinkAmt);
+            else S.currentWeights[IDLE_BLINK_LEFT] = Math.max(S.currentWeights[IDLE_BLINK_LEFT] || 0, blinkAmt);
+            if (blinkRKey) S.currentWeights[blinkRKey] = Math.max(S.currentWeights[blinkRKey] || 0, blinkAmt);
+            else S.currentWeights[IDLE_BLINK_RIGHT] = Math.max(S.currentWeights[IDLE_BLINK_RIGHT] || 0, blinkAmt);
+            if (idleBlinkT >= 1) idleBlinkT = -1;
           }
-        } else {
-          const step = Math.min(delta / 0.16, 0.22);
-          idleBlinkT = Math.min(1, idleBlinkT + step);
-          const blinkAmt = 0.95 * Math.sin(idleBlinkT * Math.PI);
-          if (blinkLKey) S.currentWeights[blinkLKey] = Math.max(S.currentWeights[blinkLKey] || 0, blinkAmt);
-          else S.currentWeights[IDLE_BLINK_LEFT] = Math.max(S.currentWeights[IDLE_BLINK_LEFT] || 0, blinkAmt);
-          if (blinkRKey) S.currentWeights[blinkRKey] = Math.max(S.currentWeights[blinkRKey] || 0, blinkAmt);
-          else S.currentWeights[IDLE_BLINK_RIGHT] = Math.max(S.currentWeights[IDLE_BLINK_RIGHT] || 0, blinkAmt);
-          if (idleBlinkT >= 1) idleBlinkT = -1;
         }
         if (!S.lipSyncActive && S.phonemeIntensity <= 0.03) {
           idleBreathPhase += delta;
@@ -4164,6 +4175,7 @@ function initWaveStyle() {
   if (!stage) { dbg('Wave: stage not found', 'warn'); return; }
   waveCanvas = document.createElement('canvas');
   waveCanvas.id = 'waveCanvas';
+  waveCanvas.setAttribute('aria-hidden', 'true');
   waveCanvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:10;';
   stage.appendChild(waveCanvas);
   waveCtx = waveCanvas.getContext('2d');
@@ -4600,10 +4612,14 @@ function showShortcutsOverlay() {
   if (overlay) { overlay.remove(); return; }
   overlay = document.createElement('div');
   overlay.id = 'shortcutsOverlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-labelledby', 'shortcutsTitle');
+  overlay.tabIndex = -1;
   overlay.style.cssText = 'position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);';
   overlay.innerHTML = `
     <div style="background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:var(--radius);padding:28px 32px;max-width:360px;width:90vw;font-family:'TheGoodMonolith',monospace;color:var(--text-primary);font-size:13px;">
-      <h3 style="margin:0 0 16px;font-size:15px;color:var(--active);font-family:'Orbitron',monospace;letter-spacing:0.1em;">KEYBOARD SHORTCUTS</h3>
+      <h3 id="shortcutsTitle" style="margin:0 0 16px;font-size:15px;color:var(--active);font-family:'Orbitron',monospace;letter-spacing:0.1em;">KEYBOARD SHORTCUTS</h3>
       <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 16px;">
         <kbd style="color:var(--accent-tertiary);">Ctrl+Shift+D</kbd><span>Toggle debug log</span>
         <kbd style="color:var(--accent-tertiary);">Ctrl+Shift+S</kbd><span>Open settings</span>
@@ -4612,13 +4628,16 @@ function showShortcutsOverlay() {
         <kbd style="color:var(--accent-tertiary);">Ctrl+Esc</kbd><span>Close settings</span>
         <kbd style="color:var(--accent-tertiary);">?</kbd><span>Show this overlay</span>
       </div>
-      <p style="margin:16px 0 0;font-size:11px;color:var(--text-secondary);text-align:center;">Press ? or click outside to close</p>
+      <p style="margin:16px 0 0;font-size:11px;color:var(--text-secondary);text-align:center;">Press Escape, ? or click outside to close</p>
     </div>`;
   overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
   document.body.appendChild(overlay);
+  overlay.focus();
 }
 
 document.addEventListener('keydown', (e) => {
+  const overlay = document.getElementById('shortcutsOverlay');
+  if (overlay && e.key === 'Escape') { overlay.remove(); return; }
   if (e.key === '?' && !e.ctrlKey && !e.shiftKey && !e.altKey && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
     showShortcutsOverlay();
   }
