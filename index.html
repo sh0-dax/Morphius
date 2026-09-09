@@ -11,6 +11,10 @@
   <link rel="icon" href="./assets/icon-192.png" sizes="192x192">
   <link rel="apple-touch-icon" href="./assets/icon-192.png">
   <link rel="stylesheet" href="./css/styles.css">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net https://esm.run; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.cdnfonts.com; font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://fonts.cdnfonts.com; connect-src 'self' blob: data: https://generativelanguage.googleapis.com wss://generativelanguage.googleapis.com https://api.openai.com https://api.meta.ai https://api.bazaarlink.ai http://localhost:11434 http://localhost:8000 https://storage.googleapis.com https://huggingface.co https://cdn.jsdelivr.net https://unpkg.com https://esm.run https://threejs.org https://raw.githubusercontent.com; img-src 'self' blob: data: https://cdn.jsdelivr.net; media-src 'self' blob: data:; worker-src 'self' blob:; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'self'">
+  <!-- CSP note: 'unsafe-eval' is required by three.js KTX2Loader's basis transcoder, which evaluates
+       the basis_transcoder.js string in a blob worker to compile WASM ('wasm-unsafe-eval' alone does
+       not cover that path). Kept pragmatic for a static no-build PWA on GitHub Pages. -->
 </head>
 <body>
   <div class="bg-grid"></div>
