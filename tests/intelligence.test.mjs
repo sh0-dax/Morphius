@@ -151,6 +151,22 @@ describe('behavior policy', () => {
     expect(r.responseLengthHint).toBeGreaterThanOrEqual(0.2);
     expect(r.speechRateHint).toBeGreaterThanOrEqual(-0.4);
   });
+
+  it('OFF = exact behavior parity over a pathological input matrix', () => {
+    // Every case that could trip the policy must produce the exact neutral
+    // baseline when intelligence is disabled (the M2 parity guarantee).
+    const cases = [
+      {},
+      { intent: 'confusion', confidence: 0.99, emotion: { feeling: 'sad', attentive: true } },
+      { intent: 'positive', confidence: 1, emotion: { feeling: 'happy' } },
+      { userModel: { turnCount: 999, interruptionRate: 0.95, sampleSize: 999 } },
+      { intent: 'none', confidence: 0, state: 'alert' },
+    ];
+    const neutral = neutralBehavior();
+    for (const c of cases) {
+      expect(behaviorPolicy(Object.assign({ intelligenceOn: false }, c))).toEqual(neutral);
+    }
+  });
 });
 
 describe('userModel', () => {

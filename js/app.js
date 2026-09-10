@@ -21,6 +21,12 @@ import { STATE_TARGETS, EMOTION_TARGETS, FEELING_TARGETS, VISION_TARGETS, STATE_
 import { saveSession, loadSession, listSessions, deleteSession, getLastSession, buildSession, makeSessionId, sanitizeMessages, sessionTitle } from './chatStore.js';
 import { createProjectionManager, MATERIAL_MODES } from './projection.js';
 import { startHandTracking, stopHandTracking } from './handTracking.js';
+import { extractFeatures } from './core/intelligence/features.js';
+import { classifyIntent } from './core/intelligence/intent.js';
+import { composeEmotion } from './core/intelligence/emotion.js';
+import { behaviorPolicy, neutralBehavior } from './core/intelligence/behavior.js';
+import { createUserModel } from './core/intelligence/userModel.js';
+import { createAnomalyTracker } from './core/intelligence/anomaly.js';
 
 // ---- i18n (lightweight loader, EN fallback, dir flip for RTL) ----
 const I18N_FILES = { en: 'i18n/en.json', ar: 'i18n/ar.json', fr: 'i18n/fr.json', de: 'i18n/de.json', es: 'i18n/es.json', ja: 'i18n/ja.json' };
@@ -202,6 +208,10 @@ const S = {
   feelingExpire: 0,
   feelingEndless: false,
   visemePreview: null,
+  intent: 'none',
+  intentConfidence: 0,
+  attentive: false,
+  behavior: neutralBehavior(),
 };
 window._AIFaceState = S;
 
@@ -211,6 +221,91 @@ const _bus = createEventBus((event, e) => dbg('AIFace event handler for "' + eve
 const onAIFaceEvent = _bus.on;
 const offAIFaceEvent = _bus.off;
 const emitAIFaceEvent = _bus.emit;
+
+// ---- Intelligence layer runtime (M2): pure pipeline state ----
+// Enabled by the settings toggle; when disabled all state stays neutral and
+// the app behaves exactly as before this layer existed (parity guarantee).
+let intelligenceEnabled = false;
+const userModel = createUserModel();
+const anomalyTracker = createAnomalyTracker();
+let blinkScaleInt = 1;
+let headMoveScaleInt = 1;
+let lastInterruptionMs = 0;
+let lastVisionReconcileMs = 0;
+let lastAssistantLen = 0;
+
+function setIntelligenceEnabled(on) {
+  const was = intelligenceEnabled;
+  intelligenceEnabled = !!on;
+  if (intelligenceEnabled && !was) {
+    userModel.reset();
+    anomalyTracker.reset();
+    dbg('Intelligence layer enabled', 'ok');
+    emitAIFaceEvent('intelligenceUpdate', intelligenceDetail());
+  } else if (!intelligenceEnabled && was) {
+    blinkScaleInt = 1;
+    headMoveScaleInt = 1;
+    dbg('Intelligence layer disabled (behavior parity restored)', 'warn');
+  }
+}
+
+// Single interruption recorder with a short dedupe window so mic-start and
+// auto-send (which both fire for the same voicing) never double-count.
+function recordInterruption(reason) {
+  if (!intelligenceEnabled) return;
+  const now = performance.now();
+  if (now - lastInterruptionMs < 2500) return;
+  lastInterruptionMs = now;
+  userModel.reconcile({ type: 'interruption' });
+  dbg('Intelligence: interruption recorded (' + reason + ')', 'warn');
+}
+
+function solveInteraction(text, baseFeeling) {
+  if (!intelligenceEnabled) {
+    S.intent = 'none';
+    S.intentConfidence = 0;
+    S.attentive = false;
+    S.behavior = neutralBehavior();
+    return null;
+  }
+  // Pipeline order: features → intent → affect → userModel(userTurn) → behavior.
+  const features = extractFeatures(text);
+  const classified = classifyIntent(text, features);
+  const affect = composeEmotion({ intent: classified.intent, confidence: classified.confidence, baseFeeling });
+  userModel.reconcile({ type: 'userTurn', isQuestion: features.isQuestion });
+  const directive = behaviorPolicy({
+    state: S.currentState,
+    intent: classified.intent,
+    confidence: classified.confidence,
+    emotion: affect,
+    userModel: userModel.snapshot(),
+  });
+  S.intent = classified.intent;
+  S.intentConfidence = classified.confidence;
+  S.attentive = affect.attentive;
+  S.behavior = directive;
+  blinkScaleInt = directive.blinkScale;
+  headMoveScaleInt = directive.headMoveScale;
+  return { intent: classified.intent, confidence: classified.confidence, affect, directive };
+}
+
+function intelligenceDetail() {
+  const snapshot = userModel.snapshot();
+  const anomaly = {
+    interruptionRate: anomalyTracker.score('interruptionRate', snapshot.interruptionRate),
+    avgAssistantLen: anomalyTracker.score('avgAssistantLen', snapshot.avgAssistantLen),
+    engagement: anomalyTracker.score('engagement', snapshot.engagement),
+    summary: anomalyTracker.summary(),
+  };
+  return {
+    intent: S.intent,
+    confidence: S.intentConfidence,
+    attentive: S.attentive,
+    behavior: S.behavior,
+    userModel: snapshot,
+    anomaly,
+  };
+}
 
 // ---- Idle life: autonomous blink + breathing (cheap procedural animation) ----
 const IDLE_BLINK_LEFT = 'eyeBlinkLeft';
@@ -924,6 +1019,18 @@ Object.assign(window.AIFace, {
     saveCurrentSession();
     return true;
   },
+  intelligence: {
+    version: 1,
+    get enabled() { return intelligenceEnabled; },
+    set enabled(on) { if (cfgIntelligence) cfgIntelligence.checked = !!on; setIntelligenceEnabled(!!on); },
+    classifyInt: (text) => classifyIntent(String(text || '')),
+    getStatus: () => ({ intent: S.intent, intentConfidence: S.intentConfidence, attentive: S.attentive, behavior: S.behavior }),
+    getUserModel: () => userModel.snapshot(),
+    getUserModelJSON: () => userModel.toJSON(),
+    resetUserModel: () => { userModel.reset(); anomalyTracker.reset(); emitAIFaceEvent('intelligenceUpdate', intelligenceDetail()); return userModel.snapshot(); },
+    getAnomaly: () => intelligenceDetail().anomaly,
+    resolve: (opts) => behaviorPolicy(Object.assign({ intelligenceOn: intelligenceEnabled, state: S.currentState }, opts || {})),
+  },
 });
 
 window.addEventListener('message', (event) => {
@@ -1423,7 +1530,7 @@ async function initScene() {
           if (idleBlinkT < 0) {
             if (idleTime >= idleBlinkAt) {
               idleBlinkT = 0;
-              idleBlinkAt = idleTime + 2.5 + Math.random() * 4;
+              idleBlinkAt = idleTime + (2.5 + Math.random() * 4) / blinkScaleInt;
             }
           } else {
             const step = Math.min(delta / 0.16, 0.22);
@@ -1498,8 +1605,8 @@ async function initScene() {
 
       if (head) {
         const intensity = S.currentState === 'alert' ? 2.5 : (S.currentState === 'responding' ? 1.5 : 1);
-        head.rotation.y = Math.sin(animT * 0.4 * intensity) * 0.06;
-        head.rotation.x = Math.sin(animT * 0.28 * intensity) * 0.03;
+        head.rotation.y = Math.sin(animT * 0.4 * intensity) * 0.06 * headMoveScaleInt;
+        head.rotation.x = Math.sin(animT * 0.28 * intensity) * 0.03 * headMoveScaleInt;
       }
     }
 
@@ -1804,6 +1911,7 @@ cfgShowFace.addEventListener('change', () => {
 const cfgMirror = document.getElementById('cfgMirror');
 const cfgMirrorMode = document.getElementById('cfgMirrorMode');
 const cfgFeelingMode = document.getElementById('cfgFeelingMode');
+const cfgIntelligence = document.getElementById('cfgIntelligence');
 const mirrorStatus = document.getElementById('mirrorStatus');
 const mirrorModeGroup = document.getElementById('mirrorModeGroup');
 
@@ -1855,6 +1963,12 @@ cfgMirror.addEventListener('change', async () => {
 });
 cfgMirrorMode.addEventListener('change', () => { saveSettings(); });
 cfgFeelingMode.addEventListener('change', () => { saveSettings(); if (S.feeling === 'neutral') revealFeelingPill(); });
+if (cfgIntelligence) {
+  cfgIntelligence.addEventListener('change', () => {
+    setIntelligenceEnabled(cfgIntelligence.checked);
+    saveSettings();
+  });
+}
 cfgMicEngine.addEventListener('change', () => { updateWhisperUI(); saveSettings(); });
 cfgTtsEngine.addEventListener('change', () => { saveSettings(); });
 window.addEventListener('pagehide', () => { if (Mirror.active) stopMirror(); });
@@ -1896,6 +2010,13 @@ const VISION_COMMENT_COOLDOWN = 25000;
 
 function handleVisionDetections(detections) {
   visionPersonPresent = detections.some((d) => d.class === 'person');
+  if (intelligenceEnabled && detections.length) {
+    const now = performance.now();
+    if (now - lastVisionReconcileMs >= 3000) {
+      lastVisionReconcileMs = now;
+      userModel.reconcile({ type: 'visionEvent' });
+    }
+  }
 
   const classes = new Set(detections.map((d) => d.class));
   const prevClasses = visionLastClasses;
@@ -2377,6 +2498,7 @@ async function saveSettings() {
     showFace: cfgShowFace.checked,
     mirror: cfgMirror.checked, mirrorMode: cfgMirrorMode.value,
     feelingMode: cfgFeelingMode ? cfgFeelingMode.value : 'auto',
+    intelligence: cfgIntelligence ? cfgIntelligence.checked : true,
     micEngine: cfgMicEngine.value, ttsEngine: cfgTtsEngine.value,
     whisperTier: cfgWhisperTier ? cfgWhisperTier.value : 'Xenova/whisper-tiny',
     masterVolume: cfgMasterVolume ? parseInt(cfgMasterVolume.value, 10) : 100,
@@ -2398,7 +2520,11 @@ async function loadSettings() {
     const raw = localStorage.getItem('aiface_llm_settings');
     const det = detectLocale();
     if (cfgLocale) cfgLocale.value = det;
-    if (!raw) { applyI18n(det); return; }
+    if (!raw) {
+      applyI18n(det);
+      if (cfgIntelligence) setIntelligenceEnabled(cfgIntelligence.checked);
+      return;
+    }
     const s = JSON.parse(raw);
     cfgProvider.value = s.provider || 'gemini';
     cfgModel.value = s.model || '';
@@ -2437,6 +2563,10 @@ async function loadSettings() {
     cfgMirror.checked = s.mirror !== undefined ? s.mirror : false;
     cfgMirrorMode.value = s.mirrorMode || 'copy';
     if (cfgFeelingMode) cfgFeelingMode.value = s.feelingMode || 'auto';
+    if (cfgIntelligence) {
+      cfgIntelligence.checked = s.intelligence !== undefined ? s.intelligence : true;
+      setIntelligenceEnabled(cfgIntelligence.checked);
+    }
     if (cfgMirror.checked) {
       // Restore the checkbox to the saved state but auto-run the mirror through
       // the same device-tier gate the checkbox handler uses.
@@ -2802,8 +2932,18 @@ async function sendChat() {
   saveCurrentSession();
 
   const fm = cfgFeelingMode ? cfgFeelingMode.value : 'auto';
-  if ((fm === 'auto' || fm === 'user') && detectFeeling(text) !== 'neutral') {
-    setFeeling(detectFeeling(text), 2200);
+  if (fm === 'auto' || fm === 'user') {
+    if (intelligenceEnabled) {
+      if (S.speaking || S.isTtsSpeaking) recordInterruption('send while speaking');
+      const baseFeeling = detectFeeling(text);
+      const sil = solveInteraction(text, baseFeeling);
+      // decision precedes the provider call; baseFeeling still leads the face
+      if (sil && sil.affect.feeling) setFeeling(sil.affect.feeling, 2200);
+      else if (baseFeeling !== 'neutral') setFeeling(baseFeeling, 2200);
+      emitAIFaceEvent('intelligenceUpdate', intelligenceDetail());
+    } else if (detectFeeling(text) !== 'neutral') {
+      setFeeling(detectFeeling(text), 2200);
+    }
   }
 
   const p = cfgProvider.value;
@@ -2838,6 +2978,23 @@ async function sendChat() {
     }
     messages.push({ role: 'assistant', content: fullResponse });
     saveCurrentSession();
+    if (intelligenceEnabled) {
+      lastAssistantLen = (fullResponse || '').length;
+      userModel.reconcile({ type: 'assistantEnd', textLen: lastAssistantLen });
+      const snap = userModel.snapshot();
+      anomalyTracker.observe('interruptionRate', snap.interruptionRate);
+      anomalyTracker.observe('avgAssistantLen', snap.avgAssistantLen);
+      anomalyTracker.observe('engagement', snap.engagement);
+      anomalyTracker.observe('turnCount', snap.turnCount);
+      const detail = intelligenceDetail();
+      emitAIFaceEvent('intelligenceUpdate', detail);
+      dbg('intelligence: intent=' + detail.intent + ' conf=' + detail.confidence + ' attentive=' + detail.attentive, 'info');
+      const bad = [];
+      for (const k of ['interruptionRate', 'avgAssistantLen', 'engagement']) {
+        if (Math.abs(detail.anomaly[k] || 0) > 2.5) bad.push(k);
+      }
+      if (bad.length) dbg('intelligence: session anomaly flagged — ' + bad.join(', '), 'warn');
+    }
     if (assistantTextEl) {
       addReplayButton(assistantTextEl, fullResponse, ttsLang);
       addRegenerateButton(assistantTextEl);
@@ -3655,6 +3812,7 @@ if (!SpeechRecognitionCtor) {
     finalTranscript = '';
     setMicVisualState('listening');
     setState('listening');
+    if (S.speaking || S.isTtsSpeaking) recordInterruption('mic start');
     showCaption('');
     dbg('Mic: listening started', 'ok');
   };

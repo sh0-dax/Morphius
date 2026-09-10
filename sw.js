@@ -7,7 +7,7 @@
 // app keeps working through CDN outages and offline. Offline still works via
 // cache fallbacks.
 // Bump CACHE_NAME on any shell change to invalidate old caches automatically.
-const CACHE_NAME = 'aiface-shell-v45';
+const CACHE_NAME = 'aiface-shell-v46';
 const CDN_CACHE = 'aiface-cdn-v1';
 
 // Exact pinned CDN resources (substring match against href). These are cached
@@ -45,6 +45,12 @@ const SHELL_FILES = [
   './js/core/retry.js',
   './js/core/morphEngine.js',
   './js/core/stateChart.js',
+  './js/core/intelligence/features.js',
+  './js/core/intelligence/intent.js',
+  './js/core/intelligence/emotion.js',
+  './js/core/intelligence/behavior.js',
+  './js/core/intelligence/userModel.js',
+  './js/core/intelligence/anomaly.js',
   './i18n/en.json',
   './i18n/ar.json',
   './i18n/fr.json',
