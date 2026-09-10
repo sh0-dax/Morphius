@@ -85,13 +85,23 @@ export function scoreTokens(tokens, lexicon) {
  *
  * @param {string} text
  * @param {object} [features] optional pre-computed features (avoids re-extraction)
+ * @param {Record<string, Record<string, number>>} [extraLexicon] learned per-intent
+ *   token weights merged on top of the static seed (see learn.js). Absent or
+ *   empty ⇒ classification is identical to the static M1/M2 behavior.
  * @returns {{ intent: IntentKey, confidence: number }}
  */
-export function classifyIntent(text, features) {
+export function classifyIntent(text, features, extraLexicon) {
   const f = features || extractFeatures(text);
   const tokens = f ? f.tokens : [];
   const scores = {};
-  for (const key of INTENT_KEYS) scores[key] = scoreTokens(tokens, INTENT_LEXICON[key]);
+  for (const key of INTENT_KEYS) {
+    let s = scoreTokens(tokens, INTENT_LEXICON[key]);
+    const learned = extraLexicon && extraLexicon[key];
+    if (learned) {
+      for (const t of tokens) s += learned[t] || 0;
+    }
+    scores[key] = s;
+  }
 
   let bestKey = 'none';
   let best = 0;

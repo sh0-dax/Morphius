@@ -22,11 +22,12 @@ import { saveSession, loadSession, listSessions, deleteSession, getLastSession, 
 import { createProjectionManager, MATERIAL_MODES } from './projection.js';
 import { startHandTracking, stopHandTracking } from './handTracking.js';
 import { extractFeatures } from './core/intelligence/features.js';
-import { classifyIntent } from './core/intelligence/intent.js';
+import { classifyIntent, MIN_CONFIDENCE } from './core/intelligence/intent.js';
 import { composeEmotion } from './core/intelligence/emotion.js';
 import { behaviorPolicy, neutralBehavior } from './core/intelligence/behavior.js';
 import { createUserModel } from './core/intelligence/userModel.js';
 import { createAnomalyTracker } from './core/intelligence/anomaly.js';
+import { createIntentLearner } from './core/intelligence/learn.js';
 
 // ---- i18n (lightweight loader, EN fallback, dir flip for RTL) ----
 const I18N_FILES = { en: 'i18n/en.json', ar: 'i18n/ar.json', fr: 'i18n/fr.json', de: 'i18n/de.json', es: 'i18n/es.json', ja: 'i18n/ja.json' };
@@ -228,6 +229,7 @@ const emitAIFaceEvent = _bus.emit;
 let intelligenceEnabled = false;
 const userModel = createUserModel();
 const anomalyTracker = createAnomalyTracker();
+const learner = createIntentLearner();
 let blinkScaleInt = 1;
 let headMoveScaleInt = 1;
 let lastInterruptionMs = 0;
@@ -246,6 +248,7 @@ function setIntelligenceEnabled(on) {
   if (intelligenceEnabled && !was) {
     userModel.reset();
     anomalyTracker.reset();
+    learner.reset();
     lastAnomalies = [];
     sessionAnomalyCount = 0;
     updateAnomalyPill(0);
@@ -254,6 +257,7 @@ function setIntelligenceEnabled(on) {
   } else if (!intelligenceEnabled && was) {
     blinkScaleInt = 1;
     headMoveScaleInt = 1;
+    learner.reset();
     S.intent = 'none';
     S.intentConfidence = 0;
     S.attentive = false;
@@ -274,7 +278,7 @@ function recordInterruption(reason) {
   dbg('Intelligence: interruption recorded (' + reason + ')', 'warn');
 }
 
-function solveInteraction(text, baseFeeling) {
+function solveInteraction(text, baseFeeling, features) {
   if (!intelligenceEnabled) {
     S.intent = 'none';
     S.intentConfidence = 0;
@@ -283,10 +287,10 @@ function solveInteraction(text, baseFeeling) {
     return null;
   }
   // Pipeline order: features → intent → affect → userModel(userTurn) → behavior.
-  const features = extractFeatures(text);
-  const classified = classifyIntent(text, features);
+  const feats = features || extractFeatures(text);
+  const classified = classifyIntent(text, feats, learner.getExtraLexicon());
   const affect = composeEmotion({ intent: classified.intent, confidence: classified.confidence, baseFeeling });
-  userModel.reconcile({ type: 'userTurn', isQuestion: features.isQuestion });
+  userModel.reconcile({ type: 'userTurn', isQuestion: feats.isQuestion });
   const directive = behaviorPolicy({
     state: S.currentState,
     intent: classified.intent,
@@ -300,7 +304,37 @@ function solveInteraction(text, baseFeeling) {
   S.behavior = directive;
   blinkScaleInt = directive.blinkScale;
   headMoveScaleInt = directive.headMoveScale;
-  return { intent: classified.intent, confidence: classified.confidence, affect, directive };
+  return { intent: classified.intent, confidence: classified.confidence, affect, directive, features: feats };
+}
+
+// Feed a user turn into the feedback learner: detect corrections ("no, I
+// meant …"), teach the corrected phrase's tokens, then track repetitions.
+function onUserTurnLearned(text, features, intent) {
+  if (!intelligenceEnabled) return;
+  const corr = learner.parseCorrection(text);
+  if (corr.hadCorrection) {
+    const target = classifyIntent(corr.phrase, undefined, learner.getExtraLexicon());
+    // Only teach when the user explicitly rejected something, or the corrected
+    // phrase contains vocabulary we don't already know confidently.
+    if (target.intent !== 'none' && (corr.hadRejection || target.confidence < MIN_CONFIDENCE)) {
+      const result = learner.teach(target.intent, corr.phrase);
+      if (result) {
+        dbg('intelligence: taught "' + corr.phrase.trim() + '" → ' + result.intent + ' (' + result.tokens.length + ' tokens)', 'ok');
+        emitAIFaceEvent('learningUpdate', { intent: result.intent, tokens: result.tokens, learnedTokens: learner.getLearnedTokens().length });
+        const turns = learner.getRecent();
+        if (turns.length) {
+          const last = turns[turns.length - 1];
+          const c = classifyIntent(last.text, last.features, learner.getExtraLexicon());
+          if (c.intent !== S.intent) {
+            S.intent = c.intent;
+            S.intentConfidence = c.confidence;
+            dbg('intelligence: reclassified last turn → ' + c.intent + ' (conf ' + c.confidence + ')', 'info');
+          }
+        }
+      }
+    }
+  }
+  learner.observe(text, features, intent);
 }
 
 function anomalyScores(snap) {
@@ -364,6 +398,7 @@ function resetIntelligenceState(reason) {
   }
   userModel.reset();
   anomalyTracker.reset();
+  learner.reset();
   sessionAnomalyCount = 0;
   updateAnomalyPill(0);
   emitAIFaceEvent('intelligenceUpdate', intelligenceDetail());
@@ -381,6 +416,10 @@ function intelligenceDetail(snap, scores) {
     userModel: snapshot,
     anomaly,
     sessionId: currentSessionId,
+    learning: {
+      correctionsTaught: learner.getStats().correctionsTaught,
+      learnedTokens: learner.getLearnedTokens().length,
+    },
   };
 }
 
@@ -1100,7 +1139,7 @@ Object.assign(window.AIFace, {
     version: 1,
     get enabled() { return intelligenceEnabled; },
     set enabled(on) { if (cfgIntelligence) cfgIntelligence.checked = !!on; setIntelligenceEnabled(!!on); },
-    classifyInt: (text) => classifyIntent(String(text || '')),
+    classifyInt: (text) => classifyIntent(String(text || ''), undefined, learner.getExtraLexicon()),
     getStatus: () => ({ intent: S.intent, intentConfidence: S.intentConfidence, attentive: S.attentive, behavior: S.behavior }),
     getUserModel: () => userModel.snapshot(),
     getUserModelJSON: () => userModel.toJSON(),
@@ -1117,6 +1156,10 @@ Object.assign(window.AIFace, {
       };
     },
     getAnomalyLog: () => lastAnomalies.slice(),
+    getLearning: () => learner.getStats(),
+    getLearnedTokens: () => learner.getLearnedTokens(),
+    resetLearning: () => { learner.reset(); emitAIFaceEvent('learningUpdate', { cleared: true }); return learner.getStats(); },
+    learn: (intentKey, phrase) => learner.teach(String(intentKey || ''), String(phrase || '')),
     getAnomaly: () => intelligenceDetail().anomaly,
     resolve: (opts) => behaviorPolicy(Object.assign({ intelligenceOn: intelligenceEnabled, state: S.currentState }, opts || {})),
   },
@@ -3029,8 +3072,12 @@ async function sendChat() {
       const baseFeeling = detectFeeling(text);
       const sil = solveInteraction(text, baseFeeling);
       // decision precedes the provider call; baseFeeling still leads the face
-      if (sil && sil.affect.feeling) setFeeling(sil.affect.feeling, 2200);
-      else if (baseFeeling !== 'neutral') setFeeling(baseFeeling, 2200);
+      if (sil) {
+        if (sil.affect.feeling) setFeeling(sil.affect.feeling, 2200);
+        onUserTurnLearned(text, sil.features, sil.intent);
+      } else if (baseFeeling !== 'neutral') {
+        setFeeling(baseFeeling, 2200);
+      }
       emitAIFaceEvent('intelligenceUpdate', intelligenceDetail());
     } else if (detectFeeling(text) !== 'neutral') {
       setFeeling(detectFeeling(text), 2200);

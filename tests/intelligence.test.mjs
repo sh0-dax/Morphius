@@ -5,6 +5,7 @@ import { composeEmotion } from '../js/core/intelligence/emotion.js';
 import { behaviorPolicy, neutralBehavior, MIN_TURNS_FOR_ADAPT } from '../js/core/intelligence/behavior.js';
 import { createUserModel } from '../js/core/intelligence/userModel.js';
 import { createAnomalyTracker } from '../js/core/intelligence/anomaly.js';
+import { createIntentLearner } from '../js/core/intelligence/learn.js';
 
 describe('features', () => {
   it('tokenizes and strips English stop words', () => {
@@ -281,5 +282,78 @@ describe('anomaly', () => {
     expect(t.summary().m.count).toBe(1);
     t.reset();
     expect(t.summary()).toEqual({});
+  });
+});
+
+describe('learn', () => {
+  it('parses English corrections and extracts the corrected phrase', () => {
+    const l = createIntentLearner();
+    const c = l.parseCorrection('no, I meant fusing the vrm');
+    expect(c.hadCorrection).toBe(true);
+    expect(c.hadRejection).toBe(true);
+    expect(c.phrase).toContain('fusing');
+    expect(l.parseCorrection('can you help me?').hadCorrection).toBe(false);
+  });
+
+  it('parses Arabic corrections', () => {
+    const l = createIntentLearner();
+    const c = l.parseCorrection('لا أقصد الكاميرا');
+    expect(c.hadCorrection).toBe(true);
+    expect(c.phrase).toContain('كاميرا');
+    expect(l.getStats().correctionsDetected).toBeGreaterThan(0);
+  });
+
+  it('teaches tokens toward an intent and refuses bad input', () => {
+    const l = createIntentLearner();
+    const r = l.teach('help', 'fusing the vrm');
+    expect(r).not.toBeNull();
+    expect(r.tokens).toContain('fusing');
+    expect(r.tokens).not.toContain('the');            // stopword stripped
+    expect(l.getExtraLexicon().help.fusing).toBe(1);
+    expect(l.getLearnedTokens().length).toBe(2);
+    expect(l.teach('none', 'whatever')).toBeNull();   // can't teach 'none'
+    expect(l.teach('help', 'the a an')).toBeNull();   // stopwords only
+    expect(l.teach('help', '')).toBeNull();
+  });
+
+  it('caps a learned token at MAX_TOKEN_WEIGHT', () => {
+    const l = createIntentLearner();
+    for (let i = 0; i < 5; i++) l.teach('help', 'zigzag');
+    expect(l.getExtraLexicon().help.zigzag).toBe(3);
+  });
+
+  it('merges learned weights into classification, only when requested', () => {
+    const before = classifyIntent('fusing vrm');
+    expect(before.intent).toBe('none');
+    const l = createIntentLearner();
+    l.teach('help', 'fusing the vrm');
+    const after = classifyIntent('fusing vrm', undefined, l.getExtraLexicon());
+    expect(after.intent).toBe('help');
+    expect(after.confidence).toBeGreaterThanOrEqual(0.6);
+  });
+
+  it('auto-learns repeated novel tokens from consistent intents', () => {
+    const l = createIntentLearner();
+    const f = extractFeatures('zigzag');
+    expect(l.observe('zigzag', f, 'help')).toBe(false);   // still below MIN_REPEATS
+    expect(l.observe('zigzag', f, 'help')).toBe(false);
+    expect(l.observe('zigzag', f, 'help')).toBe(true);    // 3rd appearance learns
+    expect(l.getExtraLexicon().help.zigzag).toBe(0.5);
+    expect(l.getStats().repetitionsLearned).toBe(1);
+    // learned token now classifies upcoming turns
+    expect(classifyIntent('the zigzag setup', undefined, l.getExtraLexicon()).intent).toBe('help');
+  });
+
+  it('recent-turn ring and reset', () => {
+    const l = createIntentLearner();
+    const f1 = extractFeatures('hello');
+    l.observe('hello', f1, 'greeting');
+    expect(l.getRecent().length).toBe(1);
+    l.observe('help', extractFeatures('help'), 'help');
+    expect(l.getRecent().length).toBe(2);
+    l.reset();
+    expect(l.getStats().utterances).toBe(0);
+    expect(l.getLearnedTokens()).toEqual([]);
+    expect(l.getRecent()).toEqual([]);
   });
 });
