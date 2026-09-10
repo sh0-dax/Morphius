@@ -233,6 +233,12 @@ let headMoveScaleInt = 1;
 let lastInterruptionMs = 0;
 let lastVisionReconcileMs = 0;
 let lastAssistantLen = 0;
+const ANOMALY_THRESHOLD = 2.5;
+const ANOMALY_FLAG_METRICS = ['interruptionRate', 'avgAssistantLen', 'engagement'];
+const ANOMALY_LOG_CAP = 20;
+let lastAnomalies = [];
+let sessionAnomalyCount = 0;
+let anomalyPillEl = null;
 
 function setIntelligenceEnabled(on) {
   const was = intelligenceEnabled;
@@ -240,11 +246,19 @@ function setIntelligenceEnabled(on) {
   if (intelligenceEnabled && !was) {
     userModel.reset();
     anomalyTracker.reset();
+    lastAnomalies = [];
+    sessionAnomalyCount = 0;
+    updateAnomalyPill(0);
     dbg('Intelligence layer enabled', 'ok');
     emitAIFaceEvent('intelligenceUpdate', intelligenceDetail());
   } else if (!intelligenceEnabled && was) {
     blinkScaleInt = 1;
     headMoveScaleInt = 1;
+    S.intent = 'none';
+    S.intentConfidence = 0;
+    S.attentive = false;
+    S.behavior = neutralBehavior();
+    updateAnomalyPill(0);
     dbg('Intelligence layer disabled (behavior parity restored)', 'warn');
   }
 }
@@ -289,14 +303,76 @@ function solveInteraction(text, baseFeeling) {
   return { intent: classified.intent, confidence: classified.confidence, affect, directive };
 }
 
-function intelligenceDetail() {
-  const snapshot = userModel.snapshot();
-  const anomaly = {
-    interruptionRate: anomalyTracker.score('interruptionRate', snapshot.interruptionRate),
-    avgAssistantLen: anomalyTracker.score('avgAssistantLen', snapshot.avgAssistantLen),
-    engagement: anomalyTracker.score('engagement', snapshot.engagement),
-    summary: anomalyTracker.summary(),
+function anomalyScores(snap) {
+  return {
+    interruptionRate: anomalyTracker.score('interruptionRate', snap.interruptionRate),
+    avgAssistantLen: anomalyTracker.score('avgAssistantLen', snap.avgAssistantLen),
+    engagement: anomalyTracker.score('engagement', snap.engagement),
+    turnCount: anomalyTracker.score('turnCount', snap.turnCount),
   };
+}
+
+// Flag metrics that deviate past the z-threshold, carrying the window stats so
+// the debug log and the anomaly history say WHAT was odd, not just "yes".
+function flagAnomalies(scores) {
+  const summary = anomalyTracker.summary();
+  const metrics = {};
+  let flagged = false;
+  for (const k of ANOMALY_FLAG_METRICS) {
+    const z = scores[k] || 0;
+    const s = summary[k] || { mean: 0, stdev: 0, count: 0 };
+    metrics[k] = { score: Number(z.toFixed(3)), mean: s.mean, stdev: s.stdev, count: s.count };
+    if (Math.abs(z) > ANOMALY_THRESHOLD) flagged = true;
+  }
+  return { flagged, metrics };
+}
+
+function pushAnomalyLog(flagged) {
+  if (flagged.flagged) {
+    sessionAnomalyCount += 1;
+    lastAnomalies.push({ at: Date.now(), sessionId: currentSessionId, metrics: flagged.metrics });
+    if (lastAnomalies.length > ANOMALY_LOG_CAP) lastAnomalies.shift();
+  }
+  updateAnomalyPill(sessionAnomalyCount);
+}
+
+function getAnomalyPill() {
+  if (anomalyPillEl) return anomalyPillEl;
+  anomalyPillEl = typeof document !== 'undefined' ? document.getElementById('anomalyPill') : null;
+  return anomalyPillEl;
+}
+
+function updateAnomalyPill(count) {
+  const el = getAnomalyPill();
+  if (!el) return;
+  if (!intelligenceEnabled || count <= 0) { el.hidden = true; return; }
+  el.hidden = false;
+  el.textContent = t('settings.intelligenceAnomalies', 'INTEL: {n} ANOMALIES').replace('{n}', String(count));
+}
+
+// Flush the closing per-session summary to the debug log + anomaly history,
+// then clear the window (called on new chat / session restore).
+function resetIntelligenceState(reason) {
+  if (intelligenceEnabled) {
+    const snap = userModel.snapshot();
+    if (snap.turnCount > 0) {
+      const flagged = flagAnomalies(anomalyScores(snap));
+      const hot = ANOMALY_FLAG_METRICS.filter((k) => Math.abs(flagged.metrics[k].score) > ANOMALY_THRESHOLD);
+      dbg('intelligence: session closed (' + reason + ') — turns=' + snap.turnCount + ' ' + (flagged.flagged ? 'ANOMALY [' + hot.join(', ') + ']' : 'normal'), flagged.flagged ? 'warn' : 'info');
+      pushAnomalyLog(flagged);
+    }
+  }
+  userModel.reset();
+  anomalyTracker.reset();
+  sessionAnomalyCount = 0;
+  updateAnomalyPill(0);
+  emitAIFaceEvent('intelligenceUpdate', intelligenceDetail());
+}
+
+function intelligenceDetail(snap, scores) {
+  const snapshot = snap || userModel.snapshot();
+  const anomaly = scores || anomalyScores(snapshot);
+  anomaly.summary = anomalyTracker.summary();
   return {
     intent: S.intent,
     confidence: S.intentConfidence,
@@ -304,6 +380,7 @@ function intelligenceDetail() {
     behavior: S.behavior,
     userModel: snapshot,
     anomaly,
+    sessionId: currentSessionId,
   };
 }
 
@@ -1027,7 +1104,19 @@ Object.assign(window.AIFace, {
     getStatus: () => ({ intent: S.intent, intentConfidence: S.intentConfidence, attentive: S.attentive, behavior: S.behavior }),
     getUserModel: () => userModel.snapshot(),
     getUserModelJSON: () => userModel.toJSON(),
-    resetUserModel: () => { userModel.reset(); anomalyTracker.reset(); emitAIFaceEvent('intelligenceUpdate', intelligenceDetail()); return userModel.snapshot(); },
+    resetUserModel: () => { userModel.reset(); anomalyTracker.reset(); lastAnomalies = []; sessionAnomalyCount = 0; updateAnomalyPill(0); emitAIFaceEvent('intelligenceUpdate', intelligenceDetail()); return userModel.snapshot(); },
+    getSessionAnomaly: () => {
+      const snap = userModel.snapshot();
+      const scores = anomalyScores(snap);
+      return {
+        sessionId: currentSessionId,
+        turns: snap.turnCount,
+        flagged: ANOMALY_FLAG_METRICS.filter((k) => Math.abs(scores[k] || 0) > ANOMALY_THRESHOLD),
+        scores,
+        summary: anomalyTracker.summary(),
+      };
+    },
+    getAnomalyLog: () => lastAnomalies.slice(),
     getAnomaly: () => intelligenceDetail().anomaly,
     resolve: (opts) => behaviorPolicy(Object.assign({ intelligenceOn: intelligenceEnabled, state: S.currentState }, opts || {})),
   },
@@ -2778,6 +2867,7 @@ const VALID_ROLES_UI = { user: 1, assistant: 1, system: 1, error: 1 };
 
 async function restoreSession(session) {
   if (!session || !session.id) return false;
+  resetIntelligenceState('restore');
   try {
     const list = sanitizeMessages(session.messages);
     currentSessionId = session.id;
@@ -2821,6 +2911,7 @@ async function restoreLastSession() {
 }
 
 function newChat() {
+  resetIntelligenceState('new chat');
   if (abortCtrl) { try { abortCtrl.abort(); } catch (e) {} abortCtrl = null; }
   stopTTS();
   try { setSpeaking(false); } catch (e) {}
@@ -2982,18 +3073,21 @@ async function sendChat() {
       lastAssistantLen = (fullResponse || '').length;
       userModel.reconcile({ type: 'assistantEnd', textLen: lastAssistantLen });
       const snap = userModel.snapshot();
+      // Score the new candidate against the window of PRIOR observations only
+      // (score() never inserts), then observe it — keeps the z-score honest.
+      const scores = anomalyScores(snap);
+      const flagged = flagAnomalies(scores);
       anomalyTracker.observe('interruptionRate', snap.interruptionRate);
       anomalyTracker.observe('avgAssistantLen', snap.avgAssistantLen);
       anomalyTracker.observe('engagement', snap.engagement);
       anomalyTracker.observe('turnCount', snap.turnCount);
-      const detail = intelligenceDetail();
+      pushAnomalyLog(flagged);
+      if (flagged.flagged) {
+        dbg('intelligence: session anomaly flagged — ' + ANOMALY_FLAG_METRICS.filter((k) => Math.abs(flagged.metrics[k].score) > ANOMALY_THRESHOLD).join(', '), 'warn');
+      }
+      const detail = intelligenceDetail(snap, scores);
       emitAIFaceEvent('intelligenceUpdate', detail);
       dbg('intelligence: intent=' + detail.intent + ' conf=' + detail.confidence + ' attentive=' + detail.attentive, 'info');
-      const bad = [];
-      for (const k of ['interruptionRate', 'avgAssistantLen', 'engagement']) {
-        if (Math.abs(detail.anomaly[k] || 0) > 2.5) bad.push(k);
-      }
-      if (bad.length) dbg('intelligence: session anomaly flagged — ' + bad.join(', '), 'warn');
     }
     if (assistantTextEl) {
       addReplayButton(assistantTextEl, fullResponse, ttsLang);

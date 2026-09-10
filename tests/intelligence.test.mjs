@@ -262,6 +262,18 @@ describe('anomaly', () => {
     expect(t.score('c', 9)).toBe(0);
   });
 
+  it('scores the candidate against prior observations only (self-exclusion)', () => {
+    const t = createAnomalyTracker();
+    for (let i = 0; i < 10; i++) { t.observe('m', 0.25); t.observe('m', 0.35); }
+    expect(t.score('m', 0.3)).toBeLessThan(0.5);       // in-distribution ≈ 0
+    const before = t.score('m', 0.9);                  // 0.9 not yet in the window
+    t.observe('m', 0.9);                               // now it is part of its own window
+    const after = t.score('m', 0.9);
+    expect(before).toBeGreaterThan(5);                 // clearly anomalous vs prior norm
+    expect(after).toBeLessThan(before);                // dampened by self-inclusion
+    expect(after).toBeLessThan(5);
+  });
+
   it('ignores non-finite observations and resets', () => {
     const t = createAnomalyTracker();
     t.observe('m', NaN);

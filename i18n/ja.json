@@ -67,6 +67,7 @@
   "settings.experimental": "実験的 -- テキストチャットより API クォータを消費します",
   "settings.intelligenceLive": "行動インテリジェンス（デバイス上）",
   "settings.intelligenceLiveHint": "インタラクション（支援、混乱、ポジティブ、ネガティブなど）を分類し、アバターの反応と応答テンポのヒントをローカルで調整します。すべてのデータはこのデバイスに留まります。オフにすると元の動作が完全に復元されます。",
+  "settings.intelligenceAnomalies": "INTEL: 異常 {n} 件",
   "settings.intelligenceTitle": "インテリジェンス",
   "settings.feelingHint": "入力または発話された言葉の感情を検出し(英語+アラビア語)、顔を色付けします。大きな声で話すと温かい光が加わります。",
   "settings.feelingSource": "感情の取得元",

@@ -67,6 +67,7 @@
   "settings.experimental": "تجريبي -- يستهلك حصة API أسرع من الدردشة النصية",
   "settings.intelligenceLive": "الذكاء السلوكي (على الجهاز)",
   "settings.intelligenceLiveHint": "يصنّف تفاعلك (مساعدة، حيرة، إيجابي، سلبي، …) ويكيّف رد فعل الرمز وتلميحات إيقاع الرد محليًا. تبقى جميع البيانات على هذا الجهاز. أوقفه لاستعادة السلوك الأصلي تمامًا.",
+  "settings.intelligenceAnomalies": "ذكاء: {n} حالات شذوذ",
   "settings.intelligenceTitle": "الذكاء",
   "settings.feelingHint": "يكتشف مشاعر الكلمات المكتوبة أو المنطوقة (إنجليزية + عربية) ويلوّن الوجه وفقها. الكلام الأعلى يضيف توهجاً دافئاً.",
   "settings.feelingSource": "مصدر المشاعر",

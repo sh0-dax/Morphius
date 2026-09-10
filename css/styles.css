@@ -663,6 +663,11 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   color: #3a5a6a;
   line-height: 1.4;
 }
+.anomaly-pill {
+  color: var(--warn);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
 .viseme-row {
   display: flex;
   gap: 6px;
