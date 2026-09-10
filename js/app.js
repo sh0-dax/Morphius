@@ -13,7 +13,7 @@ import { Vision } from './vision.js';
 import { LocalSpeech, startLocalSTT, stopLocalSTT, generateLocalAudio, playLocalAudio, setLocalCallbacks, stopLocalAudio, setWhisperModel, applyMasterSettings } from './localSpeech.js';
 import { modelProgress } from './progress.js';
 import { getMasterVolume, setMasterVolume, setOutputDevice, routeOutput } from './masterBus.js';
-import { detectFeeling, visemeFor, DEFAULT_VISEME, VISEME_KEYS, contentToText, contentImages, buildUserContent, geminiContentParts, detectDeviceTier, recommendedWebLlmModel, createEventBus, lerpWeight, fetchWithRetry } from './pure.js';
+import { detectFeeling, visemeFor, DEFAULT_VISEME, VISEME_KEYS, contentToText, contentImages, buildUserContent, geminiContentParts, detectDeviceTier, recommendedWebLlmModel, createEventBus, lerpWeight, fetchWithRetry, computeFaceRenderCap, shouldRenderFaceFrame } from './pure.js';
 import { computeBlendedWeights, shouldIdleLife } from './core/morphEngine.js';
 import { stateBodyClass, isValidState } from './core/stateChart.js';
 import { computeVisionFeeling, decideVisionCommentary, getSpeakHint, displayClass, VISION_SPEAK_CLASSES, canRunCameraPipeline, computeNewClasses, splitBands } from './visionLogic.js';
@@ -1825,7 +1825,20 @@ async function initScene() {
     });
 
     controls.update();
-    renderer.render(scene, camera);
+    // While a camera/vision GPU pipeline runs on a low/mid device, drop the
+    // face render to 30fps so detection and the renderer don't starve each
+    // other on the GPU. Logic above still runs every frame; only the draw is
+    // halved (see computeFaceRenderCap/shouldRenderFaceFrame in pure.js).
+    _faceFrameIndex++;
+    const renderCapHz = computeFaceRenderCap({
+      tier: _deviceTier,
+      visionActive,
+      mirrorActive: Mirror.active,
+      reduceMotion,
+    });
+    if (shouldRenderFaceFrame(_faceFrameIndex, renderCapHz)) {
+      renderer.render(scene, camera);
+    }
   }
 
   renderer.setAnimationLoop(animate);
@@ -2123,6 +2136,12 @@ let visionRequestId = 0;
 let visionPaused = false;
 let visionReact = true;
 let visionCommentary = true;
+// Device tier caches detectDeviceTier() once (it only reads cheap navigator
+// props) so the per-frame render gate never re-runs heuristics.
+let _deviceTier = detectDeviceTier();
+// Frame counter for the 60->30Hz face render gate (see computeFaceRenderCap).
+let _faceFrameIndex = 0;
+
 let visionPersonPresent = false;
 let visionBackendName = '';
 let visionVideo = null;
@@ -2304,7 +2323,7 @@ async function startVision() {
   try {
     getOrCreateVisionVideo();
     visionStream = await navigator.mediaDevices.getUserMedia({
-      video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+      video: { width: { ideal: 640, max: 640 }, height: { ideal: 480, max: 480 }, facingMode: 'user' },
     });
     visionVideo.srcObject = visionStream;
     try { await visionVideo.play(); } catch (e) {}
@@ -2322,6 +2341,13 @@ async function startVision() {
       return false;
     }
     visionBackendName = backend === 'yolo-webgpu' ? 'YOLO (WebGPU)' : 'COCO-SSD (WebGL)';
+    // A 'yolo-webgpu' label can actually hide a CPU (wasm) inference when
+    // WebGPU is absent — the heaviest path. Surface the throttled rate so it's
+    // obvious the detector is being kept gentle on purpose.
+    const vInfo = Vision.getInfo ? Vision.getInfo() : null;
+    if (vInfo && vInfo.backend === 'yolo-webgpu' && !vInfo.gpuAccelerated) {
+      visionBackendName = 'YOLO (CPU) \u00b7 ' + vInfo.effectiveFps + ' FPS';
+    }
     visionActive = true;
     visionPaused = false;
     visionReact = cfgVisionReact ? cfgVisionReact.checked : true;

@@ -14,6 +14,8 @@
 //   Vision.start(onDetections)
 //   Vision.stop()
 //   Vision.getBackend()        -> 'yolo-webgpu' | 'coco-ssd-webgl'
+//   Vision.getInfo()           -> { backend, gpuAccelerated, effectiveFps, configuredFps }
+//   Vision.getStats()          -> { backend, running, runCount, lastRun, ... }
 //   Vision.describeScene()     -> stub (VLM not yet wired)
 //
 // onDetections receives: [{ class, score, bbox: [x, y, w, h] }, ...]
@@ -28,7 +30,7 @@
 // ============================================================
 
 import { parseYoloOneToOne, nonMaxSuppressionPerClass } from './pure.js';
-import { shouldRunVisionFrame, clampVisionFps, DEFAULT_VISION_FPS } from './visionLogic.js';
+import { clampVisionFps, DEFAULT_VISION_FPS, classifySceneMotion, decideDetectionGate } from './visionLogic.js';
 
 let YOLO_MODEL_URL = './models/yolo26n_int8.onnx'; // see scripts/export_model.py
 const YOLO_INPUT_SIZE = 640;
@@ -66,7 +68,31 @@ let offscreen = null;
 let offCtx = null;
 let maxFps = DEFAULT_VISION_FPS; // detection frames/sec (decoupled from rAF)
 let lastRun = 0;
+let runCount = 0;        // inferences actually started (diagnostics/smoke)
 let dimsLogged = false;      // log output.dims exactly once, then stay quiet
+
+// ---- Idle-floor scene gate ----
+// A tiny 16x12 luma probe (not the 640x640 readback) tells us whether the
+// scene is static; visionLogic.decideDetectionGate() turns "cold + static"
+// into a lower detection rate so we don't burn GPU/CPU re-analyzing frames
+// that never change (see gate logic there for the state machine).
+const GATE_W = 16;
+const GATE_H = 12;
+const GATE_FLOOR_FPS = 2;      // detection rate once cold + static
+const GATE_BURST_MS = 3000;    // keep full rate briefly after the last person
+const GATE_STABLE_MS = 3000;   // how long a scene must sit still before flooring
+let gateCanvas = null;         // 16x12 offscreen for the luma probe
+let gateCtx = null;
+let gateLumaPrev = null;       // Uint8Array(GATE_W*GATE_H) last probe
+let gateState = { burstUntil: -Infinity, stableSince: -1 };
+let lastPersonPresent = false;
+
+// ---- Backend acceleration ----
+// 'yolo-webgpu' can actually mean WebGPU OR a silent CPU (wasm) inference if
+// WebGPU is absent. CPU inference is genuinely heavy, so we track whether the
+// active backend computes on the GPU and clamp its rate accordingly.
+const VISION_CPU_FPS_CAP = 3;  // max detection FPS for a wasm/CPU inference path
+let gpuAccelerated = true;
 
 // Worker-based preprocessing keeps the heavy RGBA->CHW permutation off the
 // main thread so the Three.js render loop never janks (see visionWorker.js).
@@ -218,7 +244,8 @@ async function init(video, { forceBackend, modelUrl, maxFPS } = {}) {
   offscreen = document.createElement('canvas');
   offCtx = offscreen.getContext('2d', { willReadFrequently: true });
 
-  const wantYolo = forceBackend ? forceBackend === 'yolo' : await hasWebGPU();
+  const gpu = await hasWebGPU();
+  const wantYolo = forceBackend ? forceBackend === 'yolo' : gpu;
 
   try {
     if (wantYolo) {
@@ -236,6 +263,11 @@ async function init(video, { forceBackend, modelUrl, maxFPS } = {}) {
     }
   }
 
+  // 'yolo-webgpu' is a GPU backend ONLY when WebGPU was actually available;
+  // otherwise onnxruntime silently ran the argument on CPU (wasm), which is
+  // genuinely heavy and gets rate-capped via effectiveMaxFps().
+  gpuAccelerated = backend === 'yolo-webgpu' ? gpu : true;
+
   if (dimsLogged) dimsLogged = false; // new session → re-log once on next run
   if (backend === 'yolo-webgpu') {
     // Best effort: start the preprocessing worker so inference frames don't
@@ -246,6 +278,14 @@ async function init(video, { forceBackend, modelUrl, maxFPS } = {}) {
     }
   }
   return backend;
+}
+
+// Clamp the detection rate to the CPU path cap when the active backend computes
+// on CPU (wasm YOLO). GPU backends run at the user's configured rate.
+function effectiveMaxFps() {
+  if (gpuAccelerated) return maxFps;
+  if (maxFps === Infinity) return Infinity; // explicit opt-out of throttling
+  return Math.min(maxFps, VISION_CPU_FPS_CAP);
 }
 
 /**
@@ -347,23 +387,74 @@ async function detectCocoSsd() {
     }));
 }
 
+/**
+ * Cheap 16x12 luma probe + motion flag for the idle-floor gate. Much cheaper
+ * than the 640x640 preprocess (a ~200-byte readback instead of a 1.6MB one), so
+ * we can afford to sample it on every loop wake. Returns true when the scene
+ * visibly changed since the previous probe.
+ */
+function gateFrameMotion() {
+  if (!videoEl || videoEl.readyState < 2) return false;
+  if (!gateCanvas) {
+    gateCanvas = document.createElement('canvas');
+    gateCanvas.width = GATE_W;
+    gateCanvas.height = GATE_H;
+    gateCtx = gateCanvas.getContext('2d', { willReadFrequently: true });
+  }
+  let curr;
+  try {
+    gateCtx.drawImage(videoEl, 0, 0, GATE_W, GATE_H);
+    const data = gateCtx.getImageData(0, 0, GATE_W, GATE_H).data;
+    curr = new Uint8Array(GATE_W * GATE_H);
+    for (let i = 0; i < GATE_W * GATE_H; i++) {
+      curr[i] = ((data[i * 4] + data[i * 4 + 1] + data[i * 4 + 2]) / 3) | 0;
+    }
+  } catch (e) {
+    // Never trust a failed probe: treat it as motion so the detector stays hot
+    // rather than flooring on a broken read.
+    return true;
+  }
+  const motion = gateLumaPrev ? classifySceneMotion(gateLumaPrev, curr) : false;
+  gateLumaPrev = curr;
+  return motion;
+}
+
 async function loop(now) {
   if (!running) return;
 
   // Skip inference while the video isn't ready to avoid garbage frames.
   if (!videoEl || videoEl.paused || videoEl.readyState < 2) { scheduleNext(0); return; }
 
-  const gate = shouldRunVisionFrame({ lastRun, now, fps: maxFps });
+  const motion = maxFps !== Infinity && gateFrameMotion();
+  const base = effectiveMaxFps();
+
+  const gate = maxFps === Infinity
+    ? { shouldRun: true, nextDelayMs: 0 }
+    : decideDetectionGate({
+        now,
+        lastRun,
+        personPresent: lastPersonPresent,
+        motion,
+        state: gateState,
+        baseFps: base,
+        floorFps: Math.min(GATE_FLOOR_FPS, base),
+        burstMs: GATE_BURST_MS,
+        stableMs: GATE_STABLE_MS,
+      });
+  gateState = gate.state || gateState;
+
   if (gate.shouldRun) {
     lastRun = now;
+    runCount++;
     try {
       const detections = backend === 'yolo-webgpu' ? await detectYolo() : await detectCocoSsd();
+      lastPersonPresent = detections.some((d) => d.class === 'person');
       detectCallback?.(detections, backend);
     } catch (err) {
       console.error('[vision] inference error', err);
     }
   }
-  scheduleNext(gate.nextDelayMs);
+  scheduleNext(gate.nextDelayMs === undefined ? 0 : gate.nextDelayMs);
 }
 
 // Detection is decoupled from requestAnimationFrame so it never competes with
@@ -380,6 +471,9 @@ function start(onDetections) {
   detectCallback = onDetections;
   running = true;
   lastRun = 0;
+  lastPersonPresent = false;
+  gateLumaPrev = null;
+  gateState = { burstUntil: -Infinity, stableSince: -1 };
   if (!timerId) timerId = setTimeout(() => loop(performance.now()), 0);
 }
 
@@ -399,10 +493,41 @@ function dispose() {
   backend = null;
   preallocFloat32 = null;
   dimsLogged = false;
+  gpuAccelerated = true;
+  lastPersonPresent = false;
+  gateLumaPrev = null;
+  gateState = { burstUntil: -Infinity, stableSince: -1 };
+  runCount = 0;
 }
 
 function getBackend() {
   return backend;
+}
+
+// Runtime diagnostics: alive counters + the active gate state, useful for
+// console debugging and for smoke tests to assert the throttle cadence.
+function getStats() {
+  return {
+    backend,
+    running,
+    runCount,
+    lastRun,
+    effectiveFps: effectiveMaxFps(),
+    configuredFps: maxFps,
+    gpuAccelerated,
+    gate: { ...gateState },
+  };
+}
+
+// Runtime load info so the UI can surface throttle/cap decisions (and so the
+// console API stays honest about what's actually computing at full speed).
+function getInfo() {
+  return {
+    backend,
+    gpuAccelerated,
+    effectiveFps: effectiveMaxFps(),
+    configuredFps: maxFps,
+  };
 }
 
 // Isolated placeholder so future code can call Vision.describeScene() without
@@ -429,5 +554,10 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-export const Vision = { init, start, stop, dispose, getBackend, describeScene };
+export const Vision = { init, start, stop, dispose, getBackend, getInfo, getStats, describeScene };
 export default Vision;
+
+// Surface for console/smoke driving (promised in the header): the app imports
+// and wires Vision internally, but exposing it lets embedders/debuggers inspect
+// runtime stats (Vision.getStats()) or drive detection manually.
+if (typeof window !== 'undefined') window.Vision = Vision;

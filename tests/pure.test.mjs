@@ -23,6 +23,8 @@ import {
   classifyProjectionGesture,
   fetchWithRetry,
   abortableDelay,
+  computeFaceRenderCap,
+  shouldRenderFaceFrame,
 } from '../js/pure.js';
 import { getMasterVolume, setMasterVolume, getOutputDevice, setOutputDevice, routeOutput } from '../js/masterBus.js';
 
@@ -531,5 +533,51 @@ describe('fetchWithRetry / abortableDelay', () => {
     const p = abortableDelay(1000, ac.signal);
     ac.abort();
     await expect(p).rejects.toMatchObject({ name: 'AbortError' });
+  });
+});
+
+describe('computeFaceRenderCap (60/30 face render gate)', () => {
+  it('keeps 60fps on high-tier devices even with camera pipelines idle', () => {
+    expect(computeFaceRenderCap({ tier: 'high', visionActive: false, mirrorActive: false })).toBe(60);
+    expect(computeFaceRenderCap({ tier: 'high', visionActive: true, mirrorActive: false })).toBe(60);
+  });
+
+  it('drops to 30fps on low/mid devices while vision or mirror runs', () => {
+    expect(computeFaceRenderCap({ tier: 'low', visionActive: true, mirrorActive: false })).toBe(30);
+    expect(computeFaceRenderCap({ tier: 'low', visionActive: false, mirrorActive: true })).toBe(30);
+    expect(computeFaceRenderCap({ tier: 'mid', visionActive: true, mirrorActive: true })).toBe(30);
+  });
+
+  it('stays at 60fps on low/mid when no camera pipeline is active', () => {
+    expect(computeFaceRenderCap({ tier: 'low', visionActive: false, mirrorActive: false })).toBe(60);
+    expect(computeFaceRenderCap({ tier: 'mid', visionActive: false, mirrorActive: false })).toBe(60);
+  });
+
+  it('respects prefers-reduced-motion and keeps 60fps', () => {
+    expect(computeFaceRenderCap({ tier: 'low', visionActive: true, mirrorActive: true, reduceMotion: true })).toBe(60);
+  });
+
+  it('defaults safely when args are missing', () => {
+    expect(computeFaceRenderCap({})).toBe(60);
+  });
+});
+
+describe('shouldRenderFaceFrame (frame skipping)', () => {
+  it('renders every frame at 60Hz', () => {
+    for (let i = 0; i < 6; i++) {
+      expect(shouldRenderFaceFrame(i, 60)).toBe(true);
+    }
+  });
+
+  it('renders alternate frames at 30Hz', () => {
+    const pattern = [true, false, true, false, true, false];
+    for (let i = 0; i < pattern.length; i++) {
+      expect(shouldRenderFaceFrame(i, 30)).toBe(pattern[i]);
+    }
+  });
+
+  it('treats missing/garbage cap as 60fps', () => {
+    expect(shouldRenderFaceFrame(1, undefined)).toBe(true);
+    expect(shouldRenderFaceFrame(1, 'fast')).toBe(true);
   });
 });

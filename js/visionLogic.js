@@ -147,6 +147,94 @@ export function shouldRunVisionFrame({ lastRun, now, fps }) {
   return { shouldRun, intervalMs, nextDelayMs };
 }
 
+// ---- Idle-floor scene gate -------------------------------------------------
+// Typical desktop vision use is a mostly-static scene (webcam on a desk,
+// nobody moving) but a fixed-rate detector keeps re-inferring every frame at
+// its configured FPS, burning GPU/CPU on frames that never change. We add a
+// tiny 16x12 luma probe (negligible cost, NOT the full 640x640 readback) so a
+// cold + static scene drops to `floorFps`, while a person or movement keeps
+// the detector at `baseFps`. Pure + deterministic: vision.js supplies the
+// probe values and owns the mutable gate state.
+
+/** Count cells whose luma differs by more than `cellThreshold` steps. */
+export function lumaMotionScore(prevLuma, currLuma, cellThreshold = 6) {
+  if (!prevLuma || !currLuma || prevLuma.length !== currLuma.length) return 0;
+  let score = 0;
+  for (let i = 0; i < prevLuma.length; i++) {
+    if (Math.abs(prevLuma[i] - currLuma[i]) > cellThreshold) score++;
+  }
+  return score;
+}
+
+/** True when at least `cellsRequired` (default 6) probe cells moved. */
+export function classifySceneMotion(prevLuma, currLuma, { cellThreshold = 6, cellsRequired = 6 } = {}) {
+  return lumaMotionScore(prevLuma, currLuma, cellThreshold) >= cellsRequired;
+}
+
+/**
+ * Decide when the next detection inference should run.
+ *
+ * State machine over the gate state passed in:
+ *   - person present                  -> full `baseFps` rate + re-arm `burstMs` tail
+ *   - cold but scene is moving        -> full `baseFps` rate (kept reacting)
+ *   - cold + static for `stableMs`    -> drop to `floorFps` (never above base)
+ *
+ * Pure: the input `state` object is never mutated; the next state is returned.
+ *
+ * @returns {{ shouldRun: boolean, intervalMs: number, nextDelayMs: number, state: object }}
+ */
+export function decideDetectionGate({
+  now,
+  lastRun,
+  personPresent = false,
+  motion = false,
+  state = null,
+  baseFps = DEFAULT_VISION_FPS,
+  floorFps = 2,
+  burstMs = 3000,
+  stableMs = 3000,
+}) {
+  const s = {
+    burstUntil: -Infinity,
+    stableSince: -1,
+    ...(state || {}),
+  };
+
+  const base = clampVisionFps(baseFps);
+  if (base === Infinity) {
+    return { shouldRun: true, intervalMs: 0, nextDelayMs: 0, state: s };
+  }
+  const floor = base === Infinity ? Infinity : Math.min(clampVisionFps(floorFps), base);
+
+  const baseInterval = Math.round(1000 / base);
+  const floorInterval = Math.round(1000 / floor);
+
+  if (personPresent) s.burstUntil = now + burstMs;
+
+  let interval;
+  if (personPresent || s.burstUntil > now) {
+    // Hot: person in frame, or inside the post-person burst tail.
+    interval = baseInterval;
+    s.stableSince = -1;
+  } else if (motion) {
+    // Cold but something moved -> keep reacting at the full rate.
+    interval = baseInterval;
+    s.stableSince = -1;
+  } else {
+    // Cold + static: after a settle grace period, drop to the floor rate.
+    if (s.stableSince < 0) s.stableSince = now;
+    interval = (now - s.stableSince >= stableMs) ? floorInterval : baseInterval;
+  }
+
+  const elapsed = now - lastRun;
+  const first = !lastRun || lastRun <= 0; // mirror shouldRunVisionFrame: kick off immediately
+  const shouldRun = first || elapsed >= interval;
+  const nextDelayMs = shouldRun
+    ? interval
+    : Math.max(0, Math.min(interval - elapsed, 5000));
+  return { shouldRun, intervalMs: interval, nextDelayMs, state: s };
+}
+
 // Split a byte frequency-domain array (values 0..255 from an AnalyserNode's
 // getByteFrequencyData) into normalized [0..1] bass/mid/treble energy buckets.
 // sampleRate + fftSize are used to compute the per-bin frequency so the cutoffs

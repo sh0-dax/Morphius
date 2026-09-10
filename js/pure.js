@@ -152,6 +152,31 @@ export function detectDeviceTier(nav) {
   return 'mid';
 }
 
+// Face render-loop framerate gate. While a camera/vision GPU pipeline is
+// running on a low/mid device, rendering the face at a full 60fps shares the
+// same GPU as detection and starves both; halving to 30fps keeps the face
+// smooth while giving the detector the frame budget it needs. High-tier
+// devices and reduced-motion users stay at 60.
+// Returns the target render rate in Hz: 60 | 30.
+/**
+ * @param {{ tier?: 'low'|'mid'|'high', visionActive?: boolean, mirrorActive?: boolean, reduceMotion?: boolean }} opts
+ */
+export function computeFaceRenderCap(opts) {
+  const { tier, visionActive, mirrorActive, reduceMotion } = opts || {};
+  if (reduceMotion || tier === 'high') return 60;
+  const busy = visionActive || mirrorActive;
+  return busy ? 30 : 60;
+}
+
+// Whether frame `frameIndex` (0-based) should actually be drawn at `capHz`.
+// At 60Hz every frame renders; at 30Hz alternate frames are skipped so the
+// visible cadence stays constant while GPU work halves.
+export function shouldRenderFaceFrame(frameIndex, capHz) {
+  const cap = Math.floor(Number(capHz) || 60);
+  if (cap >= 60) return true;
+  return (frameIndex % 2) === 0;
+}
+
 export function recommendedWebLlmModel(nav) {
   return WEBLLM_TIER_MODELS[detectDeviceTier(nav)];
 }

@@ -15,6 +15,9 @@ import {
   DEFAULT_VISION_FPS,
   MIN_VISION_FPS,
   MAX_VISION_FPS,
+  lumaMotionScore,
+  classifySceneMotion,
+  decideDetectionGate,
 } from '../js/visionLogic.js';
 
 describe('VISION_FEELING_MAP / VISION_SPEAK_CLASSES', () => {
@@ -304,6 +307,134 @@ describe('splitBands', () => {
     const b = splitBands(arr, sampleRate, fftSize);
     expect(b.mid).toBeGreaterThan(0);
     expect(b.bass).toBe(0);
+  });
+});
+
+describe('lumaMotionScore / classifySceneMotion (16x12 gate probe)', () => {
+  const grid = (w, h, fill = (x, y) => 0) => {
+    const a = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) a[y * w + x] = fill(x, y);
+    }
+    return a;
+  };
+
+  it('returns 0 for null/shape-mismatched input', () => {
+    expect(lumaMotionScore(null, new Uint8Array(4))).toBe(0);
+    expect(lumaMotionScore(new Uint8Array(4), new Uint8Array(8))).toBe(0);
+  });
+
+  it('scores 0 for identical probes', () => {
+    const a = grid(16, 12, () => 100);
+    expect(lumaMotionScore(a, new Uint8Array(a))).toBe(0);
+    expect(classifySceneMotion(a, new Uint8Array(a))).toBe(false);
+  });
+
+  it('ignores sub-threshold sensor noise', () => {
+    const a = grid(16, 12, (x) => x % 7);
+    const b = new Uint8Array(a);
+    b[0] += 3; // below the default cellThreshold of 6
+    expect(classifySceneMotion(a, b)).toBe(false);
+  });
+
+  it('detects motion when enough cells move past the threshold', () => {
+    const a = grid(16, 12, () => 60);
+    const b = new Uint8Array(a).fill(200); // whole scene changed
+    expect(classifySceneMotion(a, b)).toBe(true);
+    const c = new Uint8Array(a);
+    for (let i = 0; i < 8; i++) c[i] = 200; // only 8 of 192 cells moved
+    expect(classifySceneMotion(a, c, { cellsRequired: 8 })).toBe(true);
+    expect(classifySceneMotion(a, c, { cellsRequired: 16 })).toBe(false);
+  });
+});
+
+describe('decideDetectionGate (idle-floor scene gate)', () => {
+  // Helpers that mimic the vision.js loop contract.
+  const HOT = { personPresent: true, motion: false };
+  const COLD_IDLE = { personPresent: false, motion: false };
+  const COLD_MOTION = { personPresent: false, motion: true };
+  const GATE = { baseFps: 8, floorFps: 2, burstMs: 3000, stableMs: 3000 };
+  const base = () => Math.round(1000 / 8); // 125
+  const floor = () => Math.round(1000 / 2); // 500
+
+  it('runs on the very first wake (lastRun 0)', () => {
+    const r = decideDetectionGate({ now: 0, lastRun: 0, ...COLD_IDLE, ...GATE, state: null });
+    expect(r.shouldRun).toBe(true);
+    expect(r.state.stableSince).toBe(0); // seeds the stability epoch
+  });
+
+  it('keeps full rate while a person is present', () => {
+    const state = { burstUntil: -Infinity, stableSince: -1 };
+    let lastRun = 0;
+    let r;
+    for (let i = 0; i < 3; i++) {
+      const now = lastRun + base();
+      r = decideDetectionGate({ now, lastRun, ...HOT, ...GATE, state });
+      expect(r.shouldRun).toBe(true);
+      lastRun = now;
+    }
+    expect(r.state.burstUntil).toBeGreaterThan(lastRun - GATE.burstMs);
+  });
+
+  it('holds full rate inside the post-person burst tail', () => {
+    const now = 10000;
+    const state = { burstUntil: now + 1500, stableSince: -1 };
+    const r = decideDetectionGate({ now, lastRun: now - base(), ...COLD_IDLE, ...GATE, state });
+    expect(r.state.burstUntil).toBe(now + 1500); // burst is not re-armed without a person
+    expect(r.intervalMs).toBe(base());
+  });
+
+  it('reacts at full rate while the cold scene keeps moving', () => {
+    const state = { burstUntil: -Infinity, stableSince: -1 };
+    const now = 5000;
+    const r = decideDetectionGate({ now, lastRun: now - 400, ...COLD_MOTION, ...GATE, state });
+    expect(r.intervalMs).toBe(base());
+    expect(r.shouldRun).toBe(true); // 400ms >= 125ms
+    expect(r.state.stableSince).toBe(-1);
+  });
+
+  it('stays at base rate during the unstable settle grace period', () => {
+    const state = { burstUntil: -Infinity, stableSince: 2000 };
+    const now = 4000; // 2000ms static, still below stableMs=3000
+    const r = decideDetectionGate({ now, lastRun: now - 120, ...COLD_IDLE, ...GATE, state });
+    expect(r.intervalMs).toBe(base());
+  });
+
+  it('drops to the floor after the scene has been static past stableMs', () => {
+    const state = { burstUntil: -Infinity, stableSince: 1000 };
+    const now = 4200; // 3200ms static >= stableMs
+    const r = decideDetectionGate({ now, lastRun: now - 120, ...COLD_IDLE, ...GATE, state });
+    expect(r.intervalMs).toBe(floor());
+  });
+
+  it('schedules the exact remaining delay when not due yet', () => {
+    const state = { burstUntil: -Infinity, stableSince: 0 };
+    const now = 8000; // stable >= stableMs -> floor cadence
+    // last run 380ms ago, floor interval 500ms -> next due in 120ms
+    const r = decideDetectionGate({ now, lastRun: now - 380, ...COLD_IDLE, ...GATE, state });
+    expect(r.shouldRun).toBe(false);
+    expect(r.nextDelayMs).toBe(floor() - 380);
+  });
+
+  it('never lets the floor exceed the base (user set 1fps)', () => {
+    const state = { burstUntil: -Infinity, stableSince: 0 };
+    const now = 5000;
+    const r = decideDetectionGate({ now, lastRun: now - 500, ...COLD_IDLE, ...GATE, baseFps: 1, floorFps: 2, state });
+    expect(r.intervalMs).toBe(1000); // floor clamped to base
+  });
+
+  it('runs everything when baseFps is Infinity (unthrottled)', () => {
+    const state = { burstUntil: -Infinity, stableSince: -1 };
+    const r = decideDetectionGate({ now: 1234, lastRun: 1233, ...COLD_IDLE, baseFps: Infinity, floorFps: 2, state });
+    expect(r.shouldRun).toBe(true);
+    expect(r.nextDelayMs).toBe(0);
+  });
+
+  it('does not mutate the caller state object (pure)', () => {
+    const state = { burstUntil: -Infinity, stableSince: 0 };
+    const snapshot = { ...state };
+    decideDetectionGate({ now: 5000, lastRun: 4900, ...HOT, ...GATE, state });
+    expect(state).toEqual(snapshot);
   });
 });
 
