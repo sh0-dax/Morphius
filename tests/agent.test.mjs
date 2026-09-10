@@ -12,8 +12,12 @@ import { buildBigram, pickVariantIndex } from '../js/agent/lm.js';
 import {
   buildModels, classifyText, buildResponse, fallbackResponse, applyFeedback,
   createLocalAgent, packAgent, unpackAgent, corpusHash, normalizeAgentLang,
-  calibrate, MIN_CONFIDENCE, MIN_MARGIN, TOP_K,
+  calibrate, extractSlots, decideAction, canonicalSlot,
+  MIN_CONFIDENCE, MIN_MARGIN, TOP_K,
 } from '../js/agent/agent.js';
+import {
+  extractStoreKV, extractQueryKey, matchFact,
+} from '../js/agent/memory.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const load = (name) => JSON.parse(readFileSync(join(here, '..', name), 'utf8'));
@@ -22,10 +26,11 @@ const CORPORA = { en: load('data/agent/en.json'), fr: load('data/agent/fr.json')
 
 // In-memory storage with the same interface as js/agent/modelStore.
 function makeStorage(seed) {
-  const db = { models: {}, meta: null, corrupt: {} };
+  const db = { models: {}, meta: null, corrupt: {}, memory: {} };
   if (seed) {
     db.models = JSON.parse(JSON.stringify(seed.models || {}));
     db.meta = seed.meta ? JSON.parse(JSON.stringify(seed.meta)) : null;
+    db.memory = seed.memory ? JSON.parse(JSON.stringify(seed.memory)) : {};
   }
   return {
     _db: db,
@@ -34,6 +39,10 @@ function makeStorage(seed) {
     loadMeta: async () => db.meta,
     saveMeta: async (m) => { db.meta = JSON.parse(JSON.stringify({ key: 'meta', ...m })); },
     addLearningEvent: async () => true,
+    saveMemoryItem: async (k, v) => { db.memory[k] = JSON.parse(JSON.stringify(v)); },
+    loadMemoryItem: async (k) => db.memory[k] || null,
+    listMemoryItems: async () => Object.entries(db.memory).map(([key, value]) => ({ key, value })),
+    deleteMemoryItem: async (k) => { delete db.memory[k]; return true; },
     corrupt(lang) { db.corrupt[lang] = '{ not valid json'; },
   };
 }
@@ -179,6 +188,16 @@ describe('corpus end-to-end', () => {
     // ambiguous confirm: nothing to attach to -> rejected
     const bad = applyFeedback(a, CORPORA, { kind: 'confirm', text: 'zxq jkl mmm', intent: 'joke', language: 'en' }, null);
     expect(bad.applied).toBe(false);
+    // reject is a durable no-op: logged, never a blind partial_fit
+    const rej = applyFeedback(a, CORPORA, { kind: 'reject', text: 'police report q1', intent: 'help', language: 'en' });
+    expect(rej.applied).toBe(false);
+    expect(classifyText(a, 'police report q1', STOP).intent).toBe('help');
+  });
+
+  it('memory_recall renders the session summary (session memory, intact across M8)', async () => {
+    const a = buildModels(CORPORA, STOP);
+    const r = classifyText(a, 'what did we talk about', STOP);
+    expect(r.intent).toBe('memory_recall');
   });
 
   it('actions fire for lighting/mirror/vision/stop intents', () => {
@@ -260,11 +279,165 @@ describe('createLocalAgent lifecycle', () => {
   });
 });
 
+describe('M8 fact-memory extraction (deterministic, no invention)', () => {
+  it('en: stores "remember that my favorite color is teal" -> key/value', () => {
+    const kv = extractStoreKV('remember that my favorite color is teal', 'en');
+    expect(kv).toEqual({ key: 'favorite color', value: 'teal' });
+    expect(extractStoreKV('my name is sarah', 'en')).toEqual({ key: 'name', value: 'sarah' });
+    expect(extractStoreKV('keep in mind that my favorite city is paris', 'en')).toEqual({ key: 'favorite city', value: 'paris' });
+  });
+  it('en: query "what is my favorite color" / "whats my name" -> key', () => {
+    expect(extractQueryKey('what is my favorite color', 'en')).toEqual({ key: 'favorite color', generic: false });
+    expect(extractQueryKey("what's my name", 'en')).toEqual({ key: 'name', generic: false });
+    expect(extractQueryKey('tell me my favorite food', 'en')).toEqual({ key: 'favorite food', generic: false });
+    expect(extractQueryKey('do you remember what my favorite color is', 'en')).toEqual({ key: 'favorite color', generic: false });
+    expect(extractQueryKey('what do you remember about me', 'en').generic).toBe(true);
+  });
+  it('en: unparseable store inputs yield null (honest hint, never invention)', () => {
+    expect(extractStoreKV('store this for me', 'en')).toBeNull();
+    expect(extractStoreKV('remember that i like coffee', 'en')).toBeNull();
+  });
+  it('fr: store + query round-trip keys', () => {
+    expect(extractStoreKV('souviens-toi que ma couleur préférée est le bleu', 'fr')).toEqual({ key: 'couleur préférée', value: 'le bleu' });
+    expect(extractStoreKV('mémorise que mon plat préféré est la pizza', 'fr')).toEqual({ key: 'plat préféré', value: 'la pizza' });
+    expect(extractStoreKV('mon nom est sam', 'fr')).toEqual({ key: 'nom', value: 'sam' });
+    expect(extractQueryKey("c'est quoi mon nom", 'fr')).toEqual({ key: 'nom', generic: false });
+    expect(extractQueryKey('quelle est ma couleur préférée', 'fr')).toEqual({ key: 'couleur préférée', generic: false });
+    expect(extractQueryKey('tu te souviens de mon plat préféré', 'fr')).toEqual({ key: 'plat préféré', generic: false });
+  });
+  it('ar: store + query round-trip keys (اسمي special + هو copula)', () => {
+    expect(extractStoreKV('تذكر أن اسمي سارة', 'ar')).toEqual({ key: 'اسمي', value: 'سارة' });
+    expect(extractStoreKV('اسمي كريم', 'ar')).toEqual({ key: 'اسمي', value: 'كريم' });
+    expect(extractStoreKV('تذكر أن لوني المفضل هو الأزرق', 'ar')).toEqual({ key: 'لوني المفضل', value: 'الأزرق' });
+    expect(extractQueryKey('ما هو اسمي', 'ar')).toEqual({ key: 'اسمي', generic: false });
+    expect(extractQueryKey('ما هو لوني المفضل', 'ar')).toEqual({ key: 'لوني المفضل', generic: false });
+    expect(extractQueryKey('ماذا تعرف عني', 'ar').generic).toBe(true);
+  });
+  it('matchFact: exact, fuzzy (Dice), ambiguous, unknown — never invents', () => {
+    const single = [
+      { key: 'favorite color', value: 'teal' },
+      { key: 'hometown', value: 'casablanca' },
+    ];
+    const exact = matchFact(single, 'favorite color', 'en');
+    expect(exact.found).toBe(true);
+    expect(exact.value).toBe('teal');
+    // subset query ("color" is explained by "favorite color") -> fuzzy hit
+    const fuzzy = matchFact(single, 'color', 'en');
+    expect(fuzzy.found).toBe(true);
+    expect(fuzzy.value).toBe('teal');
+    // synonym-only partial overlap ("preferred color") is NOT enough -> honest miss
+    const miss = matchFact(single, 'preferred color', 'en');
+    expect(miss.found).toBe(false);
+    // two equally-plausible candidates -> ambiguous (ask, don't guess)
+    const dup = [single[0], { key: 'favorite color', value: 'red' }];
+    const amb = matchFact(dup, 'color', 'en');
+    expect(amb.found).toBe(false);
+    expect(amb.ambiguous).toBe(true);
+    // unrelated key -> unknown
+    expect(matchFact(single, 'middle name', 'en').found).toBe(false);
+  });
+});
+
+describe('M8 fact-memory lifecycle (persisted across reload)', () => {
+  it('store -> recall across a reload, per language', async () => {
+    const storage = makeStorage();
+    const a1 = await createLocalAgent({ corpora: CORPORA, stopwords: STOP, storage, sessionList: async () => [] });
+    await a1.ready;
+
+    const st = await a1.respond('remember that my favorite color is teal');
+    expect(st.intent).toBe('memory_store');
+    expect(st.response).toMatch(/teal/);
+
+    const a2 = await createLocalAgent({ corpora: CORPORA, stopwords: STOP, storage, sessionList: async () => [] });
+    await a2.ready;
+    const recall = await a2.respond('what is my favorite color');
+    expect(recall.intent).toBe('memory_fact');
+    expect(recall.response).toMatch(/teal/);
+    expect(recall.memory && recall.memory.found).toBe(true);
+
+    const list = await a2.memory.list();
+    expect(list.some((r) => r.value === 'teal')).toBe(true);
+    expect(await a2.memory.forget('favorite color')).toBe(true);
+    const gone = await a2.respond('what is my favorite color');
+    expect(gone.memory && gone.memory.found).toBe(false);
+    expect(gone.response.length).toBeGreaterThan(5);
+  });
+
+  it('French and Arabic fact round-trips via respond', async () => {
+    const storage = makeStorage();
+    const a = await createLocalAgent({ corpora: CORPORA, stopwords: STOP, storage, sessionList: async () => [] });
+    await a.ready;
+
+    const stFr = await a.respond('souviens-toi que ma couleur préférée est le bleu');
+    expect(stFr.intent).toBe('memory_store');
+    const qFr = await a.respond('quelle est ma couleur préférée');
+    expect(qFr.intent).toBe('memory_fact');
+    expect(qFr.response).toMatch(/bleu/);
+
+    const stAr = await a.respond('تذكر أن اسمي سارة');
+    expect(stAr.intent).toBe('memory_store');
+    const qAr = await a.respond('ما هو اسمي');
+    expect(qAr.intent).toBe('memory_fact');
+    expect(qAr.response).toMatch(/سارة/);
+  });
+
+  it('generic "about me" asks list saved facts; empty list stays honest', async () => {
+    const storage = makeStorage();
+    const a = await createLocalAgent({ corpora: CORPORA, stopwords: STOP, storage, sessionList: async () => [] });
+    await a.ready;
+    const empty = await a.respond('what do you remember about me');
+    expect(empty.intent).toBe('memory_fact');
+    expect(empty.response).toMatch(/saved facts/i);
+    await a.respond('remember that my hometown is casablanca');
+    const listed = await a.respond('what do you remember about me');
+    expect(RE_STRIP(listed.response)).toMatch(/hometown/);
+  });
+});
+
+describe('M8 canonical cross-language slots (WS3)', () => {
+  const def = (l) => CORPORA[l].intents.find((i) => i.id === 'lighting');
+  it('canonicalSlot maps local aliases to one canonical value', () => {
+    expect(canonicalSlot('preset', 'chaud')).toBe('warm');
+    expect(canonicalSlot('preset', 'chaude')).toBe('warm');
+    expect(canonicalSlot('preset', 'دافئ')).toBe('warm');
+    expect(canonicalSlot('preset', 'sombre')).toBe('noir');
+    expect(canonicalSlot('preset', 'مضاء')).toBe('blueprint');
+    expect(canonicalSlot('preset', 'warm')).toBe('warm');
+  });
+  it('fr "lumière chaude" extracts canonical preset warm (localized raw kept)', () => {
+    const slots = extractSlots('lumière chaude', def('fr'), 'fr');
+    expect(slots.preset).toBe('warm');
+    expect(slots._presetRaw).toBe('chaude');
+    expect(decideAction('lighting', slots)).toEqual({ type: 'lighting', preset: 'warm' });
+  });
+  it('ar "ضوء دافئ" extracts canonical warm', () => {
+    const slots = extractSlots('ضوء دافئ', def('ar'), 'ar');
+    expect(slots.preset).toBe('warm');
+    expect(decideAction('lighting', slots)).toEqual({ type: 'lighting', preset: 'warm' });
+  });
+  it('slot parity: every preset word in every corpus maps to a known canonical', () => {
+    for (const l of ['en', 'fr', 'ar']) {
+      const presets = (def(l).slots && def(l).slots.preset) || [];
+      for (const w of presets) {
+        expect(canonicalSlot('preset', w), `${l}.${w}`).toBeTruthy();
+      }
+    }
+  });
+  it('en lighting response stays localized while action is canonical', () => {
+    const a = buildModels(CORPORA, STOP);
+    const r = buildResponse(a, CORPORA, 'lighting', 'turn on warm lights', { preset: 'warm', _presetRaw: 'warm' }, { language: 'en' });
+    expect(r.length).toBeGreaterThan(5);
+    expect(r).toMatch(/warm/);
+  });
+});
+
+function RE_STRIP(s) { return String(s || '').replace(/[؟?،,:.]/g, ''); }
+
 describe('pack/unpack integrity', () => {
   it('packAgent -> unpackAgent restores decision behavior', () => {
     const agent = buildModels(CORPORA, STOP);
     const pack = packAgent(agent);
-    expect(pack.modelVersion).toBe('m7.1');
+    expect(pack.modelVersion).toBe('m8.1');
     expect(pack.algorithm).toBe('multinomial-nb-1');
     const restored = unpackAgent(pack, STOP, CORPORA);
     const a = classifyText(restored, 'bonjour', STOP);

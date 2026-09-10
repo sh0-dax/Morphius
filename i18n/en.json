@@ -204,5 +204,14 @@
   "provider.webllm": "WebLLM (optional in-browser LLM)",
   "agent.modelHint": "Fully local from-scratch agent (Naive Bayes + memory + learning loop). Trained samples: {n} ({src}).",
   "agent.urlHint": "No server, no API key, no network. Everything runs on this device.",
-  "agent.status": "Local Agent"
+  "agent.status": "Local Agent",
+  "agent.feedback.ok": "Mark correct",
+  "agent.feedback.no": "Mark wrong / teach a correction",
+  "agent.feedback.confirmed": "Thanks — reinforced that.",
+  "agent.feedback.unsure": "I wasn't confident enough there — left it as is.",
+  "agent.feedback.correction": "What should this have meant?",
+  "agent.feedback.save": "Save correction",
+  "agent.feedback.reject": "Just wrong",
+  "agent.feedback.teachDone": "Learned that as {intent}.",
+  "agent.feedback.rejectDone": "Noted — no change made."
 }

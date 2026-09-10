@@ -1174,9 +1174,12 @@ Object.assign(window.AIFace, {
     respond: async (text, ctx) => ensureLocalAgent().then((a) => a.respond(String(text || ''), ctx || {})),
     learn: async (fb) => ensureLocalAgent().then((a) => a.learn(Object.assign({ kind: fb.kind || 'teach' }, fb))),
     memory: {
-      recall: (q) => ensureLocalAgent().then((a) => a.memory.recall(String(q || ''))),
+      recall: (q) => ensureLocalAgent().then((a) => a.memory.recall(typeof q === 'string' ? { kind: 'session' } : (q || {}))),
       store: (ev) => ensureLocalAgent().then((a) => a.memory.store(ev || {})),
+      list: () => ensureLocalAgent().then((a) => a.memory.list()),
+      forget: (key) => ensureLocalAgent().then((a) => a.memory.forget(String(key || ''))),
     },
+    intents: (lang) => ensureLocalAgent().then((a) => a.intents(lang)),
     getLastResult: () => _lastAgentResult,
   },
 });
@@ -2948,6 +2951,125 @@ function addRegenerateButton(textEl) {
   actions.appendChild(btn);
 }
 
+// ---- M8 in-UI feedback loop (👍 / 👎 -> bounded learn) ----
+// Attached to every classified local-agent reply. 👍 confirms the original
+// classification (only applied when margin >= MIN_CONFIRM_MARGIN), 👎 opens an
+// inline teach/reject popover (intent = explicit user correction).
+function attachAgentFeedback(textEl, text, res) {
+  const actions = textEl && textEl.parentElement && textEl.parentElement.querySelector('.msg-actions');
+  if (!actions || !res || !res.intent) return;
+  if (actions.querySelector('.fb-group')) return;
+
+  const group = document.createElement('span');
+  group.className = 'fb-group';
+
+  const up = document.createElement('button');
+  up.className = 'fb-btn fb-up';
+  up.type = 'button';
+  up.textContent = '👍';
+  up.title = t('agent.feedback.ok', 'Mark correct');
+  up.setAttribute('aria-label', t('agent.feedback.ok', 'Mark correct'));
+
+  const down = document.createElement('button');
+  down.className = 'fb-btn fb-down';
+  down.type = 'button';
+  down.textContent = '👎';
+  down.title = t('agent.feedback.no', 'Mark wrong / teach a correction');
+  down.setAttribute('aria-label', t('agent.feedback.no', 'Mark wrong / teach a correction'));
+
+  const status = document.createElement('span');
+  status.className = 'fb-status';
+
+  group.appendChild(up);
+  group.appendChild(down);
+  group.appendChild(status);
+  actions.appendChild(group);
+
+  let busy = false;
+  function flash(msg) {
+    status.textContent = msg;
+    status.classList.add('show');
+    setTimeout(() => status.classList.remove('show'), 2600);
+  }
+
+  up.addEventListener('click', async () => {
+    if (busy) return;
+    busy = true;
+    try {
+      const a = await ensureLocalAgent();
+      const out = await a.learn({ kind: 'confirm', text, intent: res.intent, language: res.language, margin: res.margin });
+      flash(out.applied
+        ? t('agent.feedback.confirmed', 'Thanks — reinforced that.')
+        : t('agent.feedback.unsure', "I wasn't confident enough there — left it as is."));
+    } catch (e) {
+      flash(t('agent.feedback.unsure', "I wasn't confident enough there — left it as is."));
+    } finally { busy = false; }
+  });
+
+  down.addEventListener('click', () => openCorrection());
+  function openCorrection() {
+    if (actions.querySelector('.fb-pop')) return;
+    const pop = document.createElement('span');
+    pop.className = 'fb-pop';
+
+    const title = document.createElement('span');
+    title.className = 'fb-pop-title';
+    title.textContent = t('agent.feedback.correction', 'What should this have meant?');
+
+    const sel = document.createElement('select');
+    sel.className = 'fb-pop-select';
+
+    const a = ensureLocalAgent().then((ag) => ag.intents(res.language) || []);
+    Promise.resolve(a).then((ints) => {
+      const list = (Array.isArray(ints) ? ints : []);
+      list.forEach((id) => {
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = id;
+        sel.appendChild(opt);
+      });
+    });
+
+    const save = document.createElement('button');
+    save.type = 'button';
+    save.className = 'fb-pop-save';
+    save.textContent = t('agent.feedback.save', 'Save correction');
+
+    const reject = document.createElement('button');
+    reject.type = 'button';
+    reject.className = 'fb-pop-reject';
+    reject.textContent = t('agent.feedback.reject', 'Just wrong');
+
+    save.addEventListener('click', async () => {
+      const intent = sel.value;
+      if (!intent) return;
+      try {
+        const ag = await ensureLocalAgent();
+        const out = await ag.learn({ kind: 'teach', text, intent, language: res.language });
+        const label = out.applied ? t('agent.feedback.teachDone', 'Learned that as {intent}.').replace('{intent}', intent) : t('agent.feedback.unsure', "I wasn't confident enough there — left it as is.");
+        flash(label);
+      } catch (e) { flash(t('agent.feedback.unsure', "I wasn't confident enough there — left it as is.")); }
+      pop.remove();
+    });
+
+    reject.addEventListener('click', async () => {
+      try {
+        const ag = await ensureLocalAgent();
+        await ag.learn({ kind: 'reject', text, intent: res.intent, language: res.language });
+        flash(t('agent.feedback.rejectDone', 'Noted — no change made.'));
+      } catch (e) { /* silent */ }
+      pop.remove();
+    });
+
+    pop.appendChild(title);
+    pop.appendChild(sel);
+    pop.appendChild(save);
+    pop.appendChild(reject);
+    actions.appendChild(pop);
+    sel.focus();
+  }
+}
+
 // ============================================================
 // Chat Persistence (IndexedDB sessions)
 // ============================================================
@@ -3337,6 +3459,7 @@ async function runLocalAgent(content, modelName, signal) {
     if (assistantTextEl) assistantTextEl.textContent = fullResponse;
     await new Promise((r) => setTimeout(r, 12));
   }
+  if (assistantTextEl) attachAgentFeedback(assistantTextEl, text, res);
 }
 
 // Unified HTTP error -> user-friendly message (with actionable hints + debug log).

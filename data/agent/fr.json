@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "language": "fr",
-  "corpusVersion": "agent-2026-09-1",
+  "corpusVersion": "agent-2026-10-1",
   "intents": [
     {
       "id": "greeting",
@@ -111,6 +111,16 @@
       "id": "memory_recall",
       "examples": ["de quoi on a parlé", "souviens-toi de notre conversation", "qu'ai-je dit avant", "tu te souviens de moi", "rappelle notre discussion", "qu'est-ce qu'on a dit", "montre mon historique", "tu as de la mémoire", "notre dernière conversation", "qu'est-ce que tu as retenu"],
       "templates": ["Nous avons eu {count} conversation{plural} sur cet appareil. La dernière : {title}.", "De mémoire : {count} session{plural} enregistrée{plural}. La plus récente : {title}.", "Je m'en souviens — nous avons parlé {count} fois{plural}. Dernière : {title}."]
+    },
+    {
+      "id": "memory_store",
+      "examples": ["souviens-toi que ma couleur préférée est le bleu", "mémorise que mon plat préféré est la pizza", "retiens que mon nom est sam", "note que ma ville préférée est paris", "souviens-toi que mon nom est sarah", "mon nom est sarah", "mon nom est sam", "retenez ceci pour moi"],
+      "templates": ["C'est noté — je me souviendrai que {key} est {value}.", "Enregistré : {key} = {value}, gardé sur cet appareil.", "Ok, je retiens que {key} est {value}."]
+    },
+    {
+      "id": "memory_fact",
+      "examples": ["quelle est ma couleur préférée", "c'est quoi mon nom", "tu te souviens de mon plat préféré", "rappelle-moi mon nom", "quel est mon plat préféré", "qu'est-ce que tu sais de moi", "de quoi tu te souviens à propos de moi", "c'est quoi ma ville préférée", "dis-moi mon plat préféré"],
+      "templates": ["De mémoire : {key} est {value}.", "Je me souviens — {key} est {value}.", "Tu m'as dit que {key} est {value}."]
     },
     {
       "id": "settings",

@@ -204,5 +204,14 @@
   "provider.webllm": "WebLLM (اختياري، داخل المتصفح)",
   "agent.modelHint": "وكيل محلي مكتوب من الصفر (Naive Bayes + ذاكرة + حلقة تعلم). عينات التدريب: {n} ({src}).",
   "agent.urlHint": "لا خادم، لا مفتاح API، لا إنترنت. كل شيء يعمل على هذا الجهاز.",
-  "agent.status": "الوكيل المحلي"
+  "agent.status": "الوكيل المحلي",
+  "agent.feedback.ok": "إجابة صحيحة",
+  "agent.feedback.no": "إجابة خاطئة / صحح لي",
+  "agent.feedback.confirmed": "شكرا — تم التعزيز.",
+  "agent.feedback.unsure": "لم أكن متأكدا كفاية — تركتها كما هي.",
+  "agent.feedback.correction": "ماذا كان يعني هذا؟",
+  "agent.feedback.save": "حفظ التصحيح",
+  "agent.feedback.reject": "إجابة خاطئة فقط",
+  "agent.feedback.teachDone": "تعلمت هذا بمعنى {intent}.",
+  "agent.feedback.rejectDone": "وصلت فكرتك — لا تغيير."
 }

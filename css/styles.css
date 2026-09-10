@@ -846,6 +846,57 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   opacity: 1;
 }
 
+/* M8 — in-UI feedback loop (👍 / 👎 + teach/reject popover) */
+.chat-msg .msg-actions .fb-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-inline-start: 6px;
+}
+.chat-msg .msg-actions .fb-btn {
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px 6px;
+  min-height: 24px;
+  border-color: #1a2a3a;
+  background: transparent;
+  cursor: pointer;
+}
+.chat-msg .msg-actions .fb-btn:hover {
+  border-color: var(--active);
+  filter: brightness(1.2);
+}
+.chat-msg .msg-actions .fb-status {
+  font-size: 10px;
+  color: var(--active);
+  margin-inline-start: 4px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  max-width: 260px;
+}
+.chat-msg .msg-actions .fb-status.show {
+  opacity: 1;
+}
+.chat-msg .msg-actions .fb-pop {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.chat-msg .msg-actions .fb-pop-title {
+  font-size: 10px;
+  color: var(--dim);
+}
+.chat-msg .msg-actions .fb-pop-select {
+  font-size: 10px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid #1a2a3a;
+  border-radius: 4px;
+  padding: 2px 4px;
+  max-width: 130px;
+}
+
 /* Scroll-to-bottom button */
 .chat-scroll-bottom {
   position: relative;

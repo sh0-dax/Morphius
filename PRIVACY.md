@@ -75,8 +75,11 @@ runs with no GPU and no network:
 - The app trains the model in your browser from a bundled seed corpus
   (`data/agent/*.json`). Your explicit `teach` / `confirm` / `reject`
   feedback is folded into the persisted model, stored only in IndexedDB
-  (`aiface_agent`) alongside a plain log of learning events and a small
-  key/value memory.
+  (`aiface_agent`) alongside a plain log of learning events and a long-term
+  fact memory: anything you tell it to remember ("my name is …", "my
+  favorite color is …") is saved as a normalized key/value fact in the same
+  IndexedDB store. Facts persist across reloads and are only ever read back
+  on-device.
 - Clearing your browser storage for this site deletes the learned model,
   the learning log, and the memory — permanently.
 

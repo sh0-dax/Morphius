@@ -204,5 +204,14 @@
   "provider.webllm": "WebLLM（ブラウザ内LLM・任意）",
   "agent.modelHint": "完全ローカルの自作エージェント（Naive Bayes + メモリ + 学習ループ）。学習サンプル数: {n} ({src})。",
   "agent.urlHint": "サーバーなし・APIキーなし・ネットワーク不要。すべてこの端末で動作します。",
-  "agent.status": "ローカルエージェント"
+  "agent.status": "ローカルエージェント",
+  "agent.feedback.ok": "正しいとマーク",
+  "agent.feedback.no": "間違い/修正",
+  "agent.feedback.confirmed": "ありがとう — 強化しました。",
+  "agent.feedback.unsure": "確信が足りません — 変更なし。",
+  "agent.feedback.correction": "これはどういう意味のはずでしたか？",
+  "agent.feedback.save": "修正を保存",
+  "agent.feedback.reject": "間違い",
+  "agent.feedback.teachDone": "{intent} として学習しました。",
+  "agent.feedback.rejectDone": "承知 — 変更なし。"
 }

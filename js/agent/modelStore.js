@@ -85,13 +85,22 @@ export async function listLearningEvents() {
   return Array.isArray(all) ? all : [];
 }
 
-// ---- memory (long-term, M8 expands) ----
+// ---- memory (long-term, M8) ----
 export async function saveMemoryItem(key, value) {
   return withStore(MEMORY_STORE, 'readwrite', (store, get) => get(store.put({ key, value })));
 }
 export async function loadMemoryItem(key) {
   const row = await withStore(MEMORY_STORE, 'readonly', (store, get) => get(store.get(key)));
   return row ? row.value : null;
+}
+export async function listMemoryItems() {
+  let all = [];
+  try { all = await withStore(MEMORY_STORE, 'readonly', (store, get) => get(store.getAll())); }
+  catch (e) { all = []; }
+  return Array.isArray(all) ? all : [];
+}
+export async function deleteMemoryItem(key) {
+  return withStore(MEMORY_STORE, 'readwrite', (store, get) => get(store.delete(key)));
 }
 
 // ---- metadata ----

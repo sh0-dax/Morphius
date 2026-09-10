@@ -12,9 +12,9 @@
 [![WebLLM](https://img.shields.io/badge/WebLLM-100%25_Local-ffaa00?style=for-the-badge&logo=webgpu&logoColor=white)]()
 [![PWA](https://img.shields.io/badge/Installable-PWA-2f81f7?style=for-the-badge&logo=pwa&logoColor=white)]()
 [![i18n](https://img.shields.io/badge/i18n-6_Locales-ec4899?style=for-the-badge&logo=google-translate&logoColor=white)]()
-[![Tests](https://img.shields.io/badge/Tests-262_passing-00d4aa?style=for-the-badge&logo=vitest&logoColor=white)]()
+[![Tests](https://img.shields.io/badge/Tests-277_passing-00d4aa?style=for-the-badge&logo=vitest&logoColor=white)]()
 [![CI](https://github.com/sh0-dax/Morphius/actions/workflows/deploy.yml/badge.svg)](https://github.com/sh0-dax/Morphius/actions/workflows/deploy.yml)
-[![Status](https://img.shields.io/badge/Status-v7.0.0_Ready-22c55e?style=for-the-badge)]()
+[![Status](https://img.shields.io/badge/Status-v7.1.0_Ready-22c55e?style=for-the-badge)]()
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](./LICENSE)
 
 [![Local Agent](https://img.shields.io/badge/Local_Agent-24_Intents-10b981?style=for-the-badge)]()
@@ -278,7 +278,7 @@ Every push to `main` runs a **mandatory test gate** (`.github/workflows/deploy.y
 
 | Suite | File | Tests |
 |-------|------|-------|
-| Local Agent — NLP/NB/LM/E2E/lifecycle | `tests/agent.test.mjs` | 27 |
+| Local Agent — NLP/NB/LM/E2E/lifecycle/memory | `tests/agent.test.mjs` | 42 |
 | Agent parity (JS ↔ Python trainer) | `tests/agentParity.test.mjs` | 6 |
 | Chat store (IndexedDB) | `tests/chatStore.test.mjs` | 13 |
 | Pure helpers | `tests/pure.test.mjs` | 89 |
@@ -287,18 +287,18 @@ Every push to `main` runs a **mandatory test gate** (`.github/workflows/deploy.y
 | Morph engine | `tests/morphEngine.test.mjs` | 9 |
 | State chart | `tests/stateChart.test.mjs` | 4 |
 | i18n parity | `tests/i18n.test.mjs` | 7 |
-| **Total (unit)** | | **262** |
+| **Total (unit)** | | **277** |
 
 CodeQL static analysis also runs on push/PR (`.github/workflows/codeql.yml`).
 
-Per-phase Playwright E2E gates across development phases A–H (chat, multimodal, models, audio bus, i18n, PWA, idle-life, lighting): **126 checks passing**. The M7 release adds an end-to-end Local Agent probe — default-provider routing, lighting action dispatch, zero requests to any API host.
+Per-phase Playwright E2E gates across development phases A–H (chat, multimodal, models, audio bus, i18n, PWA, idle-life, lighting): **126 checks passing**. The M7 release adds an end-to-end Local Agent probe — default-provider routing, lighting action dispatch, zero requests to any API host. M8 extends the probe with a full memory-learning round-trip (teach a fact → reload → recall; in-UI 👍/👎 feedback) and cross-language canonical-slot dispatch.
 
 ---
 
 ## 13\. Roadmap
 
-- [x] **M7 — Local Cognitive Agent**: from-scratch NB/NLP/LM engine (pure JS, ar/fr/en), seed corpus (24 intents), IndexedDB memory + bounded learning loop, zero cloud by default
-- [ ] **M8 — Agent intelligence**: free-text memory recall, in-UI teaching, cross-language slot filling
+- [x] **M7 — Local Cognitive Agent**: from-scratch NB/NLP/LM engine (pure JS, ar/fr/en), seed corpus (26 intents), IndexedDB memory + bounded learning loop, zero cloud by default
+- [x] **M8 — Agent intelligence**: long-term fact memory (`memory_store`/`memory_fact`, exact → fuzzy → confirm-on-ambiguous → honest unknown), in-UI teaching loop (👍/👎 with teach/reject), cross-language canonical slot filling (`SLOT_ALIASES`: `warm|chaud|chaude|ساخن|دافئ` → `warm`)
 - [ ] **M9 — Better features**: semantic hashing / embeddings, per-user calibration
 - [ ] **M10 — Neural upgrade**: optional ONNX intent model once WebGPU thresholds allow
 - [ ] Restore the legacy cloud provider toggle as an explicit opt-in (Gemini / OpenAI)

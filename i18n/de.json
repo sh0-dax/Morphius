@@ -204,5 +204,14 @@
   "provider.webllm": "WebLLM (optionale In-Browser-LLM)",
   "agent.modelHint": "Vollständig lokaler Agent von Grund auf (Naive Bayes + Speicher + Lernschleife). Trainierte Beispiele: {n} ({src}).",
   "agent.urlHint": "Kein Server, kein API-Schlüssel, kein Netzwerk. Alles läuft auf diesem Gerät.",
-  "agent.status": "Lokaler Agent"
+  "agent.status": "Lokaler Agent",
+  "agent.feedback.ok": "Richtig markieren",
+  "agent.feedback.no": "Falsch markieren / korrigieren",
+  "agent.feedback.confirmed": "Danke — verstärkt.",
+  "agent.feedback.unsure": "Nicht sicher genug — unverändert.",
+  "agent.feedback.correction": "Was hätte das bedeuten sollen?",
+  "agent.feedback.save": "Korrektur speichern",
+  "agent.feedback.reject": "Einfach falsch",
+  "agent.feedback.teachDone": "Gelernt als {intent}.",
+  "agent.feedback.rejectDone": "Notiert — keine Änderung."
 }

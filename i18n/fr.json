@@ -204,5 +204,14 @@
   "provider.webllm": "WebLLM (LLM optionnel dans le navigateur)",
   "agent.modelHint": "Agent local fait maison (Naive Bayes + mémoire + boucle d'apprentissage). Échantillons entraînés : {n} ({src}).",
   "agent.urlHint": "Pas de serveur, pas de clé API, pas de réseau. Tout tourne sur cet appareil.",
-  "agent.status": "Agent local"
+  "agent.status": "Agent local",
+  "agent.feedback.ok": "Marquer correct",
+  "agent.feedback.no": "Marquer faux / corriger",
+  "agent.feedback.confirmed": "Merci — renforcé.",
+  "agent.feedback.unsure": "Je n'étais pas assez sûr — inchangé.",
+  "agent.feedback.correction": "Qu'aurait dû vouloir dire cette phrase ?",
+  "agent.feedback.save": "Enregistrer la correction",
+  "agent.feedback.reject": "Juste faux",
+  "agent.feedback.teachDone": "Appris : {intent}.",
+  "agent.feedback.rejectDone": "Noté — aucune modification."
 }

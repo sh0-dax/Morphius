@@ -33,10 +33,10 @@ import { tokenize, featuresForText, hasArabicScript, hashString } from './nlp.js
 import { filterStopwords } from './nlp.js';
 import { createNaiveBayes, fitNb, partialFitNb, predictNb, serializeNb, deserializeNb, NB_MATH_SPEC } from './nb.js';
 import { buildBigram, pickVariantIndex, augmentVariant } from './lm.js';
-import { createMemory } from './memory.js';
+import { createMemory, extractStoreKV, extractQueryKey } from './memory.js';
 import * as modelStore from './modelStore.js';
 
-export const AGENT_MODEL_VERSION = 'm7.1';
+export const AGENT_MODEL_VERSION = 'm8.1';
 export const AGENT_SCHEMA = 1;
 
 // Decision thresholds (relative model scores — top-K calibrated, tuned
@@ -58,6 +58,51 @@ const FALLBACKS = {
   fr: ["Hmm, je n'ai pas bien compris. Essaie de me demander l'heure, l'éclairage, la caméra, ou ce que je sais faire.", "Je ne suis pas sûr d'avoir compris. Je peux changer l'éclairage, activer la caméra, ou te rappeler nos discussions."],
   ar: ["همم، لم أفهم تماما. جرب أن تسألني عن الوقت، الإضاءة، الكاميرا، أو ماذا أقدر أن أفعل.", "لست متأكدا أني فهمت. أقدر أغير الإضاءة، أشغل الكاميرا، أو أتذكر محادثاتنا."],
 };
+
+// ---- M8 fact-memory responses (deterministic rotation, honest unknown) ----
+const MEMORY_STORE_HINT = {
+  en: ['Tell me what to remember like: "remember that my favorite color is teal".'],
+  fr: ['Dis-moi quoi retenir comme ceci : "souviens-toi que ma couleur préférée est le bleu".'],
+  ar: ['قل لي ماذا أحفظ هكذا: "تذكر أن اسمي سارة".'],
+};
+const MEMORY_UNKNOWN = {
+  en: ["I don't remember that one. Try \"remember that my name is sarah\" and I'll keep it here."],
+  fr: ["Je ne m'en souviens pas. Essaie \"souviens-toi que mon nom est sam\" et je le garderai."],
+  ar: ["لا أتذكر هذا. جرب \"تذكر أن اسمي سارة\" وسأحفظه."],
+};
+const MEMORY_EMPTY = {
+  en: ["I don't have any saved facts yet. Tell me one: \"remember that my favorite color is teal\"."],
+  fr: ["Je n'ai encore rien en mémoire. Donne-moi un fait : \"souviens-toi que ma couleur préférée est le bleu\"."],
+  ar: ["لا يوجد عندي أي معلومة محفوظة بعد. قل لي واحدة مثل \"تذكر أن لوني المفضل هو الأزرق\"."],
+};
+const MEMORY_AMBIGUOUS = {
+  en: (names) => `I found a few similar things — ${names}. Which one do you mean?`,
+  fr: (names) => `J'ai trouvé plusieurs choses semblables — ${names}. Laquelle veux-tu dire ?`,
+  ar: (names) => `وجدت عدة أشياء متشابهة — ${names}. أيهما تقصد؟`,
+};
+const MEMORY_LIST_TEMPLATES = {
+  en: ['I remember {count} thing{plural} on this device: {list}.', 'Saved here so far ({count}): {list}.'],
+  fr: ['Je me souviens de {count} chose{plural} sur cet appareil : {list}.', "J'ai {count} fait{plural} en mémoire : {list}."],
+  ar: ['أتذكر {count} أشياء: {list}.', 'لدي {count} معلومة محفوظة: {list}.'],
+};
+function rotateText(list) {
+  const arr = Array.isArray(list) ? list : [];
+  if (!arr.length) return '';
+  return arr[hashString('m8-mem') % arr.length];
+}
+function renderMemoryList(lang, keys) {
+  const n = keys.length;
+  const plural = lang === 'ar' ? 'ات' : 's';
+  return interpolate(rotateText(MEMORY_LIST_TEMPLATES[lang] || MEMORY_LIST_TEMPLATES.en), {
+    count: String(n),
+    plural,
+    list: keys.join(', '),
+  });
+}
+function ambiguousText(lang, names) {
+  const fn = MEMORY_AMBIGUOUS[lang] || MEMORY_AMBIGUOUS.en;
+  return fn((names || []).join(', '));
+}
 
 // How the app should show unsupported UI locales: es/de/ja fall back to en
 // for GENERATION (they are still fully translated in the UI itself).
@@ -235,6 +280,52 @@ export function classifyText(agent, text, stopwords) {
   };
 }
 
+// ---- M8 cross-language canonical slots ----
+// Words extracted from any locale are normalized to one canonical action
+// value (WS3); the *localized* word is kept on `_presetRaw` so responses stay
+// in the user's language while ACTIONS are language-independent.
+const SLOT_ALIASES = {
+  preset: {
+    warm: ['warm', 'chaud', 'chaude', 'chaleur', 'ساخن', 'دافئ', 'دافي'],
+    soft: ['soft', 'doux', 'douce', 'لطيف', 'لطيفة', 'ناعم', 'ناعمة'],
+    noir: ['noir', 'sombre', 'داكن', 'أسود', 'غامق'],
+    blueprint: ['blueprint', 'bleu', 'bleue', 'vert', 'verte', 'مخطط', 'أزرق', 'أخضر', 'مضاء', 'cyan'],
+    matrix: ['matrix', 'مصفوفة'],
+  },
+};
+const SLOT_ALIAS_REV = {};
+for (const slot of Object.keys(SLOT_ALIASES)) {
+  for (const canon of Object.keys(SLOT_ALIASES[slot])) {
+    for (const alias of SLOT_ALIASES[slot][canon]) SLOT_ALIAS_REV[String(alias).toLowerCase()] = canon;
+  }
+}
+function aliasNorm(w) {
+  const s = String(w || '').trim().toLowerCase();
+  if (hasArabicScript(s)) return s.replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640]/g, '');
+  return s;
+}
+export function canonicalSlot(slot, word) {
+  if (!word || word === 'undefined') return word;
+  return SLOT_ALIAS_REV[aliasNorm(word)] || word;
+}
+// Best alias as actually typed by the user (for localized response echo).
+function typedPresetWord(text, slot) {
+  const aliasByNorm = {};
+  const def = SLOT_ALIASES[slot] || {};
+  for (const canon of Object.keys(def)) {
+    for (const alias of def[canon]) aliasByNorm[aliasNorm(alias)] = alias;
+  }
+  if (!Object.keys(aliasByNorm).length) return '';
+  const normalized = hasArabicScript(text)
+    ? String(text).replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640]/g, '')
+    : String(text).toLowerCase();
+  let best = '';
+  for (const key of Object.keys(aliasByNorm)) {
+    if (normalized.includes(aliasNorm(key)) && key.length > best.length) best = key;
+  }
+  return aliasByNorm[best] || '';
+}
+
 // ---- slots ----
 export function extractSlots(text, intentDef, language) {
   const slots = {};
@@ -249,7 +340,12 @@ export function extractSlots(text, intentDef, language) {
       if (normalized.includes(w.toLowerCase())) {
         if (key === 'on') { slots.state = 'on'; break; }
         if (key === 'off') { slots.state = 'off'; break; }
-        slots[key] = w;
+        if (key === 'preset') {
+          slots._presetRaw = typedPresetWord(text, 'preset') || w;
+          slots.preset = canonicalSlot('preset', w);
+        } else {
+          slots[key] = w;
+        }
       }
     }
   }
@@ -257,6 +353,7 @@ export function extractSlots(text, intentDef, language) {
 }
 
 // ---- decision ----
+// preset is already canonical (WS3) — actions are language-independent.
 export function decideAction(intentId, slots) {
   switch (intentId) {
     case 'lighting': return { type: 'lighting', preset: slots.preset || 'warm' };
@@ -299,7 +396,9 @@ export function buildResponse(agent, corpusByLang, intentId, text, slots, opts =
     date: opts.date || '',
     name: opts.name || '',
     last: opts.last || '',
-    preset: slots.preset || 'warm',
+    key: opts.key != null ? String(opts.key) : '',
+    value: opts.value != null ? String(opts.value) : '',
+    preset: slots._presetRaw || slots.preset || 'warm',
     state: slots.state === 'off' ? (lang === 'ar' ? 'مطفأة' : 'off') : (lang === 'ar' ? 'مشغلة' : 'on'),
     ...sessionVars(opts.memory, lang),
   };
@@ -317,6 +416,7 @@ export function applyFeedback(agent, corpusByLang, { kind, text, intent, languag
   const lang = normalizeAgentLang(language);
   const model = agent.models[lang];
   if (!model || !model.classes.includes(intent)) return { applied: false, reason: 'unknown-intent' };
+  if (kind === 'reject') return { applied: false, reason: 'reject' };
   if (kind === 'confirm') {
     const prev = prevClass || null;
     if (!prev || intent !== prev.id || prev.margin < MIN_CONFIRM_MARGIN) {
@@ -389,7 +489,9 @@ export async function createLocalAgent(opts = {}) {
 
   const memory = createMemory({
     sessionList,
+    storage,
     eventStore: (ev) => (typeof storage.addLearningEvent === 'function' ? storage.addLearningEvent(ev) : Promise.resolve()),
+    log,
   });
 
   async function classify(text) {
@@ -401,21 +503,77 @@ export async function createLocalAgent(opts = {}) {
   async function respond(text, ctx = {}) {
     await ensureModels();
     const res = classifyText(agent, text, stopwords);
-    const intentDef = res.intent ? findIntentDef(corpora[res.language], res.intent) : null;
+    let intent = res.intent;
+    const ctxOpts = {
+      language: res.language,
+      time: ctx.time || '',
+      date: ctx.date || '',
+      name: ctx.name || '',
+      last: ctx.last || '',
+    };
+
+    // Memory-family adjudication: when the classifier is low-margin (often a
+    // stopword-stripped tie like "what do you remember about me" -> just
+    // "remember"), the deterministic memory patterns decide (Model != Memory;
+    // Prediction != Understanding). Only fires when the family member is
+    // already in the classifier's top-K AND the pattern is definitive.
+    const storeKV = extractStoreKV(text, res.language);
+    const queryKey = extractQueryKey(text, res.language);
+    const hasStoreLead = storeKV !== null;
+    const hasQueryLead = queryKey.generic || !!queryKey.key;
+    if (!intent) {
+      // scores[].id are model-class INDICES; map to names for the family check.
+      const model = agent.models[res.language];
+      const classes = (model && model.classes) || [];
+      const tops = (res.scores || []).map((s) => classes[s.id]).filter(Boolean);
+      const has = (id) => tops.includes(id);
+      if (hasStoreLead && has('memory_store') && !hasQueryLead) intent = 'memory_store';
+      else if (hasQueryLead && has('memory_fact')) intent = 'memory_fact';
+      else if (has('memory_recall')) intent = 'memory_recall';
+    }
+
+    const intentDef = intent ? findIntentDef(corpora[res.language], intent) : null;
     const slots = intentDef ? extractSlots(text, intentDef, res.language) : {};
-    const memorySummary = intentNeedsMemory(res.intent) ? await memory.recall(text) : null;
-    const action = res.intent ? decideAction(res.intent, slots) : null;
-    const response = res.intent
-      ? buildResponse(agent, corpora, res.intent, text, slots, {
-          language: res.language,
-          time: ctx.time || '',
-          date: ctx.date || '',
-          name: ctx.name || '',
-          last: ctx.last || '',
-          memory: memorySummary,
-        })
-      : fallbackResponse(res.language);
-    return { ...res, slots, action, response, memory: memorySummary };
+    let memorySummary = null;
+    if (intent === 'memory_store') {
+      if (storeKV) {
+        await memory.store({ kind: 'fact', key: storeKV.key, value: storeKV.value, lang: res.language });
+        memorySummary = { stored: true, key: storeKV.key, value: storeKV.value };
+      } else {
+        memorySummary = { stored: false, hint: true };
+      }
+    } else if (intent === 'memory_fact') {
+      memorySummary = await memory.recall({ kind: 'fact', text, language: res.language });
+    } else if (intent && intentNeedsMemory(intent)) {
+      memorySummary = await memory.recall(text);
+    }
+    const action = intent ? decideAction(intent, slots) : null;
+
+    let response = '';
+    const mem = /** @type {any} */ (memorySummary);
+    if (intent === 'memory_store') {
+      response = mem && mem.stored
+        ? buildResponse(agent, corpora, intent, text, slots, { ...ctxOpts, key: mem.key, value: mem.value })
+        : rotateText(MEMORY_STORE_HINT[res.language] || MEMORY_STORE_HINT.en);
+    } else if (intent === 'memory_fact') {
+      if (mem && mem.found) {
+        response = buildResponse(agent, corpora, intent, text, slots, { ...ctxOpts, key: mem.key, value: mem.value });
+      } else if (mem && mem.ambiguous) {
+        response = ambiguousText(res.language, mem.candidates);
+      } else if (mem && mem.list) {
+        const keys = (mem.keys || []).filter(Boolean);
+        response = keys.length
+          ? renderMemoryList(res.language, keys)
+          : rotateText(MEMORY_EMPTY[res.language] || MEMORY_EMPTY.en);
+      } else {
+        response = rotateText(MEMORY_UNKNOWN[res.language] || MEMORY_UNKNOWN.en);
+      }
+    } else {
+      response = intent
+        ? buildResponse(agent, corpora, intent, text, slots, { ...ctxOpts, memory: intent === 'memory_recall' ? memorySummary : undefined })
+        : fallbackResponse(res.language);
+    }
+    return { ...res, intent, slots, action, response, memory: memorySummary };
   }
 
   // Bounded learning + durable persistence of the affected language model.
@@ -423,8 +581,8 @@ export async function createLocalAgent(opts = {}) {
     await ensureModels();
     const prev = feedback.margin != null ? { id: feedback.intent, margin: feedback.margin } : null;
     const out = applyFeedback(agent, corpora, feedback, prev);
+    if (eventSink) { try { eventSink(feedback, out); } catch (e) {} }
     if (out.applied) {
-      if (eventSink) { try { eventSink(feedback, out); } catch (e) {} }
       try { await storage.saveModel(feedback.language || 'en', serializeNb(agent.models[normalizeAgentLang(feedback.language)])); } catch (e) { log('agent: learn persist failed', 'warn'); }
     }
     return out;
@@ -457,6 +615,13 @@ export async function createLocalAgent(opts = {}) {
     memory: {
       recall: (q) => memory.recall(q),
       store: (ev) => memory.store(ev),
+      list: () => memory.list(),
+      forget: (key) => memory.forget(key),
+    },
+    intents: (lang) => {
+      const l = normalizeAgentLang(lang || 'en');
+      const m = agent && agent.models[l];
+      return m ? m.classes.slice() : [];
     },
     ready: ensureModels(),
   };
@@ -468,5 +633,5 @@ function findIntentDef(corpusJson, intentId) {
 }
 
 function intentNeedsMemory(intentId) {
-  return intentId === 'memory_recall';
+  return intentId === 'memory_recall' || intentId === 'memory_store' || intentId === 'memory_fact';
 }

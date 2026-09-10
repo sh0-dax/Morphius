@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "language": "en",
-  "corpusVersion": "agent-2026-09-1",
+  "corpusVersion": "agent-2026-10-1",
   "intents": [
     {
       "id": "greeting",
@@ -109,8 +109,18 @@
     },
     {
       "id": "memory_recall",
-      "examples": ["what did we talk about", "remember our conversation", "what did i say earlier", "do you remember me", "recall our chat", "what have we talked about", "show my history", "what did we discuss", "do you have memory", "about our last conversation", "what did you remember"],
+      "examples": ["what did we talk about", "recall our conversation", "what did i say earlier", "are you familiar with our chat", "recall our chat", "what have we talked about", "show my history", "what did we discuss", "do you have memory", "about our last conversation", "what do you recall"],
       "templates": ["We've had {count} conversation{plural} on this device. The latest one: {title}.", "From memory: {count} saved session{plural}. Most recent: {title}.", "I remember — we've talked {count} time{plural}. Latest: {title}."]
+    },
+    {
+      "id": "memory_store",
+      "examples": ["remember that my favorite color is teal", "note that my favorite food is pizza", "keep in mind that my favorite city is paris", "remember that my name is sarah", "store that my favorite color is blue", "save this fact for me", "my favorite color is teal", "remember that i prefer dark backgrounds", "please remember that my hometown is casablanca"],
+      "templates": ["Got it — I'll remember that your {key} is {value}.", "Noted: {key} = {value}. Kept here on this device.", "Okay, remembering that your {key} is {value}."]
+    },
+    {
+      "id": "memory_fact",
+      "examples": ["what is my favorite color", "what's my name", "what is my favorite food", "do you remember what my favorite color is", "what did i tell you to remember", "what do you know about me", "tell me my favorite color", "what do you remember about me", "what facts have you stored about me", "what did you keep about me", "do you recall my favorite color", "what have you learned about me"],
+      "templates": ["From memory: your {key} is {value}.", "I remember — your {key} is {value}.", "You told me your {key} is {value}."]
     },
     {
       "id": "settings",

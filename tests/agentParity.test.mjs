@@ -16,9 +16,9 @@ const EPS = 1e-6;
 
 // Probes chosen to exercise normalized Arabic (finally, لا) + accented French.
 const PROBES = {
-  en: ['what time is it', 'turn off the lights', 'you are amazing'],
-  fr: ['bonjour aiface', 'quelle heure est-il', 'éteins la lumière'],
-  ar: ['السلام عليكم', 'كم الساعة الآن', 'أطفئ الأنوار', 'أفتح المرآة'],
+  en: ['what time is it', 'turn off the lights', 'you are amazing', 'remember that my favorite color is teal', 'what is my favorite color'],
+  fr: ['bonjour aiface', 'quelle heure est-il', 'éteins la lumière', 'souviens-toi que ma couleur préférée est le bleu', "c'est quoi mon nom"],
+  ar: ['السلام عليكم', 'كم الساعة الآن', 'أطفئ الأنوار', 'أفتح المرآة', 'تذكر أن اسمي سارة', 'ما هو اسمي'],
 };
 
 describe('JS <-> Python trainer parity', () => {
