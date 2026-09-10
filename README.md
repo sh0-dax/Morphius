@@ -12,15 +12,13 @@
 [![WebLLM](https://img.shields.io/badge/WebLLM-100%25_Local-ffaa00?style=for-the-badge&logo=webgpu&logoColor=white)]()
 [![PWA](https://img.shields.io/badge/Installable-PWA-2f81f7?style=for-the-badge&logo=pwa&logoColor=white)]()
 [![i18n](https://img.shields.io/badge/i18n-6_Locales-ec4899?style=for-the-badge&logo=google-translate&logoColor=white)]()
-[![Tests](https://img.shields.io/badge/Tests-129_passing-00d4aa?style=for-the-badge&logo=vitest&logoColor=white)]()
+[![Tests](https://img.shields.io/badge/Tests-262_passing-00d4aa?style=for-the-badge&logo=vitest&logoColor=white)]()
 [![CI](https://github.com/sh0-dax/Morphius/actions/workflows/deploy.yml/badge.svg)](https://github.com/sh0-dax/Morphius/actions/workflows/deploy.yml)
-[![Status](https://img.shields.io/badge/Status-v6.0.0_Ready-22c55e?style=for-the-badge)]()
+[![Status](https://img.shields.io/badge/Status-v7.0.0_Ready-22c55e?style=for-the-badge)]()
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](./LICENSE)
 
-[![Gemini](https://img.shields.io/badge/Gemini-Supported-4285F4?style=for-the-badge&logo=google&logoColor=white)]()
-[![OpenAI](https://img.shields.io/badge/OpenAI-Supported-412991?style=for-the-badge&logo=openai&logoColor=white)]()
-[![Ollama](https://img.shields.io/badge/Ollama-Supported-000000?style=for-the-badge&logo=ollama&logoColor=white)]()
-[![WebLLM](https://img.shields.io/badge/WebLLM_%28Local%29-Supported-ffaa00?style=for-the-badge)]()
+[![Local Agent](https://img.shields.io/badge/Local_Agent-24_Intents-10b981?style=for-the-badge)]()
+[![WebLLM](https://img.shields.io/badge/WebLLM_%28Optional%29-Supported-ffaa00?style=for-the-badge)]()
 [![Whisper](https://img.shields.io/badge/Whisper-Supported-00b8d9?style=for-the-badge&logo=openai&logoColor=white)]()
 [![GitHub Pages](https://img.shields.io/badge/Deploy-GitHub_Pages-181717?style=for-the-badge&logo=github&logoColor=white)](https://sh0-dax.github.io/Morphius/)
 
@@ -46,10 +44,11 @@ They render text. Morphius **reacts**.
 | Blocks of text with no affect | **10 auto states** (idle / greeting / listening / thinking / speaking / responding / alert / error / paying / processing) blended into expressions |
 | Robotic, un-synced TTS | **Exact visemes** per phoneme via `visemeFor()`, lip-synced to speech in real time |
 | Fixed camera / one look | **5 lighting presets** (Blueprint / Matrix / Warm / Soft / Noir) with smooth ambient lerp |
-| Requires an API key to do anything | **Fully local WebLLM mode** — keyless, serverless, 100% in-browser via WebGPU |
+| Needs an API key or a big model download just to chat | **Local Agent is the default** — a from-scratch Naive-Bayes/NLP/LM brain in pure JS answers offline immediately (no key, no server, no GPU); WebLLM stays optional for free-form chat |
 | Single language | **6 locales** (en / ar / fr / de / es / ja), auto-detected, parity-test-enforced |
 | Text-only memory | **Encrypted IndexedDB sessions** — restore, rename, export, multimodal images |
 | No perception | **Real-time AI Vision** — on-device object detection (`vision.js`): YOLO26n one-to-one via WebGPU, COCO-SSD fallback on WebGL. Lives in a Vision status pill with a live detections label; optional avatar "engaged" reaction when a person is detected. Frames never leave the device. |
+| Answers that only talk | **Local Agent actions + memory** — commands actually control the app (lighting presets, vision commentary, mirror, motion stop) and facts you teach it persist across reloads |
 
 ## 1\. System Architecture Overview
 
@@ -62,9 +61,9 @@ graph TD
     A["User message"] --> B["chatStore persist"]
     B --> C["state -> thinking"]
     C --> D["Provider router"]
-    D -->|cloud| E["Gemini / OpenAI / Ollama"]
-    D -->|local| F["WebLLM (WebGPU)"]
-    E --> G["stream tokens"]
+    D -->|"agent (default)"| E["Local Agent — NB / NLP / LM (pure JS)"]
+    D -->|"webllm (optional)"| F["WebLLM (WebGPU)"]
+    E --> G["stream reply"]
     F --> G
     G --> H["state -> responding"]
     H --> I["viseme + TTS synthesis"]
@@ -82,6 +81,7 @@ graph TD
 | **Encrypted Vault** | AES-GCM via Web Crypto; non-extractable CryptoKey in IndexedDB |
 | **Vision Engine** | `vision.js` — on-device object detection: YOLO26n one-to-one ONNX via onnxruntime-web (WebGPU) with COCO-SSD/TensorFlow.js (WebGL) fallback; letterbox preprocess + `parseYoloOneToOne` |
 | **PWA Shell** | `sw.js` app-shell cache + installable manifest with 192/512 PNG + SVG icons |
+| **Local Agent** | `js/agent/` — from-scratch Naive-Bayes intent model with NLP + bigram LM, 24 intents × ar/fr/en, memory + bounded learning loop, IndexedDB persistence |
 
 ---
 
@@ -144,13 +144,14 @@ Real `AudioAnalyser` data drives the HUD (waveform · energy · frequency) with 
 - **Multimodal**: attach images → compressed to ≤1024px JPEG dataURLs → streamed as OpenAI-style parts, persisted and re-rendered.
 - **Sessions**: IndexedDB store via `chatStore.js` — create, restore, rename, export, new-chat.
 - **Chat UX**: timestamps, copy button, regenerate, scroll-to-bottom indicator, `aria-live` captions.
-- **Programmatic API**: `window.AIFace` exposes `registerSessionMessage`, session control, and face state for embedding.
+- **Local Agent brain**: default provider — `js/agent/*` Naive-Bayes/NLP/LM in pure JS; model, learning log, and memory persist in IndexedDB (`aiface_agent`), survive reloads, and auto-recover from corrupted stores.
+- **Programmatic API**: `window.AIFace` exposes `registerSessionMessage`, session control, face state — and `AIFace.agent` for the local agent.
 
 ---
 
 ## 5\. i18n & Platform
 
-- **6 locales**: English · العربية · Français · Deutsch · Español · 日本語 — 145 keys each, auto-detected from `navigator.language` with manual override.
+- **6 locales**: English · العربية · Français · Deutsch · Español · 日本語 — 202 keys each, auto-detected from `navigator.language` with manual override.
 - **BOM-free JSON**: enforced to avoid encoding corruption.
 - **PWA**: installable, offline app shell, 192/512 + maskable icons, SVG favicon.
 - **Accessibility**: `prefers-reduced-motion`, visible `:focus-visible`, `aria-live` regions.
@@ -181,13 +182,10 @@ npm test        # vitest run → all suites pass (see CI/CD §12)
 
 | Provider | Mode | Notes |
 |---|---|---|
-| **WebLLM** | **Local** | 100% in-browser via WebGPU — **no key, no server**; ~1–2 GB model download once, then cached |
-| **Gemini** | Cloud | `gemini` provider with native TTS + Live audio |
-| **OpenAI** | Cloud | Chat Completions, streaming |
-| **Ollama** | Local | Any locally-served model |
-| **OpenAI-compatible** | Cloud/Local | BazaarLink, Meta, custom endpoints, LM Studio, etc. |
+| **Local Agent** | **Local · default** | From-scratch NB/NLP/LM in pure JS — keyless, serverless, no GPU; 24 intents × ar/fr/en; memory + bounded learning loop; fully offline |
+| **WebLLM** | Local · optional | 100% in-browser via WebGPU for free-form chat — no key, no server |
 
-WebLLM requires a modern Chrome/Edge with WebGPU and downloads weights on first use.
+WebLLM requires Chrome/Edge with WebGPU and downloads weights on first use. Legacy cloud providers (Gemini, OpenAI, Ollama, OpenAI-compatible) remain in the codebase but are hidden from the Settings UI in this release.
 
 ---
 
@@ -199,6 +197,12 @@ const AIFace = window.AIFace;
 // Inject messages that the face can react to
 AIFace.registerSessionMessage('user', 'Hello!');
 AIFace.registerSessionMessage('assistant', 'And a smiling expression!');
+
+// Local Agent — classify, respond, teach, remember
+const agent = AIFace.agent;
+await agent.respond('turn off the lights');      // → reply + lighting action
+await agent.learn({ kind: 'teach', intent: 'lighting' });
+agent.memory.recall('room');                     // → stored fact
 ```
 
 Key internal modules:
@@ -210,6 +214,12 @@ Key internal modules:
 | `masterBus.js` | master gain, output device routing |
 | `vision.js` | `Vision.init/start/stop/getBackend/describeScene` — on-device object detection (YOLO26n one-to-one via onnxruntime-web/WebGPU, COCO-SSD fallback) |
 | `localSpeech.js` | `setWhisperModel`, `applyMasterSettings`, TTS drivers |
+| `agent/nlp.js` | tokenize (raw + normalized), Arabic normalization, feature hashing, softmax, stopwords |
+| `agent/nb.js` | spec-compliant Multinomial Naive-Bayes — fit / predict / partial-fit / seal / serialize |
+| `agent/lm.js` | bigram language model + deterministic variant picker |
+| `agent/memory.js` | in-memory recall/store for the agent |
+| `agent/modelStore.js` | IndexedDB `aiface_agent` — model, learning events, memory, metadata |
+| `agent/agent.js` | `createLocalAgent` orchestrator — threshold calibration, action dispatch, learning loop, pack/unpack |
 
 ---
 
@@ -252,8 +262,9 @@ Toggle **Settings → Vision** and enable **Real-time object detection (AI Visio
 ## 11\. Browser Support
 
 | Feature | Requirement |
-|---|---|
+|---|---|---|
 | Core app / face rendering | Any modern browser with WebGL2 (Chrome, Edge, Firefox, Safari) |
+| Local Agent (default) | Any modern browser — pure JS, no GPU or WebGPU required |
 | WebLLM (local models) | Chrome or Edge with WebGPU enabled |
 | AI Vision (YOLO) | Chrome or Edge with WebGPU enabled (falls back to COCO-SSD on WebGL) |
 | Microphone / STT | Secure context (`https://` or `localhost`) |
@@ -267,23 +278,33 @@ Every push to `main` runs a **mandatory test gate** (`.github/workflows/deploy.y
 
 | Suite | File | Tests |
 |-------|------|-------|
+| Local Agent — NLP/NB/LM/E2E/lifecycle | `tests/agent.test.mjs` | 27 |
+| Agent parity (JS ↔ Python trainer) | `tests/agentParity.test.mjs` | 6 |
 | Chat store (IndexedDB) | `tests/chatStore.test.mjs` | 13 |
-| Pure helpers | `tests/pure.test.mjs` | 58 |
-| AI Vision logic (pure) | `tests/visionLogic.test.mjs` | 51 |
+| Pure helpers | `tests/pure.test.mjs` | 89 |
+| Intelligence / face logic | `tests/intelligence.test.mjs` | 42 |
+| AI Vision logic (pure) | `tests/visionLogic.test.mjs` | 65 |
+| Morph engine | `tests/morphEngine.test.mjs` | 9 |
+| State chart | `tests/stateChart.test.mjs` | 4 |
 | i18n parity | `tests/i18n.test.mjs` | 7 |
-| **Total (unit)** | | **129** |
+| **Total (unit)** | | **262** |
 
 CodeQL static analysis also runs on push/PR (`.github/workflows/codeql.yml`).
 
-Per-phase Playwright E2E gates across development phases A–H (chat, multimodal, models, audio bus, i18n, PWA, idle-life, lighting): **126 checks passing**.
+Per-phase Playwright E2E gates across development phases A–H (chat, multimodal, models, audio bus, i18n, PWA, idle-life, lighting): **126 checks passing**. The M7 release adds an end-to-end Local Agent probe — default-provider routing, lighting action dispatch, zero requests to any API host.
 
 ---
 
 ## 13\. Roadmap
 
+- [x] **M7 — Local Cognitive Agent**: from-scratch NB/NLP/LM engine (pure JS, ar/fr/en), seed corpus (24 intents), IndexedDB memory + bounded learning loop, zero cloud by default
+- [ ] **M8 — Agent intelligence**: free-text memory recall, in-UI teaching, cross-language slot filling
+- [ ] **M9 — Better features**: semantic hashing / embeddings, per-user calibration
+- [ ] **M10 — Neural upgrade**: optional ONNX intent model once WebGPU thresholds allow
+- [ ] Restore the legacy cloud provider toggle as an explicit opt-in (Gemini / OpenAI)
 - [ ] Additional GLB face models and community model contributions
 - [ ] More TTS voices per locale
-- [ ] Expanded Live API support for additional providers
+- [ ] Expanded Live API support
 - [ ] Plugin/extension system for custom states and gestures
 
 > Have an idea? Open an [issue](https://github.com/sh0-dax/Morphius/issues) or start a [discussion](https://github.com/sh0-dax/Morphius/discussions).

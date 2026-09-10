@@ -199,5 +199,10 @@
   "projection.realistic": "Realistic",
   "projection.gallery.damaged_helmet": "Casque endommagé",
   "projection.gallery.fox": "Renard",
-  "projection.gallery.water_bottle": "Bouteille d'eau"
+  "projection.gallery.water_bottle": "Bouteille d'eau",
+  "provider.agent": "Agent local (défaut, 100% hors ligne)",
+  "provider.webllm": "WebLLM (LLM optionnel dans le navigateur)",
+  "agent.modelHint": "Agent local fait maison (Naive Bayes + mémoire + boucle d'apprentissage). Échantillons entraînés : {n} ({src}).",
+  "agent.urlHint": "Pas de serveur, pas de clé API, pas de réseau. Tout tourne sur cet appareil.",
+  "agent.status": "Agent local"
 }

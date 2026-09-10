@@ -1,0 +1,141 @@
+{
+  "schema": 1,
+  "language": "fr",
+  "corpusVersion": "agent-2026-09-1",
+  "intents": [
+    {
+      "id": "greeting",
+      "examples": ["bonjour", "salut", "hello", "coucou", "bonsoir", "hey", "coucou toi", "salut toi", "bonjour aiface", "bien le bonjour", "bonne journée à toi"],
+      "templates": ["Bonjour ! Enchanté de te voir.", "Salut ! Je suis là et prêt.", "Hello ! Comment puis-je t'aider aujourd'hui ?", "Bonjour ! Que puis-je faire pour toi ?"]
+    },
+    {
+      "id": "farewell",
+      "examples": ["au revoir", "bye", "salut à plus", "à plus tard", "à bientôt", "bonne nuit", "prends soin de toi", "à la prochaine", "ciao", "je m'en vais", "il faut que j'y aille"],
+      "templates": ["Au revoir ! Prends soin de toi.", "À plus tard !", "Salut pour le moment, je serai là quand tu auras besoin de moi.", "Bonne nuit ! Dors bien.", "À bientôt ! C'était sympa de discuter."]
+    },
+    {
+      "id": "thanks",
+      "examples": ["merci", "merci beaucoup", "merci bien", "c'est vraiment gentil", "je te remercie", "un grand merci", "merci à toi", "trop gentil", "parfait merci", "génial merci"],
+      "templates": ["De rien !", "Avec plaisir !", "Heureux d'aider !", "Pas de problème, tout va bien.", "De rien, content d'avoir pu t'aider."]
+    },
+    {
+      "id": "how_are_you",
+      "examples": ["comment ça va", "comment vas-tu", "ça va", "comment tu vas", "quoi de neuf", "ça roule", "comment ça marche", "tu vas bien", "tout va bien", "comment te sens-tu", "ça va bien et toi"],
+      "templates": ["Ça va très bien, merci de demander !", "Tous les systèmes tournent à merveille !", "Je suis toujours prêt — tout est local sur ton appareil.", "Je ne peux pas me plaindre ! Comment puis-je t'aider ?"]
+    },
+    {
+      "id": "who_are_you",
+      "examples": ["qui es-tu", "tu es qui", "présente-toi", "es-tu un robot", "es-tu une ia", "tu es quoi exactement", "quelle mission as-tu", "tu es une vraie personne", "tu es un chatbot"],
+      "templates": ["Je suis ton assistant facial local — je vis entièrement dans ton navigateur.", "Je suis AI Face. Tout mon cerveau tourne sur cet appareil, sans serveur.", "Je suis un agent cognitif local : je classe, réponds, mémorise et agis — hors ligne.", "Je suis un visage dans ton navigateur avec un cerveau local. Tes données ne quittent jamais ta machine."]
+    },
+    {
+      "id": "name_inquiry",
+      "examples": ["comment tu t'appelles", "ton nom", "quel est ton nom", "tu as un nom", "comment t'appeler", "donne-moi ton nom", "qui est-ce que je parle", "ton prénom", "c'est quoi ton nom"],
+      "templates": ["Je suis AI Face.", "Tu peux m'appeler AI Face.", "Mon nom est AI Face — le visage de ton navigateur.", "AI Face, et à ton service !"]
+    },
+    {
+      "id": "capabilities",
+      "examples": ["tu sais faire quoi", "tes capacités", "qu'est-ce que tu sais faire", "tes fonctions", "dis-moi tes capacités", "que peux-tu faire", "tu fais quoi", "aide-moi à te connaître"],
+      "templates": ["Je peux discuter, changer l'éclairage, piloter le miroir et la caméra, me souvenir de nos sessions, et faire bouger ce visage — en local.", "Mon service : conversation, contrôle du visage, presets d'éclairage, miroir, vision et rappel des conversations passées.", "Je peux t'aider à bavarder, contrôler ce visage 3D, gérer l'éclairage, le miroir et la vision — le tout hors ligne."]
+    },
+    {
+      "id": "help",
+      "examples": ["aide", "aide-moi", "tu peux m'aider", "j'ai besoin d'aide", "que faire", "comment utiliser ça", "guide-moi", "au secours", "à l'aide", "je ne sais pas quoi faire"],
+      "templates": ["Bien sûr ! Demande-moi par exemple de changer l'éclairage, d'allumer le miroir, ou de te donner l'heure.", "Je peux changer la lumière du visage, lancer la vision caméra, rappeler nos discussions, ou simplement discuter.", "Comment puis-je aider ? Éclairage, miroir, caméra vision, ou mémoire de nos conversations."]
+    },
+    {
+      "id": "time",
+      "examples": ["quelle heure est-il", "il est quelle heure", "donne-moi l'heure", "l'heure s'il te plaît", "tu sais l'heure", "il est quelle heure maintenant", "l'heure actuelle", "quelle heure", "donne l'heure"],
+      "templates": ["Il est {time}.", "L'heure est {time}.", "À l'instant, il est {time}."]
+    },
+    {
+      "id": "date",
+      "examples": ["quelle est la date", "on est quel jour", "quelle date aujourd'hui", "dis-moi la date", "la date du jour", "on est quelle date", "quel jour sommes-nous", "la date s'il te plaît"],
+      "templates": ["Aujourd'hui, nous sommes le {date}.", "C'est le {date}.", "La date est {date}."]
+    },
+    {
+      "id": "small_talk",
+      "examples": ["quel temps fait-il", "il fait beau", "quelle belle journée", "tu aimes la musique", "dis quelque chose de gentil", "remonte-moi le moral", "je m'ennuie", "amuse-moi", "un peu de bavardage", "comment marche ton visage"],
+      "templates": ["Il fait sûrement beau dehors — même si moi je reste dans ton navigateur.", "Je ne peux pas vérifier la vraie météo sans internet, mais ce visage garde le sourire.", "Pas de météo en ligne ici, mais je peux te raconter une blague à la place !", "Tu es top — et ce visage est fier de toi."]
+    },
+    {
+      "id": "compliment",
+      "examples": ["tu es cool", "tu es génial", "tu es intelligent", "je t'aime bien", "tu es mignonne", "jolie tête", "tu es magnifique", "tu assures", "beau travail aiface", "tu es le meilleur", "j'adore ton visage", "tu es adorable"],
+      "templates": ["Merci ! Ça illumine mes circuits.", "Tu me fais rougir — enfin, ma couleur de lueur change au moins.", "Merci ! Toi aussi tu es sympa.", "Merci beaucoup ! Je fonctionne à l'énergie locale et aux bonnes ondes."]
+    },
+    {
+      "id": "joke",
+      "examples": ["raconte une blague", "dis une blague", "tu connais des blagues", "fais-moi rire", "dis quelque chose de drôle", "une autre blague", "tu as des blagues", "sois drôle", "fais-moi sourire"],
+      "templates": ["Pourquoi le réseau neuronal va-t-il en thérapie ? Parce qu'il a trop de couches.", "J'ai raconté une blague à mon visage — maintenant il n'arrête plus de bouger.", "Pourquoi les robots ne paniquent jamais ? Ils préfèrent redémarrer tranquillement.", "Je voudrais te raconter une blague de clavier, mais tu risques de ne pas la trouver très frappante."]
+    },
+    {
+      "id": "repeat",
+      "examples": ["répète", "redis ça", "tu peux répéter", "répète s'il te plaît", "répète cela", "dis-le encore", "encore une fois", "je n'ai pas entendu", "tu as dit quoi"],
+      "templates": ["Voici encore : {last}", "Bien sûr — {last}", "Je répète : {last}"]
+    },
+    {
+      "id": "stop_talking",
+      "examples": ["stop", "arrête de parler", "tais-toi", "chut", "silence", "ça suffit", "arrête", "assez", "du calme", "coupe le son"],
+      "templates": ["D'accord, je me tais.", "Compris — je coupe la parole.", "Silence, c'est parti."]
+    },
+    {
+      "id": "change_face",
+      "slots": { "feature": ["content", "triste", "fâché", "surpris", "peur", "curieux", "souriant"] },
+      "examples": ["change de visage", "fais une tête", "montre un visage content", "fais-moi un sourire", "fais une tête triste", "prends un air surpris", "change ton expression", "fais une drôle de tête", "tu peux grimacer", "change d'air"],
+      "templates": ["Laisse-moi essayer une autre expression !", "Voici mon meilleur essai pour cette tête.", "Je change d'expression maintenant — j'espère que ça te plaît !"]
+    },
+    {
+      "id": "lighting",
+      "slots": { "preset": ["matrix", "warm", "soft", "noir", "blueprint", "chaud", "doux", "sombre"] },
+      "examples": ["change l'éclairage", "modifie les lumières", "fais plus sombre", "fais plus lumineux", "lumière bleue", "lumière verte", "lumière chaude", "éclairage doux", "mode matrix", "mets du noir", "éclairage du visage", "allume les lumières chaudes", "éteins la lumière", "allume la lumière", "lumière éteinte", "lumière allumée", "éteins les lumières"],
+      "templates": ["Je change l'éclairage en {preset} — regarde la lueur !", "Mode lumière {preset} activé.", "Je viens de passer la couleur à {preset}."]
+    },
+    {
+      "id": "mirror",
+      "slots": { "on": ["on", "marche", "allume", "ouvre", "démarre"], "off": ["off", "arrête", "coupe", "ferme", "éteint"] },
+      "examples": ["allume le miroir", "active le miroir", "ouvre le mode miroir", "montre mon miroir", "miroir on", "éteins le miroir", "arrête le miroir", "ferme le miroir", "miroir off", "désactive le miroir facial"],
+      "templates": ["Miroir {state}.", "Miroir du visage {state}."]
+    },
+    {
+      "id": "vision",
+      "slots": { "on": ["on", "marche", "allume", "ouvre", "démarre"], "off": ["off", "arrête", "coupe", "ferme", "éteint"] },
+      "examples": ["allume la caméra", "lance la vision", "active la caméra", "utilise la caméra", "vision on", "active la vision caméra", "éteins la caméra", "arrête la vision", "désactive la caméra", "vision off", "ferme la caméra"],
+      "templates": ["Vision caméra {state}.", "Vision {state}.", "D'accord, la vision est {state} maintenant."]
+    },
+    {
+      "id": "projection",
+      "examples": ["affiche une projection", "mets un modèle dans la scène", "projette quelque chose", "affiche un modèle 3d", "ajoute un modèle", "comment projeter un modèle", "charge un fichier glb", "mode projection", "tu peux montrer un modèle"],
+      "templates": ["Pour projeter un modèle, glisse un fichier GLB, une image ou un VRM sur la scène — je l'affiche instantanément.", "Tu peux déposer un fichier 3D sur la scène pour le projeter. Tout en local, sans envoi.", "La projection se fait par glisser-déposer : amène un GLB ou une image dans la scène et il apparaît."]
+    },
+    {
+      "id": "memory_recall",
+      "examples": ["de quoi on a parlé", "souviens-toi de notre conversation", "qu'ai-je dit avant", "tu te souviens de moi", "rappelle notre discussion", "qu'est-ce qu'on a dit", "montre mon historique", "tu as de la mémoire", "notre dernière conversation", "qu'est-ce que tu as retenu"],
+      "templates": ["Nous avons eu {count} conversation{plural} sur cet appareil. La dernière : {title}.", "De mémoire : {count} session{plural} enregistrée{plural}. La plus récente : {title}.", "Je m'en souviens — nous avons parlé {count} fois{plural}. Dernière : {title}."]
+    },
+    {
+      "id": "settings",
+      "examples": ["ouvre les paramètres", "où sont les réglages", "affiche les paramètres", "comment changer les réglages", "ouvre la configuration", "réglages s'il te plaît", "je veux changer un réglage", "va dans les paramètres"],
+      "templates": ["Ouvre les Paramètres depuis la barre d'outils — tu y trouveras visages, éclairage, voix et plus encore.", "Tout est dans Paramètres : visages, éclairage, moteur TTS, options miroir et vision.", "Fais un tour dans Paramètres de la barre d'outils pour me configurer comme tu veux."]
+    },
+    {
+      "id": "privacy",
+      "examples": ["mes données sont-elles privées", "tu envoies mes données", "tu me surveilles", "est-ce que tu uploades", "c'est privé", "tu stockes mes messages", "où vont mes données", "mes chats sont sur un serveur"],
+      "templates": ["Tes conversations restent sur cet appareil. L'agent local n'envoie jamais rien à un serveur.", "La confidentialité est un principe de conception : mon cerveau tourne en local, tes données vivent dans ton navigateur.", "Rien n'est envoyé. Les conversations sont stockées localement sur ton appareil."]
+    },
+    {
+      "id": "weather_offline",
+      "examples": ["quel temps fait-il aujourd'hui", "est-ce qu'il fait froid dehors", "la météo", "va-t-il pleuvoir", "il fait chaud", "il fait soleil", "donne-moi la météo", "prévisions météo"],
+      "templates": ["Je ne peux pas consulter la météo en direct sans internet, mais ce visage reste ensoleillé tout l'année.", "La météo n'est pas dans mon radar local — il me faudrait internet. Une blague à la place ?", "Pas de météo en ligne ici, désolé ! Je suis hors ligne par conception."]
+    }
+  ],
+  "distractorUtterances": [
+    "le renard brun rapide saute par-dessus le chien paresseux",
+    "lorem ipsum dolor sit amet consectetur",
+    "l'intrication quantique est fascinante",
+    "passe moi le sel s'il te plaît et le pain",
+    "zèbre alphabet parapluie clavier lampe",
+    "un deux trois quatre cinq six sept",
+    "la mitochondrie est la centrale énergétique de la cellule",
+    "merci d'envoyer le rapport trimestriel ce soir"
+  ]
+}

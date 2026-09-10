@@ -199,5 +199,10 @@
   "projection.realistic": "Realistic",
   "projection.gallery.damaged_helmet": "Damaged Helmet",
   "projection.gallery.fox": "Fox",
-  "projection.gallery.water_bottle": "Water Bottle"
+  "projection.gallery.water_bottle": "Water Bottle",
+  "provider.agent": "Local Agent (default, 100% offline)",
+  "provider.webllm": "WebLLM (optional in-browser LLM)",
+  "agent.modelHint": "Fully local from-scratch agent (Naive Bayes + memory + learning loop). Trained samples: {n} ({src}).",
+  "agent.urlHint": "No server, no API key, no network. Everything runs on this device.",
+  "agent.status": "Local Agent"
 }

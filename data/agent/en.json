@@ -1,0 +1,141 @@
+{
+  "schema": 1,
+  "language": "en",
+  "corpusVersion": "agent-2026-09-1",
+  "intents": [
+    {
+      "id": "greeting",
+      "examples": ["hello", "hi", "hey", "hey there", "hiya", "howdy", "yo", "hello there", "good morning", "good afternoon", "good evening", "hey friend", "hi aiface", "hello buddy"],
+      "templates": ["Hello! Good to see you.", "Hi there! I'm here and ready.", "Hey! How can I help you today?", "Hello! What can I do for you?", "Hey there! Nice to talk to you."]
+    },
+    {
+      "id": "farewell",
+      "examples": ["goodbye", "bye", "bye bye", "see you later", "see you soon", "good night", "take care", "see ya", "farewell", "ciao", "i am leaving now", "got to go"],
+      "templates": ["Goodbye! Take care.", "See you later!", "Bye for now, I'll be here when you need me.", "Good night! Sleep well.", "Farewell! It was nice talking with you."]
+    },
+    {
+      "id": "thanks",
+      "examples": ["thanks", "thank you", "thank you very much", "thanks a lot", "much appreciated", "appreciate it", "thx", "ty", "great job thanks", "cheers mate", "i appreciate that"],
+      "templates": ["You're welcome!", "Anytime!", "Happy to help!", "No problem at all.", "You're welcome, glad I could help."]
+    },
+    {
+      "id": "how_are_you",
+      "examples": ["how are you", "how are you doing", "how is it going", "how do you do", "how are things", "whats up", "what's up", "sup", "how are you feeling", "are you okay", "how have you been", "you alright"],
+      "templates": ["I'm doing great, thanks for asking!", "All systems running smoothly here!", "I'm always ready — everything on this device is local.", "Can't complain! How can I help you?", "I feel great today!"]
+    },
+    {
+      "id": "who_are_you",
+      "examples": ["who are you", "what are you", "tell me about yourself", "are you a robot", "are you an ai", "what are you exactly", "introduce yourself", "what kind of ai are you", "are you real", "are you a chatbot"],
+      "templates": ["I'm your local face assistant — I live entirely in your browser.", "I'm AI Face. My whole brain runs on this device, no servers involved.", "I'm a local cognitive agent: I classify, respond, remember and act — all offline.", "I'm a face in your browser with a local brain. Your data never leaves this machine."]
+    },
+    {
+      "id": "name_inquiry",
+      "examples": ["what is your name", "what's your name", "your name", "do you have a name", "what should i call you", "give me your name", "what are you called", "who am i talking to", "what is your nickname"],
+      "templates": ["I'm AI Face.", "You can call me AI Face.", "My name is AI Face — the face in your browser.", "AI Face, at your service!"]
+    },
+    {
+      "id": "capabilities",
+      "examples": ["what can you do", "what are your abilities", "what do you do", "your features", "tell me your capabilities", "what are you capable of", "list your features", "what can you help me with", "show me what you can do"],
+      "templates": ["I can chat with you, change the lighting, control the mirror and camera, remember our sessions, and move this face — all locally.", "I can help with small talk, control this 3D face, manage the mirror and vision, and recall your past conversations.", "My skills: conversation, face control, lighting presets, mirror, vision, projection guidance and memory recall — all offline."]
+    },
+    {
+      "id": "help",
+      "examples": ["help", "help me", "can you help me", "i need help", "what should i do", "how do i use this", "give me some help", "guide me", "help please", "i don't know what to do"],
+      "templates": ["Of course! Try asking me to change the lighting, start the mirror, or tell you the time.", "Sure! I can change the face lighting, run the camera vision, recall past chats, or just chat.", "How can I help? I can switch lighting presets, toggle the mirror, use the camera vision, or remember our earlier conversations."]
+    },
+    {
+      "id": "time",
+      "examples": ["what time is it", "what's the time", "tell me the time", "the time please", "do you know the time", "what time do we have", "current time", "give me the time", "time now", "what hour is it"],
+      "templates": ["It's {time}.", "The time is {time}.", "Right now it's {time}."]
+    },
+    {
+      "id": "date",
+      "examples": ["what is the date", "what's today's date", "what day is it", "tell me the date", "today's date", "what date is today", "which day is today", "current date please"],
+      "templates": ["Today is {date}.", "It's {date}.", "The date is {date}."]
+    },
+    {
+      "id": "small_talk",
+      "examples": ["how is the weather", "nice weather today", "what a nice day", "do you like music", "tell me something nice", "say something nice", "cheer me up", "i am bored", "i'm bored", "entertain me", "some small talk", "how does this face work"],
+      "templates": ["It's probably lovely outside — though I stay inside your browser.", "I can't check real weather without internet, but the sun always shines on this face.", "I can't fetch the local weather offline, but I can tell you a joke instead!", "You're doing great — and this face is proud of you."]
+    },
+    {
+      "id": "compliment",
+      "examples": ["you are cool", "you are awesome", "you are smart", "i like you", "you look nice", "nice face", "you are beautiful", "you rock", "great job aiface", "you are the best", "i love your face", "you are cute"],
+      "templates": ["Aww, thanks! That lights up my circuits.", "You're making me blush — well, at least my glow color shifts.", "Thank you! I like you too.", "Compliments welcome — I run entirely on local power and good vibes."]
+    },
+    {
+      "id": "joke",
+      "examples": ["tell me a joke", "say a joke", "do you know any jokes", "make me laugh", "tell something funny", "another joke", "got any jokes", "be funny", "say something funny", "give me a joke"],
+      "templates": ["Why did the neural network go to therapy? It had too many layers.", "I told my face a joke — now it can't stop morphing.", "Why don't robots ever panic? They just stay calm and reboot.", "I would tell you a keyboard joke, but you might not find it very funny."]
+    },
+    {
+      "id": "repeat",
+      "examples": ["repeat", "say that again", "can you repeat", "repeat please", "repeat that", "say it again", "one more time", "again please", "i didn't hear you", "what did you say"],
+      "templates": ["Here it is again: {last}", "Sure thing — {last}", "Repeating: {last}"]
+    },
+    {
+      "id": "stop_talking",
+      "examples": ["stop", "stop talking", "shut up", "be quiet", "quiet please", "that's enough", "stop it", "enough now", "silence please", "mute yourself"],
+      "templates": ["Okay, going quiet.", "Understood — shutting up now.", "Silence it is."]
+    },
+    {
+      "id": "change_face",
+      "slots": { "feature": ["happy", "sad", "angry", "surprised", "scared", "curious"] },
+      "examples": ["change your face", "make a face", "show me a happy face", "look happy", "make a sad face", "look surprised", "change your expression", "make a funny face", "smile for me", "frown for me", "look scared"],
+      "templates": ["Let me try a different expression for you!", "Here's my best attempt at that look.", "Changing my expression now — hope you like it!"]
+    },
+    {
+      "id": "lighting",
+      "slots": { "preset": ["matrix", "warm", "soft", "noir", "blueprint"] },
+      "examples": ["change the lighting", "set the lights", "make it darker", "make it brighter", "blue lighting", "green light", "warm light", "softer light", "matrix mode", "change the light color", "set matrix lighting", "turn on warm lights", "turn off the lights", "lights off", "turn the light off", "switch off the light", "switch the light on", "turn on the light", "light off"],
+      "templates": ["Changing the lighting to {preset} — check the glow!", "Lighting mode {preset} engaged.", "Just switched the glow to {preset}."]
+    },
+    {
+      "id": "mirror",
+      "slots": { "on": ["on", "open", "start", "go"], "off": ["off", "stop", "close", "end"] },
+      "examples": ["turn on the mirror", "start the mirror", "open mirror mode", "show my mirror", "mirror on", "turn off the mirror", "stop mirror mode", "close the mirror", "mirror off", "disable the face mirror"],
+      "templates": ["Mirror {state}.", "Face mirror {state}."]
+    },
+    {
+      "id": "vision",
+      "slots": { "on": ["on", "open", "start", "go"], "off": ["off", "stop", "close", "end"] },
+      "examples": ["turn on the camera", "start vision", "enable the camera", "use the camera", "vision on", "turn on camera vision", "stop the camera", "turn off vision", "disable the camera", "vision off", "close the camera"],
+      "templates": ["Camera vision {state}.", "Vision {state}.", "Okay, vision is {state} now."]
+    },
+    {
+      "id": "projection",
+      "examples": ["show a projection", "drop a model in the scene", "project something", "show a 3d model", "add a model to the scene", "how do i project a model", "load a glb file", "projection mode", "can you show a model"],
+      "templates": ["To project a model, drag a GLB, image or VRM file onto the stage — I'll display it instantly.", "You can drop a 3D model file onto the stage to project it. All local, no upload.", "Projection is a drag-and-drop: bring a GLB or image into the scene and it appears."]
+    },
+    {
+      "id": "memory_recall",
+      "examples": ["what did we talk about", "remember our conversation", "what did i say earlier", "do you remember me", "recall our chat", "what have we talked about", "show my history", "what did we discuss", "do you have memory", "about our last conversation", "what did you remember"],
+      "templates": ["We've had {count} conversation{plural} on this device. The latest one: {title}.", "From memory: {count} saved session{plural}. Most recent: {title}.", "I remember — we've talked {count} time{plural}. Latest: {title}."]
+    },
+    {
+      "id": "settings",
+      "examples": ["open the settings", "where are the settings", "show settings", "how do i change settings", "open configuration", "settings please", "change a setting", "go to settings"],
+      "templates": ["Open Settings from the toolbar — you can pick faces, lighting, voice and more there.", "Everything is in Settings: faces, lighting, TTS engine, mirror and vision options.", "Head to Settings in the toolbar to configure me any way you like."]
+    },
+    {
+      "id": "privacy",
+      "examples": ["is my data private", "do you send my data", "are you tracking me", "is anything uploaded", "is this private", "do you store my messages", "where does my data go", "are my chats on a server"],
+      "templates": ["Your conversations stay on this device. The local agent never sends anything to any server.", "Privacy is a core design: my brain runs locally, and your data lives only in your browser.", "Nothing is uploaded. Chats are stored locally on your device."]
+    },
+    {
+      "id": "weather_offline",
+      "examples": ["what's the weather today", "is it cold outside", "weather forecast", "will it rain", "how hot is it", "is it sunny", "weather please", "tell me the weather"],
+      "templates": ["I can't fetch live weather without internet, but this face stays sunny all year.", "Weather is off my local radar — I'd need the internet for that. Want a joke instead?", "No online weather access here, sorry! I'm fully offline by design."]
+    }
+  ],
+  "distractorUtterances": [
+    "the quick brown fox jumps over the lazy dog",
+    "lorem ipsum dolor sit amet consectetur",
+    "quantum entanglement is fascinating",
+    "pass the salt please pass the bread",
+    "zebra alphabet umbrella keyboard lamp",
+    "one two three four five six seven",
+    "the mitochondria is the powerhouse of the cell",
+    "please forward the quarterly report by tonight"
+  ]
+}

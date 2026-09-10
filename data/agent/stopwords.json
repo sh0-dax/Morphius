@@ -1,0 +1,5 @@
+{
+  "en": ["a", "an", "the", "and", "or", "is", "are", "am", "do", "does", "did", "to", "of", "for", "you", "your", "me", "my", "i", "it", "its", "this", "that", "these", "those", "can", "could", "would", "should", "what", "which", "when", "where", "how", "who", "in", "on", "at", "with", "about", "please", "just", "some", "really", "very", "want", "need", "like", "have", "has", "had", "be", "been", "will", "if", "but", "so", "ok", "okay"],
+  "fr": ["le", "la", "les", "un", "une", "des", "du", "de", "et", "ou", "est", "sont", "suis", "es", "ai", "a", "as", "à", "au", "aux", "pour", "avec", "dans", "sur", "vous", "tu", "je", "il", "elle", "on", "nous", "moi", "toi", "mon", "ma", "mes", "ton", "ta", "ce", "cette", "ces", "que", "qui", "quoi", "quand", "où", "comment", "pourquoi", "pas", "ne", "se", "me", "te", "en", "y", "bien", "vraiment", "très", "aussi", "veux", "veut"],
+  "ar": ["من", "في", "على", "إلى", "عن", "مع", "هذا", "هذه", "ذلك", "تلك", "التي", "الذي", "ما", "لا", "أنا", "أنت", "نحن", "يا", "كل", "هل", "كيف", "لماذا", "متى", "أين", "هو", "هي", "هم", "كان", "كانت", "لقد", "لم", "لن", "إن", "أي", "بين", "ثم", "أو", "لكن", "نعم", "بل", "إذا", "حتى"]
+}

@@ -13,6 +13,8 @@ have to take that on faith.
 | Uploaded images (multimodal chat)       | IndexedDB (as compressed dataURLs) | Only if you use a cloud provider and send them in a message |
 | Selected model / UI settings            | `localStorage`                     | No |
 | WebLLM model weights                    | Browser cache (Cache Storage API)  | No — downloaded once from the model host, then served from cache |
+| Local Agent model + learning log        | IndexedDB (`aiface_agent`)         | No — the trained model and your `teach`/`confirm`/`reject` corrections live only in your browser |
+| Agent memory (facts you teach it)       | IndexedDB (`aiface_agent`)         | No — persists across reloads, never leaves the device |
 
 ## How the key vault works
 
@@ -60,6 +62,23 @@ inside your browser via WebGPU**. No text you type, no response you
 receive, and no API key of any kind is ever transmitted over the network
 during a conversation — the only network activity is the one-time model
 weight download (cached afterward).
+
+## Local Agent (default) mode
+
+Morphius's default provider is a **local cognitive agent** — a Naive-Bayes
+intent classifier with NLP and language-model scaffolding written from
+scratch in pure JavaScript (`js/agent/*`). It is keyless, serverless, and
+runs with no GPU and no network:
+
+- Every message is classified **on this device**. Nothing you type and
+  nothing the agent says is transmitted over the network during a chat.
+- The app trains the model in your browser from a bundled seed corpus
+  (`data/agent/*.json`). Your explicit `teach` / `confirm` / `reject`
+  feedback is folded into the persisted model, stored only in IndexedDB
+  (`aiface_agent`) alongside a plain log of learning events and a small
+  key/value memory.
+- Clearing your browser storage for this site deletes the learned model,
+  the learning log, and the memory — permanently.
 
 ## What Morphius does *not* do
 

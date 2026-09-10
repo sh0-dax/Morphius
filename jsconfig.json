@@ -11,5 +11,5 @@
     "skipLibCheck": true,
     "types": []
   },
-  "include": ["js/core/**/*.js", "js/core/**/*.d.ts", "js/types.d.ts", "js/pure.js"]
+  "include": ["js/core/**/*.js", "js/core/**/*.d.ts", "js/types.d.ts", "js/pure.js", "js/agent/**/*.js"]
 }

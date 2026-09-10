@@ -199,5 +199,10 @@
   "projection.realistic": "Realistic",
   "projection.gallery.damaged_helmet": "ダメージヘルメット",
   "projection.gallery.fox": "キツネ",
-  "projection.gallery.water_bottle": "水筒"
+  "projection.gallery.water_bottle": "水筒",
+  "provider.agent": "ローカルエージェント（デフォルト、100%オフライン）",
+  "provider.webllm": "WebLLM（ブラウザ内LLM・任意）",
+  "agent.modelHint": "完全ローカルの自作エージェント（Naive Bayes + メモリ + 学習ループ）。学習サンプル数: {n} ({src})。",
+  "agent.urlHint": "サーバーなし・APIキーなし・ネットワーク不要。すべてこの端末で動作します。",
+  "agent.status": "ローカルエージェント"
 }

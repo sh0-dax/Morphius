@@ -199,5 +199,10 @@
   "projection.realistic": "Realistic",
   "projection.gallery.damaged_helmet": "خوذة متضررة",
   "projection.gallery.fox": "ثعلب",
-  "projection.gallery.water_bottle": "قارورة ماء"
+  "projection.gallery.water_bottle": "قارورة ماء",
+  "provider.agent": "الوكيل المحلي (الافتراضي، بدون إنترنت)",
+  "provider.webllm": "WebLLM (اختياري، داخل المتصفح)",
+  "agent.modelHint": "وكيل محلي مكتوب من الصفر (Naive Bayes + ذاكرة + حلقة تعلم). عينات التدريب: {n} ({src}).",
+  "agent.urlHint": "لا خادم، لا مفتاح API، لا إنترنت. كل شيء يعمل على هذا الجهاز.",
+  "agent.status": "الوكيل المحلي"
 }

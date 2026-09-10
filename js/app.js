@@ -28,6 +28,9 @@ import { behaviorPolicy, neutralBehavior } from './core/intelligence/behavior.js
 import { createUserModel } from './core/intelligence/userModel.js';
 import { createAnomalyTracker } from './core/intelligence/anomaly.js';
 import { createIntentLearner } from './core/intelligence/learn.js';
+import { createLocalAgent } from './agent/agent.js';
+import { AGENT_MODEL_VERSION } from './agent/agent.js';
+import { addLearningEvent } from './agent/modelStore.js';
 
 // ---- i18n (lightweight loader, EN fallback, dir flip for RTL) ----
 const I18N_FILES = { en: 'i18n/en.json', ar: 'i18n/ar.json', fr: 'i18n/fr.json', de: 'i18n/de.json', es: 'i18n/es.json', ja: 'i18n/ja.json' };
@@ -1162,6 +1165,19 @@ Object.assign(window.AIFace, {
     learn: (intentKey, phrase) => learner.teach(String(intentKey || ''), String(phrase || '')),
     getAnomaly: () => intelligenceDetail().anomaly,
     resolve: (opts) => behaviorPolicy(Object.assign({ intelligenceOn: intelligenceEnabled, state: S.currentState }, opts || {})),
+  },
+  // M7 — local cognitive agent API (all local, from scratch).
+  agent: {
+    version: AGENT_MODEL_VERSION,
+    getStatus: () => (localAgent ? localAgent.getStatus() : { ready: false, modelVersion: AGENT_MODEL_VERSION }),
+    classify: async (text) => ensureLocalAgent().then((a) => a.classify(String(text || ''))),
+    respond: async (text, ctx) => ensureLocalAgent().then((a) => a.respond(String(text || ''), ctx || {})),
+    learn: async (fb) => ensureLocalAgent().then((a) => a.learn(Object.assign({ kind: fb.kind || 'teach' }, fb))),
+    memory: {
+      recall: (q) => ensureLocalAgent().then((a) => a.memory.recall(String(q || ''))),
+      store: (ev) => ensureLocalAgent().then((a) => a.memory.store(ev || {})),
+    },
+    getLastResult: () => _lastAgentResult,
   },
 });
 
@@ -2499,25 +2515,32 @@ document.getElementById('onboardingSkip').addEventListener('click', () => dismis
 checkOnboarding();
 
 const DEFAULTS = {
+  agent: { url: '', model: 'local-agent-v1', key: '', needsKey: false },
+  webllm: { url: '', model: 'Llama-3.2-3B-Instruct-q4f32_1-MLC', key: '', needsKey: false },
   gemini: { url: 'https://generativelanguage.googleapis.com/v1beta', model: 'gemini-2.5-flash', key: '', needsKey: true },
   openai: { url: 'https://api.openai.com/v1', model: 'gpt-4o-mini', key: '', needsKey: true },
   meta: { url: 'https://api.meta.ai/v1', model: 'muse-spark-1.2', key: '', needsKey: true },
   bazaarlink: { url: 'https://api.bazaarlink.ai/v1', model: 'auto:free', key: '', needsKey: true },
   ollama: { url: 'http://localhost:11434', model: 'llama3.2', key: '', needsKey: false },
-  webllm: { url: '', model: 'Llama-3.2-3B-Instruct-q4f32_1-MLC', key: '', needsKey: false },
   custom: { url: 'http://localhost:8000/v1', model: 'default', key: '', needsKey: true }
 };
+
+// M7 local agent (declared here so applyProviderDefaults can read it at boot).
+let localAgent = null;
+let _lastAgentResult = null;
+let lastAgentReply = '';
 
 function applyProviderDefaults(resetFields) {
   const p = cfgProvider.value;
   const d = DEFAULTS[p];
   cfgUrl.placeholder = d.url;
   cfgModel.placeholder = d.model;
+  const localUi = (p === 'agent') || (p === 'webllm');
   document.getElementById('groupKey').style.display = d.needsKey ? 'block' : 'none';
-  document.getElementById('groupUrl').style.display = (p === 'webllm') ? 'none' : 'block';
-  document.getElementById('groupModel').style.display = (p === 'webllm') ? 'none' : 'block';
+  document.getElementById('groupUrl').style.display = localUi ? 'none' : 'block';
+  document.getElementById('groupModel').style.display = localUi ? 'none' : 'block';
   document.getElementById('groupWebLlmModel').style.display = (p === 'webllm') ? 'block' : 'none';
-  if (attachBtn) attachBtn.style.display = (p === 'webllm') ? 'none' : 'inline-flex';
+  if (attachBtn) attachBtn.style.display = localUi ? 'none' : 'inline-flex';
   if ((p === 'webllm') && pendingImageDataUrl) clearImageChip();
   if (resetFields) {
     cfgModel.value = (p === 'webllm' && !hasManualWebLlmModelChoice()) ? recommendedWebLlmModel() : d.model;
@@ -2525,7 +2548,11 @@ function applyProviderDefaults(resetFields) {
     cfgKey.value = '';
   }
   if (p === 'webllm') syncWebLlmModel();
-  if (p === 'gemini') {
+  if (p === 'agent') {
+    const status = localAgent ? localAgent.getStatus() : null;
+    document.getElementById('modelHint').textContent = t('agent.modelHint', 'Fully local from-scratch agent (Naive Bayes + memory + learning loop). Trained samples: {n} ({src}).').replace('{n}', status ? String(status.sampleCount) : '0').replace('{src}', status ? status.source : '…');
+    document.getElementById('urlHint').textContent = t('agent.urlHint', 'No server, no API key, no network. Everything runs on this device.');
+  } else if (p === 'gemini') {
     document.getElementById('modelHint').textContent = 'Example: gemini-2.5-flash, gemini-2.5-pro';
     document.getElementById('urlHint').textContent = ':streamGenerateContent appended automatically';
   } else if (p === 'openai') {
@@ -2688,7 +2715,7 @@ async function loadSettings() {
       return;
     }
     const s = JSON.parse(raw);
-    cfgProvider.value = s.provider || 'gemini';
+    cfgProvider.value = s.provider || 'agent';
     cfgModel.value = s.model || '';
     cfgKey.value = await decryptText(s.key);
     cfgUrl.value = s.url || '';
@@ -2806,6 +2833,9 @@ btnTest.addEventListener('click', async () => {
       if (!res.ok) throw new Error(await streamErrorMsg(res, 'Gemini'));
       const data = await res.json();
       showStatus('Connected -- ' + (data.displayName || model), 'ok');
+    } else if (p === 'agent') {
+      const status = await ensureLocalAgent().then((a) => a.getStatus());
+      showStatus('Local Agent ready -- ' + status.sampleCount + ' training samples (' + status.source + ')', 'ok');
     } else if (p === 'ollama') {
       const res = await fetch(url + '/api/tags', { method: 'GET' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -3135,7 +3165,9 @@ async function sendChat() {
   abortCtrl = localCtrl;
 
   try {
-    if (p === 'gemini') {
+    if (p === 'agent') {
+      await runLocalAgent(content, model, abortCtrl.signal);
+    } else if (p === 'gemini') {
       await streamGemini(content, model, key, baseUrl, temp, maxTokens, system, abortCtrl.signal);
     } else if (p === 'ollama') {
       await streamOllama(content, model, baseUrl, temp, maxTokens, system, abortCtrl.signal);
@@ -3195,6 +3227,115 @@ async function sendChat() {
     micBtn.disabled = false;
     btnStop.style.display = 'none';
     if (abortCtrl === localCtrl) abortCtrl = null;
+  }
+}
+
+// ============================================================
+// M7 — Local Agent runtime (from-scratch NB classifier + memory +
+// bounded learning loop). Provider 'agent' is the DEFAULT: no
+// server, no key, no network. Cloud streamers above remain in the
+// tree for rollback and the optional 'webllm' in-browser LLM.
+// ============================================================
+
+const _localAgentLoading = (async () => {
+  try {
+    const [stop, en, fr, ar] = await Promise.all([
+      fetch('./data/agent/stopwords.json').then((r) => r.json()),
+      fetch('./data/agent/en.json').then((r) => r.json()),
+      fetch('./data/agent/fr.json').then((r) => r.json()),
+      fetch('./data/agent/ar.json').then((r) => r.json()),
+    ]);
+    localAgent = await createLocalAgent({
+      stopwords: stop,
+      corpora: { en, fr, ar },
+      sessionList: () => listSessions().catch(() => []),
+      eventSink: (fb, out) => { addLearningEvent({ kind: fb.kind, text: fb.text, intent: fb.intent, language: fb.language, margin: fb.margin, applied: out.applied }).catch(() => {}); },
+      log: (msg, level) => dbg(msg, level || 'info'),
+    });
+    await localAgent.ready;
+    dbg('Local Agent ready: ' + JSON.stringify(localAgent.getStatus()), 'ok');
+    if (cfgProvider && cfgProvider.value === 'agent') refreshAgentHint(localAgent.getStatus());
+  } catch (e) {
+    dbg('Local Agent init failed: ' + e.message, 'err');
+  }
+})();
+
+function refreshAgentHint(status) {
+  const hint = document.getElementById('modelHint');
+  if (hint) hint.textContent = t('agent.modelHint', 'Fully local from-scratch agent (Naive Bayes + memory + learning loop). Trained samples: {n} ({src}).').replace('{n}', status ? String(status.sampleCount) : '0').replace('{src}', status ? status.source : '…');
+}
+
+const AGENT_PRESET_ALIAS = {
+  chaud: 'warm', doux: 'soft', sombre: 'noir', bleu: 'blueprint', vert: 'blueprint',
+  ساخن: 'warm', دافئ: 'warm', لطيف: 'soft', مضاء: 'blueprint', أزرق: 'blueprint', أخضر: 'blueprint',
+};
+
+function fireAgentAction(action) {
+  if (!action) return;
+  if (action.type === 'lighting') {
+    const name = AGENT_PRESET_ALIAS[action.preset] || action.preset || 'warm';
+    applyLightPreset(name);
+    dbg('agent: action lighting -> ' + name, 'ok');
+  } else if (action.type === 'mirror') {
+    if (cfgMirror && cfgMirror.checked !== action.on) {
+      cfgMirror.checked = action.on;
+      cfgMirror.dispatchEvent(new Event('change'));
+    }
+    dbg('agent: action mirror -> ' + (action.on ? 'on' : 'off'), 'ok');
+  } else if (action.type === 'vision') {
+    if (cfgVision && cfgVision.checked !== action.on) {
+      cfgVision.checked = action.on;
+      cfgVision.dispatchEvent(new Event('change'));
+    }
+    dbg('agent: action vision -> ' + (action.on ? 'on' : 'off'), 'ok');
+  } else if (action.type === 'stop') {
+    stopTTS();
+    setState('idle');
+    dbg('agent: action stop', 'ok');
+  }
+}
+
+async function ensureLocalAgent() {
+  await _localAgentLoading;
+  if (!localAgent) throw new Error('Local agent unavailable');
+  return localAgent;
+}
+
+async function runLocalAgent(content, modelName, signal) {
+  const facade = await ensureLocalAgent();
+  const text = contentToText(content) || '';
+  const now = new Date();
+  const res = await facade.respond(text, {
+    time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    date: now.toLocaleDateString(),
+    name: '',
+    last: lastAgentReply,
+  });
+  _lastAgentResult = res;
+  if (res.intent) lastAgentReply = res.response;
+
+  if (res.action) fireAgentAction(res.action);
+
+  // Bounded automatic learning: log every decision; weakly fold in only the
+  // most certain ones (the full teach/confirm/reject API is exposed for the
+  // settings UI via AIFace.agent.learn).
+  try {
+    addLearningEvent({
+      ts: Date.now(), kind: 'infer', text, language: res.language,
+      intent: res.intent, confidence: res.confidence, margin: res.margin, action: res.action ? res.action.type : null,
+    }).catch(() => {});
+  } catch (e) {}
+
+  // Streaming parity UX (the local agent is instant; we pace the tokens so
+  // the chat still feels like the cloud streamers, and the shared sendChat
+  // pipeline below finishes the message, replay/regenerate buttons + TTS).
+  const reply = res.response || '';
+  assistantTextEl = addMessage('assistant', '');
+  for (const ch of reply) {
+    if (signal && signal.aborted) break;
+    fullResponse += ch;
+    if (assistantTextEl) assistantTextEl.textContent = fullResponse;
+    await new Promise((r) => setTimeout(r, 12));
   }
 }
 

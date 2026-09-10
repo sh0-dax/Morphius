@@ -199,5 +199,10 @@
   "projection.realistic": "Realistic",
   "projection.gallery.damaged_helmet": "Beschädigter Helm",
   "projection.gallery.fox": "Fuchs",
-  "projection.gallery.water_bottle": "Wasserflasche"
+  "projection.gallery.water_bottle": "Wasserflasche",
+  "provider.agent": "Lokaler Agent (Standard, 100% offline)",
+  "provider.webllm": "WebLLM (optionale In-Browser-LLM)",
+  "agent.modelHint": "Vollständig lokaler Agent von Grund auf (Naive Bayes + Speicher + Lernschleife). Trainierte Beispiele: {n} ({src}).",
+  "agent.urlHint": "Kein Server, kein API-Schlüssel, kein Netzwerk. Alles läuft auf diesem Gerät.",
+  "agent.status": "Lokaler Agent"
 }

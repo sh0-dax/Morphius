@@ -93,13 +93,8 @@
           <div class="field-group">
             <label data-i18n="settings.provider">Provider</label>
             <select id="cfgProvider">
-              <option value="gemini">Google Gemini (Online)</option>
-              <option value="openai">OpenAI (ChatGPT)</option>
-              <option value="meta">Meta AI (Muse / Model API)</option>
-              <option value="bazaarlink">BazaarLink (Multi-model Gateway)</option>
-              <option value="ollama">Ollama (Local / Offline)</option>
-              <option value="webllm">WebLLM (100% in-browser, no key)</option>
-              <option value="custom">Custom OpenAI-Compatible</option>
+              <option value="agent" selected>Local Agent (default, 100% offline)</option>
+              <option value="webllm">WebLLM (optional in-browser LLM)</option>
             </select>
           </div>
           <div class="field-group" id="groupModel">
