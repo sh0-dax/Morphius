@@ -25,6 +25,8 @@ import {
   abortableDelay,
   computeFaceRenderCap,
   shouldRenderFaceFrame,
+  gpuTierHint,
+  faceRenderQuality,
 } from '../js/pure.js';
 import { getMasterVolume, setMasterVolume, getOutputDevice, setOutputDevice, routeOutput } from '../js/masterBus.js';
 
@@ -230,6 +232,82 @@ describe('detectDeviceTier / recommendedWebLlmModel (WebLLM Lite mode)', () => {
     expect(recommendedWebLlmModel({ deviceMemory: 2 })).toBe(WEBLLM_TIER_MODELS.low);
     expect(recommendedWebLlmModel({ deviceMemory: 8, hardwareConcurrency: 8 })).toBe(WEBLLM_TIER_MODELS.high);
     expect(recommendedWebLlmModel({ deviceMemory: 6, hardwareConcurrency: 6 })).toBe(WEBLLM_TIER_MODELS.mid);
+  });
+});
+
+describe('gpuTierHint (WEBGL renderer strings)', () => {
+  it('returns null when there is no GL info', () => {
+    expect(gpuTierHint('')).toBeNull();
+    expect(gpuTierHint(null)).toBeNull();
+    expect(gpuTierHint(undefined)).toBeNull();
+  });
+
+  it('classifies software rasterizers as low', () => {
+    expect(gpuTierHint('Google SwiftShader Device (D3D11)')).toBe('low');
+    expect(gpuTierHint('ANGLE (llvmpipe, llvmpipe (LLVM ...) Direct3D11)')).toBe('low');
+  });
+
+  it('classifies integrated GPUs (Intel UHD) as mid', () => {
+    const uhd620 = 'ANGLE (Intel, Intel(R) UHD Graphics 620 (0x00003EA0) Direct3D11 vs_5_0 ps_5_0, D3D11)';
+    expect(gpuTierHint(uhd620)).toBe('mid');
+    expect(gpuTierHint('ANGLE (AMD, AMD Radeon(TM) Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)')).toBe('mid');
+  });
+
+  it('classifies discrete/strong GPUs as high', () => {
+    expect(gpuTierHint('ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)')).toBe('high');
+    expect(gpuTierHint('ANGLE (ATI, AMD Radeon RX 580 Series Direct3D11 vs_5_0 ps_5_0, D3D11)')).toBe('high');
+    expect(gpuTierHint('ANGLE (NVIDIA, NVIDIA Quadro T2000 Direct3D11 vs_5_0 ps_5_0, D3D11)')).toBe('high');
+  });
+
+  it('leaves unknown vendor strings to the core heuristics (null)', () => {
+    expect(gpuTierHint('MysteryRenderer 9000')).toBeNull();
+  });
+});
+
+describe('detectDeviceTier (GPU-aware)', () => {
+  it('keeps an integrated UHD machine at mid even with 8 cores + 8 GB', () => {
+    const uhd620 = 'ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11 vs_5_0 ps_5_0, D3D11)';
+    expect(detectDeviceTier({ deviceMemory: 8, hardwareConcurrency: 8 }, uhd620)).toBe('mid');
+  });
+
+  it('allows high when the same resourced machine has a strong discrete GPU', () => {
+    const rtx = 'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)';
+    expect(detectDeviceTier({ deviceMemory: 8, hardwareConcurrency: 8 }, rtx)).toBe('high');
+  });
+
+  it('caps a strong-GPU machine at mid when cores or RAM are thin', () => {
+    const rtx = 'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)';
+    expect(detectDeviceTier({ deviceMemory: 6, hardwareConcurrency: 6 }, rtx)).toBe('mid');
+  });
+
+  it('downgrades software rasterizers to low', () => {
+    expect(detectDeviceTier({ deviceMemory: 8, hardwareConcurrency: 12 }, 'Google SwiftShader Device (D3D11)')).toBe('low');
+  });
+
+  it('requires BOTH strong cores and RAM for high when no GPU info is present', () => {
+    expect(detectDeviceTier({ deviceMemory: 8, hardwareConcurrency: 6 }, null)).toBe('mid');
+    expect(detectDeviceTier({ deviceMemory: 6, hardwareConcurrency: 8 }, null)).toBe('mid');
+    expect(detectDeviceTier({ deviceMemory: 8, hardwareConcurrency: 8 }, null)).toBe('high');
+  });
+});
+
+describe('faceRenderQuality (render profile per tier)', () => {
+  it('high tier gets the fullest profile at 60fps', () => {
+    expect(faceRenderQuality('high')).toEqual({ fps: 60, pixelRatioCap: 2, ibl: true, wireframe: true, antialias: true });
+  });
+
+  it('mid tier keeps the wireframe but drops IBL, caps pixelRatio and runs 30fps', () => {
+    expect(faceRenderQuality('mid')).toEqual({ fps: 30, pixelRatioCap: 1.5, ibl: false, wireframe: true, antialias: true });
+  });
+
+  it('low tier drops wireframe/IBL/AA entirely at 30fps', () => {
+    expect(faceRenderQuality('low')).toEqual({ fps: 30, pixelRatioCap: 1, ibl: false, wireframe: false, antialias: false });
+  });
+
+  it('treats missing/unknown tier as mid (conservative)', () => {
+    const midProfile = faceRenderQuality('mid');
+    expect(faceRenderQuality(undefined)).toEqual(midProfile);
+    expect(faceRenderQuality('bogus')).toEqual(midProfile);
   });
 });
 
@@ -537,28 +615,24 @@ describe('fetchWithRetry / abortableDelay', () => {
 });
 
 describe('computeFaceRenderCap (60/30 face render gate)', () => {
-  it('keeps 60fps on high-tier devices even with camera pipelines idle', () => {
-    expect(computeFaceRenderCap({ tier: 'high', visionActive: false, mirrorActive: false })).toBe(60);
-    expect(computeFaceRenderCap({ tier: 'high', visionActive: true, mirrorActive: false })).toBe(60);
+  it('keeps 60fps on high-tier devices', () => {
+    expect(computeFaceRenderCap({ tier: 'high' })).toBe(60);
+    expect(computeFaceRenderCap({ tier: 'high', visionActive: true, mirrorActive: true })).toBe(60);
   });
 
-  it('drops to 30fps on low/mid devices while vision or mirror runs', () => {
+  it('drops to 30fps on low/mid devices (idle or busy)', () => {
+    expect(computeFaceRenderCap({ tier: 'low' })).toBe(30);
+    expect(computeFaceRenderCap({ tier: 'mid' })).toBe(30);
     expect(computeFaceRenderCap({ tier: 'low', visionActive: true, mirrorActive: false })).toBe(30);
-    expect(computeFaceRenderCap({ tier: 'low', visionActive: false, mirrorActive: true })).toBe(30);
-    expect(computeFaceRenderCap({ tier: 'mid', visionActive: true, mirrorActive: true })).toBe(30);
-  });
-
-  it('stays at 60fps on low/mid when no camera pipeline is active', () => {
-    expect(computeFaceRenderCap({ tier: 'low', visionActive: false, mirrorActive: false })).toBe(60);
-    expect(computeFaceRenderCap({ tier: 'mid', visionActive: false, mirrorActive: false })).toBe(60);
+    expect(computeFaceRenderCap({ tier: 'mid', visionActive: false, mirrorActive: true })).toBe(30);
   });
 
   it('respects prefers-reduced-motion and keeps 60fps', () => {
-    expect(computeFaceRenderCap({ tier: 'low', visionActive: true, mirrorActive: true, reduceMotion: true })).toBe(60);
+    expect(computeFaceRenderCap({ tier: 'low', reduceMotion: true })).toBe(60);
   });
 
-  it('defaults safely when args are missing', () => {
-    expect(computeFaceRenderCap({})).toBe(60);
+  it('defaults to the conservative mid tier when args are missing', () => {
+    expect(computeFaceRenderCap({})).toBe(30);
   });
 });
 

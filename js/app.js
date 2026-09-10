@@ -13,7 +13,7 @@ import { Vision } from './vision.js';
 import { LocalSpeech, startLocalSTT, stopLocalSTT, generateLocalAudio, playLocalAudio, setLocalCallbacks, stopLocalAudio, setWhisperModel, applyMasterSettings } from './localSpeech.js';
 import { modelProgress } from './progress.js';
 import { getMasterVolume, setMasterVolume, setOutputDevice, routeOutput } from './masterBus.js';
-import { detectFeeling, visemeFor, DEFAULT_VISEME, VISEME_KEYS, contentToText, contentImages, buildUserContent, geminiContentParts, detectDeviceTier, recommendedWebLlmModel, createEventBus, lerpWeight, fetchWithRetry, computeFaceRenderCap, shouldRenderFaceFrame } from './pure.js';
+import { detectFeeling, visemeFor, DEFAULT_VISEME, VISEME_KEYS, contentToText, contentImages, buildUserContent, geminiContentParts, detectDeviceTier, recommendedWebLlmModel, createEventBus, lerpWeight, fetchWithRetry, computeFaceRenderCap, shouldRenderFaceFrame, faceRenderQuality } from './pure.js';
 import { computeBlendedWeights, shouldIdleLife } from './core/morphEngine.js';
 import { stateBodyClass, isValidState } from './core/stateChart.js';
 import { computeVisionFeeling, decideVisionCommentary, getSpeakHint, displayClass, VISION_SPEAK_CLASSES, canRunCameraPipeline, computeNewClasses, splitBands } from './visionLogic.js';
@@ -1289,6 +1289,7 @@ function loadModel(url, fitFn, buildMatsFn) {
       const wireMesh = new THREE.Mesh(head.geometry, mats.wire);
       if (influences) wireMesh.morphTargetInfluences = influences;
       if (dict) wireMesh.morphTargetDictionary = dict;
+      wireMesh.visible = faceRenderQuality(_deviceTier).wireframe;
       head.add(wireMesh);
 
       if (morphCount > 0) Object.keys(dict).forEach(k => S.currentWeights[k] = 0);
@@ -1533,9 +1534,10 @@ async function initScene() {
   const scene = new THREE.Scene();
   _scene = scene;
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  const quality = faceRenderQuality(_deviceTier);
+  const renderer = new THREE.WebGLRenderer({ antialias: quality.antialias, alpha: true });
   renderer.setClearColor(0x000000, 0);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, quality.pixelRatioCap));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
   stage.appendChild(renderer.domElement);
@@ -1560,9 +1562,13 @@ async function initScene() {
     },
   });
 
-  const environment = new RoomEnvironment();
-  const pmremGenerator = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmremGenerator.fromScene(environment, 0.04).texture;
+  if (quality.ibl) {
+    const environment = new RoomEnvironment();
+    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmremGenerator.fromScene(environment, 0.04).texture;
+  } else {
+    scene.environment = null;
+  }
 
   ambientLight = new THREE.AmbientLight(0x2f81f7, 0.4);
   scene.add(ambientLight);
@@ -1832,8 +1838,6 @@ async function initScene() {
     _faceFrameIndex++;
     const renderCapHz = computeFaceRenderCap({
       tier: _deviceTier,
-      visionActive,
-      mirrorActive: Mirror.active,
       reduceMotion,
     });
     if (shouldRenderFaceFrame(_faceFrameIndex, renderCapHz)) {

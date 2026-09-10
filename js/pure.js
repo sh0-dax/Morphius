@@ -140,32 +140,107 @@ export const WEBLLM_TIER_MODELS = {
   high: 'Llama-3.2-3B-Instruct-q4f32_1-MLC'       // ~2 GB (previous hardcoded default)
 };
 
+// One-time synchronous probe of the WebGL renderer string, used to classify
+// the GPU when detectDeviceTier() runs at boot. Creates a throwaway 1x1
+// context and immediately loses it. Never throws; empty string when the
+// renderer is unknown (Node, driver blocked, etc.).
+let _glRendererHintCache = null;
+export function glRendererHint() {
+  if (_glRendererHintCache !== null) return _glRendererHintCache;
+  let hint = '';
+  try {
+    if (typeof document !== 'undefined' && typeof document.createElement === 'function') {
+      const canvas = document.createElement('canvas');
+      /** @type {WebGLRenderingContext | WebGL2RenderingContext | null} */
+      const gl = /** @type {any} */ (
+        canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl')
+      );
+      if (gl) {
+        const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+        if (dbg) hint = String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '');
+        const loseCtx = gl.getExtension('WEBGL_lose_context');
+        if (loseCtx) loseCtx.loseContext();
+      }
+    }
+  } catch (e) {
+    hint = '';
+  }
+  _glRendererHintCache = hint;
+  return _glRendererHintCache;
+}
+
+const WEAK_GPU_RE = /(llvmpipe|swiftshader|microsoft basic renderer|software)/i;
+const INTEGRATED_GPU_RE = /(intel|uhd|hd graphics|\biris\b|radeon|adreno|\bmali\b|apple m\d|arm)/i;
+const STRONG_GPU_RE = /(geforce|rtx|gtx|quadro|tesla|radeon rx|\bvega\b|apple m[2-9]\b)/i;
+
+// Classify a WEBGL_debug_renderer_info string into a GPU-strength hint:
+//   'low'  -> software rasterizer
+//   'mid'  -> integrated/unknown-ish (capped at mid)
+//   'high' -> discrete/strong
+//   null   -> no usable signal (let the pure core heuristics decide)
+export function gpuTierHint(glInfo) {
+  const g = String(glInfo || '').toLowerCase();
+  if (!g) return null;
+  if (WEAK_GPU_RE.test(g)) return 'low';
+  if (STRONG_GPU_RE.test(g)) return 'high';
+  if (INTEGRATED_GPU_RE.test(g)) return 'mid';
+  return null;
+}
+
 // Accepts a navigator-like object so it's testable without a real DOM:
 // detectDeviceTier({ deviceMemory: 4, hardwareConcurrency: 4 })
-export function detectDeviceTier(nav) {
+//   nav must have { deviceMemory?, hardwareConcurrency? }
+//   glInfo optional WEBGL renderer string (defaults to glRendererHint()).
+// The classification now knows the GPU, so a desktop/Laptop that reports
+// 8 cores + 8 GB but drives an INTEGRATED UHD/iGPU is correctly kept at
+// 'mid' (its GPU is the bottleneck, not its CPU/RAM).
+export function detectDeviceTier(nav, glInfo) {
   const n = nav || (typeof navigator !== 'undefined' ? navigator : {});
   const mem = typeof n.deviceMemory === 'number' ? n.deviceMemory : null; // GB
   const cores = typeof n.hardwareConcurrency === 'number' ? n.hardwareConcurrency : null;
   if (mem !== null && mem <= 4) return 'low';
   if (cores !== null && cores <= 4 && (mem === null || mem <= 4)) return 'low';
-  if ((mem !== null && mem >= 8) || (cores !== null && cores >= 8)) return 'high';
+
+  const hint = glInfo === undefined ? glRendererHint() : gpuTierHint(glInfo);
+  if (hint === 'low') return 'low';
+  if (hint === 'high') return (mem !== null && mem >= 8 && cores !== null && cores >= 8) ? 'high' : 'mid';
+  if (hint === 'mid') return 'mid'; // integrated GPU caps the tier at 'mid'
+
+  // No GPU signal: a full 8+ GB / 8+ cores machine can still be 'high', but
+  // only when BOTH signals agree (tightened from OR so a RAM-heavy, weak-core
+  // box isn't over-ranked).
+  if (mem !== null && mem >= 8 && cores !== null && cores >= 8) return 'high';
   return 'mid';
 }
 
-// Face render-loop framerate gate. While a camera/vision GPU pipeline is
-// running on a low/mid device, rendering the face at a full 60fps shares the
-// same GPU as detection and starves both; halving to 30fps keeps the face
-// smooth while giving the detector the frame budget it needs. High-tier
-// devices and reduced-motion users stay at 60.
+// Face render loop quality profile per device tier. This is the SINGLE knob
+// that decides how much GPU work each frame costs (and whether the face runs
+// at 60 or 30 fps on an idle screen). Kept out of app.js so it's pure +
+// unit-testable.
+//   pixelRatioCap  - max window.devicePixelRatio multiplier for the canvas
+//   ibl            - scene.environment (RoomEnvironment PMREM) on
+//   wireframe      - second pass drawing the same mesh as wireframe lines
+//   antialias      - WebGL MSAA (fixed at renderer creation time)
+//   fps            - face render target when idle (always 60 on 'high')
+export function faceRenderQuality(tier) {
+  const t = tier === 'high' ? 'high' : (tier === 'low' ? 'low' : 'mid');
+  if (t === 'high') return { fps: 60, pixelRatioCap: 2, ibl: true, wireframe: true, antialias: true };
+  if (t === 'mid') return { fps: 30, pixelRatioCap: 1.5, ibl: false, wireframe: true, antialias: true };
+  return { fps: 30, pixelRatioCap: 1, ibl: false, wireframe: false, antialias: false };
+}
+
+// Face render-loop framerate gate. On low/mid devices the face renders at
+// 30fps even with no camera pipeline (the wireframe+glow double draw is the
+// heaviest regular GPU work), halving frame cost vs 60fps. High-tier devices
+// and reduced-motion users stay at 60.
 // Returns the target render rate in Hz: 60 | 30.
 /**
- * @param {{ tier?: 'low'|'mid'|'high', visionActive?: boolean, mirrorActive?: boolean, reduceMotion?: boolean }} opts
+ * @param {{ tier?: 'low'|'mid'|'high', reduceMotion?: boolean }} opts
  */
 export function computeFaceRenderCap(opts) {
-  const { tier, visionActive, mirrorActive, reduceMotion } = opts || {};
-  if (reduceMotion || tier === 'high') return 60;
-  const busy = visionActive || mirrorActive;
-  return busy ? 30 : 60;
+  const { tier, reduceMotion } = opts || {};
+  if (reduceMotion) return 60;
+  return faceRenderQuality(tier).fps;
 }
 
 // Whether frame `frameIndex` (0-based) should actually be drawn at `capHz`.
