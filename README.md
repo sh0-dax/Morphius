@@ -14,7 +14,7 @@
 [![i18n](https://img.shields.io/badge/i18n-6_Locales-ec4899?style=for-the-badge&logo=google-translate&logoColor=white)]()
 [![Tests](https://img.shields.io/badge/Tests-281_passing-00d4aa?style=for-the-badge&logo=vitest&logoColor=white)]()
 [![CI](https://github.com/sh0-dax/Morphius/actions/workflows/deploy.yml/badge.svg)](https://github.com/sh0-dax/Morphius/actions/workflows/deploy.yml)
-[![Status](https://img.shields.io/badge/Status-v7.2.0_Ready-22c55e?style=for-the-badge)]()
+[![Status](https://img.shields.io/badge/Status-v7.3.0_Ready-22c55e?style=for-the-badge)]()
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](./LICENSE)
 
 [![Local Agent](https://img.shields.io/badge/Local_Agent-24_Intents-10b981?style=for-the-badge)]()
@@ -63,8 +63,10 @@ graph TD
     C --> D["Provider router"]
     D -->|"agent (default)"| E["Local Agent — NB / NLP / LM (pure JS)"]
     D -->|"webllm (optional)"| F["WebLLM (WebGPU)"]
+    D -->|"gemini / openai / claude / meta / bazaarlink / custom"| F2["streamCustom / streamClaude / streamGemini (SSE)"]
     E --> G["stream reply"]
     F --> G
+    F2 --> G
     G --> H["state -> responding"]
     H --> I["viseme + TTS synthesis"]
     I --> J["face morphs + audio render"]
@@ -184,8 +186,15 @@ npm test        # vitest run → all suites pass (see CI/CD §12)
 |---|---|---|
 | **Local Agent** | **Local · default** | From-scratch NB/NLP/LM in pure JS — keyless, serverless, no GPU; 24 intents × ar/fr/en; memory + bounded learning loop; fully offline |
 | **WebLLM** | Local · optional | 100% in-browser via WebGPU for free-form chat — no key, no server |
+| **Gemini** | Cloud · optional | Google Gemini API (`:streamGenerateContent`), multimodal (images via inline_data) — needs API key |
+| **OpenAI** | Cloud · optional | OpenAI Chat Completions (GPT-4o etc.) — needs `sk-...` key |
+| **Claude** | Cloud · optional | Anthropic Messages API — needs `sk-ant-...` key |
+| **Meta** | Cloud · optional | Meta Model API (dev.meta.ai) — needs public API key |
+| **BazaarLink** | Cloud · optional | Unified multi-model gateway (`auto:free` for free-tier routing) — needs `sk-bl-...` key |
+| **Ollama** | Local · optional | Local server (`ollama serve`) — keyless; supports images |
+| **Custom** | Local/Cloud · optional | Any OpenAI Chat Completions-compatible endpoint — key optional |
 
-WebLLM requires Chrome/Edge with WebGPU and downloads weights on first use. Other cloud provider branches were removed in M7 — the app is offline-first: Local Agent is the default and WebLLM is the only optional in-browser cloud-free alternative.
+WebLLM requires Chrome/Edge with WebGPU and downloads weights on first use. Cloud providers are explicit opt-ins (API keys are stored encrypted in your browser only, via the WebCrypto API) — the app remains fully offline by default with **Local Agent** as the default provider.
 
 ---
 
@@ -301,7 +310,7 @@ Per-phase Playwright E2E gates across development phases A–H (chat, multimodal
 - [x] **M8 — Agent intelligence**: long-term fact memory (`memory_store`/`memory_fact`, exact → fuzzy → confirm-on-ambiguous → honest unknown), in-UI teaching loop (👍/👎 with teach/reject), cross-language canonical slot filling (`SLOT_ALIASES`: `warm|chaud|chaude|ساخن|دافئ` → `warm`)
 - [ ] **M9 — Better features**: semantic hashing / embeddings, per-user calibration
 - [ ] **M10 — Neural upgrade**: optional ONNX intent model once WebGPU thresholds allow
-- [ ] Optional cloud provider opt-in for advanced use cases (Gemini / OpenAI)
+- [x] **Cloud provider opt-in**: Gemini, OpenAI (GPT), Claude (Anthropic), Meta, BazaarLink, Ollama and any OpenAI-compatible endpoint — Local Agent stays the default, keys stored encrypted (WebCrypto)
 - [ ] Additional GLB face models and community model contributions
 - [ ] More TTS voices per locale
 - [ ] Expanded Live API support

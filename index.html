@@ -11,7 +11,7 @@
   <link rel="icon" href="./assets/icon-192.png" sizes="192x192">
   <link rel="apple-touch-icon" href="./assets/icon-192.png">
   <link rel="stylesheet" href="./css/styles.css">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net https://esm.run; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.cdnfonts.com; font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://fonts.cdnfonts.com; connect-src 'self' blob: data: https://generativelanguage.googleapis.com wss://generativelanguage.googleapis.com https://storage.googleapis.com https://huggingface.co https://cdn.jsdelivr.net https://unpkg.com https://esm.run https://threejs.org; img-src 'self' blob: data: https://cdn.jsdelivr.net; media-src 'self' blob: data:; worker-src 'self' blob:; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net https://esm.run; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.cdnfonts.com; font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://fonts.cdnfonts.com; connect-src 'self' blob: data: https://generativelanguage.googleapis.com wss://generativelanguage.googleapis.com https://api.openai.com https://api.anthropic.com https://api.meta.ai https://api.bazaarlink.ai http://localhost:11434 http://localhost:8000 https://storage.googleapis.com https://huggingface.co https://cdn.jsdelivr.net https://unpkg.com https://esm.run https://threejs.org; img-src 'self' blob: data: https://cdn.jsdelivr.net; media-src 'self' blob: data:; worker-src 'self' blob:; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="referrer" content="no-referrer">
   <!-- CSP note: 'unsafe-eval' is required by three.js KTX2Loader's basis transcoder, which evaluates
        the basis_transcoder.js string in a blob worker to compile WASM ('wasm-unsafe-eval' alone does
@@ -94,8 +94,15 @@
           <div class="field-group">
             <label for="cfgProvider" data-i18n="settings.provider">Provider</label>
             <select id="cfgProvider">
-              <option value="agent" selected>Local Agent (default, 100% offline)</option>
-              <option value="webllm">WebLLM (optional in-browser LLM)</option>
+              <option value="agent" selected data-i18n="provider.agent">Local Agent (default, 100% offline)</option>
+              <option value="webllm" data-i18n="provider.webllm">WebLLM (optional in-browser LLM)</option>
+              <option value="gemini" data-i18n="provider.gemini">Gemini (Google API)</option>
+              <option value="openai" data-i18n="provider.openai">OpenAI (GPT)</option>
+              <option value="claude" data-i18n="provider.claude">Claude (Anthropic)</option>
+              <option value="meta" data-i18n="provider.meta">Meta Model API</option>
+              <option value="bazaarlink" data-i18n="provider.bazaarlink">BazaarLink (multi-model gateway)</option>
+              <option value="ollama" data-i18n="provider.ollama">Ollama (local server)</option>
+              <option value="custom" data-i18n="provider.custom">Custom (OpenAI-compatible)</option>
             </select>
           </div>
           <div class="field-group" id="groupModel">
@@ -125,7 +132,7 @@
           <div class="field-group" id="groupKey">
             <label for="cfgKey" data-i18n="settings.apiKey">API Key</label>
             <input type="password" id="cfgKey" data-i18n-placeholder="settings.keyPlaceholder" placeholder="Paste API key here">
-            <small data-i18n="settings.keyHint">Only needed for optional cloud TTS/Live voice. Leave empty for Local Agent or WebLLM.</small>
+            <small data-i18n="settings.keyHint">Required for cloud chat providers (Gemini, OpenAI, Claude, ...). Leave empty for Local Agent / WebLLM / Ollama.</small>
           </div>
           <div class="field-group" id="groupUrl">
             <label for="cfgUrl" data-i18n="settings.baseUrl">Base URL / Endpoint</label>
@@ -490,7 +497,7 @@
     <div class="field-group">
       <button id="installBtn" class="btn" style="display:none;" data-i18n="btn.installApp">Install App</button>
     </div>
-    <div class="panel-footer">AI Face v7.2.0 — Offline AI Face &amp; Voice Assistant</div>
+    <div class="panel-footer">AI Face v7.3.0 — Offline AI Face &amp; Voice Assistant</div>
   </aside>
 
   <!-- ============================================================
