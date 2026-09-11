@@ -12,9 +12,9 @@
 [![WebLLM](https://img.shields.io/badge/WebLLM-100%25_Local-ffaa00?style=for-the-badge&logo=webgpu&logoColor=white)]()
 [![PWA](https://img.shields.io/badge/Installable-PWA-2f81f7?style=for-the-badge&logo=pwa&logoColor=white)]()
 [![i18n](https://img.shields.io/badge/i18n-6_Locales-ec4899?style=for-the-badge&logo=google-translate&logoColor=white)]()
-[![Tests](https://img.shields.io/badge/Tests-277_passing-00d4aa?style=for-the-badge&logo=vitest&logoColor=white)]()
+[![Tests](https://img.shields.io/badge/Tests-281_passing-00d4aa?style=for-the-badge&logo=vitest&logoColor=white)]()
 [![CI](https://github.com/sh0-dax/Morphius/actions/workflows/deploy.yml/badge.svg)](https://github.com/sh0-dax/Morphius/actions/workflows/deploy.yml)
-[![Status](https://img.shields.io/badge/Status-v7.1.0_Ready-22c55e?style=for-the-badge)]()
+[![Status](https://img.shields.io/badge/Status-v7.2.0_Ready-22c55e?style=for-the-badge)]()
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](./LICENSE)
 
 [![Local Agent](https://img.shields.io/badge/Local_Agent-24_Intents-10b981?style=for-the-badge)]()

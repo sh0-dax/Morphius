@@ -1,5 +1,5 @@
 // ============================================================
-// AI Face v6 — App Logic
+// AI Face v7.2.0 — App Logic
 // ============================================================
 
 import * as THREE from 'three';
@@ -5015,7 +5015,7 @@ requestAnimationFrame(dataPanelLoop);
 function exportChat() {
   const rows = document.querySelectorAll('.chat-msg');
   if (!rows.length) { showStatus('No chat to export', 'warn'); return; }
-  let md = '# AI Face v6 Chat Export\n\n';
+  let md = '# AI Face v7.2.0 Chat Export\n\n';
   rows.forEach(row => {
     const role = row.classList.contains('user') ? '**You**' : '**AI**';
     const text = row.textContent.trim();
