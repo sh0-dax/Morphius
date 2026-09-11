@@ -66,7 +66,7 @@ async function withStore(storeName, mode, fn) {
 
 // ---- model ----
 export async function saveModel(language, artifact) {
-  return withStore(MODEL_STORE, 'readwrite', (store, get) => get(store.put({ lang: language, artifact })));
+  return withStore(MODEL_STORE, 'readwrite', (store, get) => get(store.put({ lang: language, artifact }, language)));
 }
 export async function loadModel(language) {
   const row = await withStore(MODEL_STORE, 'readonly', (store, get) => get(store.get(language)));
@@ -87,7 +87,7 @@ export async function listLearningEvents() {
 
 // ---- memory (long-term, M8) ----
 export async function saveMemoryItem(key, value) {
-  return withStore(MEMORY_STORE, 'readwrite', (store, get) => get(store.put({ key, value })));
+  return withStore(MEMORY_STORE, 'readwrite', (store, get) => get(store.put({ key, value }, key)));
 }
 export async function loadMemoryItem(key) {
   const row = await withStore(MEMORY_STORE, 'readonly', (store, get) => get(store.get(key)));
@@ -105,7 +105,7 @@ export async function deleteMemoryItem(key) {
 
 // ---- metadata ----
 export async function saveMeta(obj) {
-  return withStore(META_STORE, 'readwrite', (store, get) => get(store.put({ key: 'meta', ...obj })));
+  return withStore(META_STORE, 'readwrite', (store, get) => get(store.put({ key: 'meta', ...obj }, 'meta')));
 }
 export async function loadMeta() {
   const row = await withStore(META_STORE, 'readonly', (store, get) => get(store.get('meta')));

@@ -537,8 +537,8 @@ export async function createLocalAgent(opts = {}) {
     let memorySummary = null;
     if (intent === 'memory_store') {
       if (storeKV) {
-        await memory.store({ kind: 'fact', key: storeKV.key, value: storeKV.value, lang: res.language });
-        memorySummary = { stored: true, key: storeKV.key, value: storeKV.value };
+        const ok = await memory.store({ kind: 'fact', key: storeKV.key, value: storeKV.value, lang: res.language });
+        memorySummary = { stored: ok, key: storeKV.key, value: storeKV.value };
       } else {
         memorySummary = { stored: false, hint: true };
       }
