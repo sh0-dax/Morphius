@@ -289,7 +289,7 @@ const SLOT_ALIASES = {
     warm: ['warm', 'chaud', 'chaude', 'chaleur', 'ساخن', 'دافئ', 'دافي'],
     soft: ['soft', 'doux', 'douce', 'لطيف', 'لطيفة', 'ناعم', 'ناعمة'],
     noir: ['noir', 'sombre', 'داكن', 'أسود', 'غامق'],
-    blueprint: ['blueprint', 'bleu', 'bleue', 'vert', 'verte', 'مخطط', 'أزرق', 'أخضر', 'مضاء', 'cyan'],
+    blueprint: ['blueprint', 'blue', 'bleu', 'bleue', 'green', 'vert', 'verte', 'مخطط', 'أزرق', 'أخضر', 'مضاء', 'cyan'],
     matrix: ['matrix', 'مصفوفة'],
   },
 };
@@ -334,20 +334,38 @@ export function extractSlots(text, intentDef, language) {
   const normalized = hasArabicScript(text)
     ? String(text).replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640]/g, '')
     : String(text).toLowerCase();
+  // preset is matched against BOTH the corpus slot words and the official
+  // cross-language aliases (SLOT_ALIASES: "blue lighting", "green light",
+  // "ضوء أزرق" are corpus examples but their colors are alias-only). The
+  // longest matched word wins so "warm blue" does not shadow "blue".
+  let presetHit = null;
   for (const key of Object.keys(def)) {
     const words = Array.isArray(def[key]) ? def[key] : [];
     for (const w of words) {
-      if (normalized.includes(w.toLowerCase())) {
+      const wn = aliasNorm(w);
+      if (wn && normalized.includes(wn)) {
         if (key === 'on') { slots.state = 'on'; break; }
         if (key === 'off') { slots.state = 'off'; break; }
         if (key === 'preset') {
-          slots._presetRaw = typedPresetWord(text, 'preset') || w;
-          slots.preset = canonicalSlot('preset', w);
+          if (!presetHit || wn.length > presetHit.rawLen) presetHit = { canon: canonicalSlot('preset', w), rawLen: wn.length };
         } else {
           slots[key] = w;
         }
       }
     }
+  }
+  const aliasDef = SLOT_ALIASES.preset || {};
+  for (const canon of Object.keys(aliasDef)) {
+    for (const alias of aliasDef[canon]) {
+      const an = aliasNorm(alias);
+      if (an && normalized.includes(an)) {
+        if (!presetHit || an.length > presetHit.rawLen) presetHit = { canon, rawLen: an.length };
+      }
+    }
+  }
+  if (presetHit) {
+    slots._presetRaw = typedPresetWord(text, 'preset');
+    slots.preset = presetHit.canon;
   }
   return slots;
 }
@@ -412,7 +430,7 @@ export function fallbackResponse(lang) {
 
 // ---- bounded learning ----
 // kind: 'teach' | 'confirm' | 'reject'. Returns { applied }.
-export function applyFeedback(agent, corpusByLang, { kind, text, intent, language }, prevClass) {
+export function applyFeedback(agent, corpusByLang, { kind, text, intent, language }, prevClass, stopwords) {
   const lang = normalizeAgentLang(language);
   const model = agent.models[lang];
   if (!model || !model.classes.includes(intent)) return { applied: false, reason: 'unknown-intent' };
@@ -423,7 +441,9 @@ export function applyFeedback(agent, corpusByLang, { kind, text, intent, languag
       return { applied: false, reason: 'ambiguous' };
     }
   }
-  const tokens = featuresForText(text, lang);
+  // Same token path as training (intentDocs): stopword filtering keeps a
+  // teach from leaking filler tokens (that/my/is) into the model vocab.
+  const tokens = featuresForText(text, lang, stopwords);
   if (!tokens.length) return { applied: false, reason: 'no-tokens' };
   const weight = kind === 'teach' ? 1 : CONFIRM_WEIGHT;
   partialFitNb(model, intent, tokens, weight);
@@ -446,8 +466,20 @@ export async function createLocalAgent(opts = {}) {
   let source = 'memory';
   let trainedAt = 0;
   let boots = 0;
+  let bootPromise = null;
 
   async function ensureModels() {
+    const neededHash = corpusHash(corpora);
+    if (agent && agent.corpusHash === neededHash) return agent;
+    // In-flight lock: cold boots that arrive while a restore/train is already
+    // running share that ONE boot instead of racing. Concurrent cold
+    // classify/respond/learn therefore stay single-flight and deterministic —
+    // no double-train, no double persist, no duplicated learning events.
+    if (bootPromise) return bootPromise;
+    bootPromise = ensuredModels();
+    try { return await bootPromise; } finally { bootPromise = null; }
+  }
+  async function ensuredModels() {
     const neededHash = corpusHash(corpora);
     if (agent && agent.corpusHash === neededHash) return agent;
     let restored = null;
@@ -580,10 +612,13 @@ export async function createLocalAgent(opts = {}) {
   async function learn(feedback) {
     await ensureModels();
     const prev = feedback.margin != null ? { id: feedback.intent, margin: feedback.margin } : null;
-    const out = applyFeedback(agent, corpora, feedback, prev);
+    const out = applyFeedback(agent, corpora, feedback, prev, stopwords);
     if (eventSink) { try { eventSink(feedback, out); } catch (e) {} }
     if (out.applied) {
-      try { await storage.saveModel(feedback.language || 'en', serializeNb(agent.models[normalizeAgentLang(feedback.language)])); } catch (e) { log('agent: learn persist failed', 'warn'); }
+      // Persist under the SAME key the artifact was serialized for — a bogus
+      // language (es/de/...) is normalized so the applied learn survives a reload.
+      const lang = normalizeAgentLang(feedback.language || 'en');
+      try { await storage.saveModel(lang, serializeNb(agent.models[lang])); } catch (e) { log('agent: learn persist failed', 'warn'); }
     }
     return out;
   }

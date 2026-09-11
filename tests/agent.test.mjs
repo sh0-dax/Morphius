@@ -429,6 +429,70 @@ describe('M8 canonical cross-language slots (WS3)', () => {
     expect(r.length).toBeGreaterThan(5);
     expect(r).toMatch(/warm/);
   });
+
+  it('WS1: applyFeedback filters stopwords so a teach never leaks filler into vocab', () => {
+    const a = buildModels(CORPORA, STOP);
+    const prev = classifyText(a, 'syndicate report q1', STOP);
+    expect(prev.intent).toBeNull();
+    // `STOP` is the lang-keyed stopwords map (nlp.js: filterStopwords
+    // reads stopwords[lang]); the teach includes filler tokens that used
+    // to be fitted into the model when applyFeedback skipped the filter.
+    const teach = applyFeedback(a, CORPORA, { kind: 'teach', text: 'syndicate report q1 is my when', intent: 'help', language: 'en' }, null, STOP);
+    expect(teach.applied).toBe(true);
+    const counts = a.models.en.tokenCounts['help'] || {};
+    expect(counts.syndicate).toBeGreaterThan(0);
+    expect(counts.report).toBeGreaterThan(0);
+    expect(counts.is).toBeUndefined();
+    expect(counts.my).toBeUndefined();
+    expect(counts.when).toBeUndefined();
+    expect(classifyText(a, 'syndicate report q1', STOP).intent).toBe('help');
+  });
+
+  it('WS1: lighting color aliases map to canonical preset out of the box', () => {
+    const d = (l) => CORPORA[l].intents.find((i) => i.id === 'lighting');
+    expect(extractSlots('blue lighting', d('en'), 'en').preset).toBe('blueprint');
+    expect(extractSlots('blue light', d('en'), 'en').preset).toBe('blueprint');
+    expect(extractSlots('green light', d('en'), 'en').preset).toBe('blueprint');
+    expect(extractSlots('lumière bleue', d('fr'), 'fr').preset).toBe('blueprint');
+    expect(extractSlots('ضوء أزرق', d('ar'), 'ar').preset).toBe('blueprint');
+  });
+
+  it('WS1: learn with an unlisted language persists under the canonical key', async () => {
+    const storage = makeStorage();
+    const a = await createLocalAgent({ corpora: CORPORA, stopwords: STOP, storage, sessionList: async () => [] });
+    await a.ready;
+    // 'es' is not a trained key -> normalized to en for persistence.
+    const out = await a.learn({ kind: 'teach', text: 'police report deadline', intent: 'help', language: 'es' });
+    expect(out.applied).toBe(true);
+    const db = storage._db;
+    expect(db.models.en).toBeTruthy();
+    expect(db.models.es).toBeFalsy();
+    // The same teach survives a reload (learned under the canonical key).
+    const a2 = await createLocalAgent({ corpora: CORPORA, stopwords: STOP, storage, sessionList: async () => [] });
+    await a2.ready;
+    const r = await a2.respond('police report deadline');
+    expect(['help', 'lighting']).toContain(r.intent);
+  });
+
+  it('WS1: concurrent cold boots on one agent share a single train (no double-persist)', async () => {
+    const storage = makeStorage();
+    let saves = 0;
+    const tracked = {
+      ...storage,
+      loadMeta: async () => null,
+      saveMeta: async () => { saves += 1; },
+      saveModel: async () => { saves += 1; },
+    };
+    // `ready` kicks off the first boot; the two parallel respond() calls race
+    // into ensureModels() while it is still in flight. The boot lock must make
+    // them share ONE train+persist: 1 saveMeta + 1 saveModel per language.
+    const a = await createLocalAgent({ corpora: CORPORA, stopwords: STOP, storage: tracked, sessionList: async () => [] });
+    const [r1, r2] = await Promise.all([a.respond('what time is it'), a.respond('bonjour')]);
+    await a.ready;
+    expect(saves).toBe(4); // 1 meta + en/fr/ar models, from a single shared boot
+    expect(r1.intent).toBeTruthy();
+    expect(r2.intent).toBeTruthy();
+  });
 });
 
 function RE_STRIP(s) { return String(s || '').replace(/[؟?،,:.]/g, ''); }
