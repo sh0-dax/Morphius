@@ -2520,12 +2520,6 @@ checkOnboarding();
 const DEFAULTS = {
   agent: { url: '', model: 'local-agent-v1', key: '', needsKey: false },
   webllm: { url: '', model: 'Llama-3.2-3B-Instruct-q4f32_1-MLC', key: '', needsKey: false },
-  gemini: { url: 'https://generativelanguage.googleapis.com/v1beta', model: 'gemini-2.5-flash', key: '', needsKey: true },
-  openai: { url: 'https://api.openai.com/v1', model: 'gpt-4o-mini', key: '', needsKey: true },
-  meta: { url: 'https://api.meta.ai/v1', model: 'muse-spark-1.2', key: '', needsKey: true },
-  bazaarlink: { url: 'https://api.bazaarlink.ai/v1', model: 'auto:free', key: '', needsKey: true },
-  ollama: { url: 'http://localhost:11434', model: 'llama3.2', key: '', needsKey: false },
-  custom: { url: 'http://localhost:8000/v1', model: 'default', key: '', needsKey: true }
 };
 
 // M7 local agent (declared here so applyProviderDefaults can read it at boot).
@@ -2535,15 +2529,17 @@ let lastAgentReply = '';
 
 function applyProviderDefaults(resetFields) {
   const p = cfgProvider.value;
-  const d = DEFAULTS[p];
+  const d = DEFAULTS[p] || DEFAULTS.agent;
   cfgUrl.placeholder = d.url;
   cfgModel.placeholder = d.model;
-  const localUi = (p === 'agent') || (p === 'webllm');
-  document.getElementById('groupKey').style.display = d.needsKey ? 'block' : 'none';
-  document.getElementById('groupUrl').style.display = localUi ? 'none' : 'block';
-  document.getElementById('groupModel').style.display = localUi ? 'none' : 'block';
+  // agent + webllm are the only exposed providers (anything else was already
+  // normalized to 'agent' when settings were restored). Neither needs a key,
+  // base URL, or model field in the UI.
+  document.getElementById('groupKey').style.display = 'none';
+  document.getElementById('groupUrl').style.display = 'none';
+  document.getElementById('groupModel').style.display = 'none';
   document.getElementById('groupWebLlmModel').style.display = (p === 'webllm') ? 'block' : 'none';
-  if (attachBtn) attachBtn.style.display = localUi ? 'none' : 'inline-flex';
+  if (attachBtn) attachBtn.style.display = 'none';
   if ((p === 'webllm') && pendingImageDataUrl) clearImageChip();
   if (resetFields) {
     cfgModel.value = (p === 'webllm' && !hasManualWebLlmModelChoice()) ? recommendedWebLlmModel() : d.model;
@@ -2555,21 +2551,6 @@ function applyProviderDefaults(resetFields) {
     const status = localAgent ? localAgent.getStatus() : null;
     document.getElementById('modelHint').textContent = t('agent.modelHint', 'Fully local from-scratch agent (Naive Bayes + memory + learning loop). Trained samples: {n} ({src}).').replace('{n}', status ? String(status.sampleCount) : '0').replace('{src}', status ? status.source : '…');
     document.getElementById('urlHint').textContent = t('agent.urlHint', 'No server, no API key, no network. Everything runs on this device.');
-  } else if (p === 'gemini') {
-    document.getElementById('modelHint').textContent = 'Example: gemini-2.5-flash, gemini-2.5-pro';
-    document.getElementById('urlHint').textContent = ':streamGenerateContent appended automatically';
-  } else if (p === 'openai') {
-    document.getElementById('modelHint').textContent = 'Example: gpt-4o-mini, gpt-4o, gpt-4.1-mini';
-    document.getElementById('urlHint').textContent = '/chat/completions appended automatically -- paste your sk-... key below';
-  } else if (p === 'meta') {
-    document.getElementById('modelHint').textContent = 'Example: muse-spark-1.2, muse-spark-1.1';
-    document.getElementById('urlHint').textContent = 'Meta Model API (dev.meta.ai) -- paste your key from dev.meta.ai/api-keys below';
-  } else if (p === 'bazaarlink') {
-    document.getElementById('modelHint').textContent = "Use 'auto:free' for free-tier routing, or e.g. openai/gpt-4o, anthropic/claude-...";
-    document.getElementById('urlHint').textContent = 'Unified multi-model gateway -- paste your sk-bl-... key below';
-  } else if (p === 'ollama') {
-    document.getElementById('modelHint').textContent = 'Example: llama3.2, mistral, phi4';
-    document.getElementById('urlHint').textContent = 'Run: ollama serve (local machine)';
   } else if (p === 'webllm') {
     const tier = detectDeviceTier();
     const tierNote = hasManualWebLlmModelChoice()
@@ -2718,7 +2699,7 @@ async function loadSettings() {
       return;
     }
     const s = JSON.parse(raw);
-    cfgProvider.value = s.provider || 'agent';
+    cfgProvider.value = (s.provider && DEFAULTS[s.provider]) ? s.provider : 'agent';
     cfgModel.value = s.model || '';
     cfgKey.value = await decryptText(s.key);
     cfgUrl.value = s.url || '';
@@ -2826,25 +2807,13 @@ btnTestVoice.addEventListener('click', () => {
 btnTest.addEventListener('click', async () => {
   showStatus('Testing...', 'warn');
   const p = cfgProvider.value;
-  const url = cfgUrl.value.trim() || DEFAULTS[p].url;
-  const model = cfgModel.value.trim() || DEFAULTS[p].model;
+  const url = cfgUrl.value.trim() || (DEFAULTS[p] || DEFAULTS.agent).url;
+  const model = cfgModel.value.trim() || (DEFAULTS[p] || DEFAULTS.agent).model;
   const key = cfgKey.value.trim();
   try {
-    if (p === 'gemini') {
-      const testUrl = url + '/models/' + model + '?key=' + encodeURIComponent(key);
-      const res = await fetch(testUrl, { method: 'GET' });
-      if (!res.ok) throw new Error(await streamErrorMsg(res, 'Gemini'));
-      const data = await res.json();
-      showStatus('Connected -- ' + (data.displayName || model), 'ok');
-    } else if (p === 'agent') {
+    if (p === 'agent') {
       const status = await ensureLocalAgent().then((a) => a.getStatus());
       showStatus('Local Agent ready -- ' + status.sampleCount + ' training samples (' + status.source + ')', 'ok');
-    } else if (p === 'ollama') {
-      const res = await fetch(url + '/api/tags', { method: 'GET' });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
-      const found = data.models ? data.models.find(m => m.name.startsWith(model)) : null;
-      showStatus(found ? 'Connected -- ' + found.name : 'Connected -- model ' + model + ' not found', found ? 'ok' : 'warn');
     } else if (p === 'webllm') {
       if (!navigator.gpu) throw new Error('WebGPU is not supported in this browser/device');
       showStatus('WebGPU available -- model will load on first message', 'ok');
@@ -3267,9 +3236,9 @@ async function sendChat() {
   }
 
   const p = cfgProvider.value;
-  const model = cfgModel.value.trim() || DEFAULTS[p].model;
+  const model = cfgModel.value.trim() || (DEFAULTS[p] || DEFAULTS.agent).model;
   const key = cfgKey.value.trim();
-  const baseUrl = cfgUrl.value.trim() || DEFAULTS[p].url;
+  const baseUrl = cfgUrl.value.trim() || (DEFAULTS[p] || DEFAULTS.agent).url;
   const temp = parseFloat(cfgTemp.value) || 0.7;
   const maxTokens = parseInt(cfgMaxTokens.value) || 1024;
   const system = cfgSystem.value.trim();
@@ -3289,14 +3258,10 @@ async function sendChat() {
   try {
     if (p === 'agent') {
       await runLocalAgent(content, model, abortCtrl.signal);
-    } else if (p === 'gemini') {
-      await streamGemini(content, model, key, baseUrl, temp, maxTokens, system, abortCtrl.signal);
-    } else if (p === 'ollama') {
-      await streamOllama(content, model, baseUrl, temp, maxTokens, system, abortCtrl.signal);
     } else if (p === 'webllm') {
       await streamWebLLM(content, model, temp, maxTokens, system, abortCtrl.signal);
     } else {
-      await streamCustom(content, model, key, baseUrl, temp, maxTokens, system, abortCtrl.signal);
+      throw new Error('Unknown provider: ' + p);
     }
     messages.push({ role: 'assistant', content: fullResponse });
     saveCurrentSession();
@@ -3481,111 +3446,6 @@ async function streamErrorMsg(res, provider) {
   return msg + hint;
 }
 
-async function consumeSSE(res, onLine) {
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop();
-    for (const line of lines) {
-      onLine(line);
-    }
-  }
-}
-
-async function streamGemini(content, model, key, baseUrl, temp, maxTokens, system, signal) {
-  const contents = [];
-  if (system) {
-    contents.push({ role: 'user', parts: [{ text: 'System instruction: ' + system }] });
-    contents.push({ role: 'model', parts: [{ text: 'OK' }] });
-  }
-  messages.slice(-6).forEach(m => {
-    contents.push({ role: m.role === 'assistant' ? 'model' : 'user', parts: geminiContentParts(m.content) });
-  });
-  contents.push({ role: 'user', parts: geminiContentParts(content) });
-
-  const url = baseUrl + '/models/' + model + ':streamGenerateContent?alt=sse&key=' + encodeURIComponent(key);
-  dbg('Gemini: ' + url.substring(0, 60) + '...', 'info');
-  const res = await fetchWithRetry(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contents, generationConfig: { temperature: temp, maxOutputTokens: maxTokens } }),
-    signal
-  });
-  if (!res.ok) {
-    throw new Error(await streamErrorMsg(res, 'Gemini'));
-  }
-
-  let firstToken = true;
-  await consumeSSE(res, (line) => {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed === 'data: [DONE]') return;
-    try {
-      const raw = trimmed.startsWith('data: ') ? trimmed.slice(6) : trimmed;
-      const json = JSON.parse(raw);
-      const cand = Array.isArray(json) ? json[0]?.candidates?.[0] : json.candidates?.[0];
-      const chunk = cand?.content?.parts?.[0]?.text || '';
-      if (chunk) {
-        if (firstToken) {
-          firstToken = false;
-          assistantTextEl = addMessage('assistant', '');
-          dbg('First token', 'ok');
-        }
-        fullResponse += chunk;
-        if (assistantTextEl) assistantTextEl.textContent = fullResponse;
-      }
-    } catch (e) { dbg('Gemini parse: ' + e.message, 'warn'); }
-  });
-  dbg('Gemini done', 'ok');
-}
-
-async function streamOllama(content, model, baseUrl, temp, maxTokens, system, signal) {
-  const msgs = [];
-  if (system) msgs.push({ role: 'system', content: system });
-  messages.slice(-6).forEach(m => {
-    const c = { role: m.role, content: contentToText(m.content) };
-    const imgs = contentImages(m.content);
-    if (imgs.length) c.images = imgs;
-    msgs.push(c);
-  });
-  const last = { role: 'user', content: contentToText(content) };
-  const lastImgs = contentImages(content);
-  if (lastImgs.length) last.images = lastImgs;
-  msgs.push(last);
-
-  const res = await fetchWithRetry(baseUrl + '/api/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, messages: msgs, stream: true, options: { temperature: temp, num_predict: maxTokens } }),
-    signal
-  });
-  if (!res.ok) throw new Error(await streamErrorMsg(res, 'Ollama'));
-
-  let firstToken = true;
-  await consumeSSE(res, (line) => {
-    const trimmed = line.trim();
-    if (!trimmed) return;
-    try {
-      const json = JSON.parse(trimmed);
-      const chunk = json.message && json.message.content ? json.message.content : '';
-      if (chunk) {
-        if (firstToken) {
-          firstToken = false;
-          assistantTextEl = addMessage('assistant', '');
-          dbg('First token', 'ok');
-        }
-        fullResponse += chunk;
-        if (assistantTextEl) assistantTextEl.textContent = fullResponse;
-      }
-    } catch (e) {}
-  });
-  dbg('Ollama done', 'ok');
-}
-
 // ---- WebLLM ----
 let webllmEngine = null;
 let webllmLoadedModel = null;
@@ -3639,45 +3499,6 @@ async function streamWebLLM(content, model, temp, maxTokens, system, signal) {
     }
   }
   dbg('WebLLM done', 'ok');
-}
-
-async function streamCustom(content, model, key, baseUrl, temp, maxTokens, system, signal) {
-  const msgs = [];
-  if (system) msgs.push({ role: 'system', content: system });
-  messages.slice(-6).forEach(m => msgs.push({ role: m.role, content: m.content }));
-  msgs.push({ role: 'user', content });
-
-  const headers = { 'Content-Type': 'application/json' };
-  if (key) headers['Authorization'] = 'Bearer ' + key;
-
-  const res = await fetchWithRetry(baseUrl + '/chat/completions', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ model, messages: msgs, stream: true, temperature: temp, max_tokens: maxTokens }),
-    signal
-  });
-  if (!res.ok) throw new Error(await streamErrorMsg(res, 'Custom'));
-
-  let firstToken = true;
-  await consumeSSE(res, (line) => {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed === 'data: [DONE]') return;
-    if (!trimmed.startsWith('data: ')) return;
-    try {
-      const json = JSON.parse(trimmed.slice(6));
-      const chunk = json.choices && json.choices[0] && json.choices[0].delta ? json.choices[0].delta.content || '' : '';
-      if (chunk) {
-        if (firstToken) {
-          firstToken = false;
-          assistantTextEl = addMessage('assistant', '');
-          dbg('First token', 'ok');
-        }
-        fullResponse += chunk;
-        if (assistantTextEl) assistantTextEl.textContent = fullResponse;
-      }
-    } catch (e) {}
-  });
-  dbg('Custom done', 'ok');
 }
 
 btnSend.addEventListener('click', sendChat);
