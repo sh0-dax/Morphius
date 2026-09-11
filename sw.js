@@ -7,8 +7,8 @@
 // app keeps working through CDN outages and offline. Offline still works via
 // cache fallbacks.
 // Bump CACHE_NAME on any shell change to invalidate old caches automatically.
-const CACHE_NAME = 'aiface-shell-v52';
-const CDN_CACHE = 'aiface-cdn-v1';
+const CACHE_NAME = 'aiface-shell-v53';
+const CDN_CACHE = 'aiface-cdn-v2';
 
 // Exact pinned CDN resources (substring match against href). These are cached
 // cache-first after their first successful load.
@@ -18,7 +18,7 @@ const CDN_PINS = [
   'cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1',
   'cdn.jsdelivr.net/npm/kokoro-js@1.2.1',
   'cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.1.2',
-  'cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/facecap.glb',
+  'cdn.jsdelivr.net/gh/mrdoob/three.js@148ef33ecb6d2502ff796d4554abd1549c95d519/examples/models/gltf/facecap.glb',
   'esm.run/@mlc-ai/web-llm',
   'cdn.jsdelivr.net/npm/@tensorflow/tfjs/dist',
   'cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd/dist'
@@ -40,6 +40,8 @@ const SHELL_FILES = [
   './js/visionLogic.js',
   './js/localSpeech.js',
   './js/chatStore.js',
+  './js/handTracking.js',
+  './js/projection.js',
   './js/masterBus.js',
   './js/progress.js',
   './js/core/retry.js',
@@ -106,8 +108,9 @@ function isMutable(url) {
   const modelsManifest = p.endsWith('models/manifest.json');
   const isListing = /\/models\/?$/.test(p);
   const isI18n = /\/i18n\/[^/]+\.json$/.test(p);
+  const isDataAgent = /\/data\/agent\/[^/]+\.json$/.test(p);
   const isCode = last.endsWith('.js') || last.endsWith('.css') || last === 'index.html' || p === '/';
-  return modelsManifest || isListing || isI18n || isCode;
+  return modelsManifest || isListing || isI18n || isDataAgent || isCode;
 }
 
 function isStaticCacheable(url) {

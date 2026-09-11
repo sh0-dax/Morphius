@@ -3982,15 +3982,33 @@ function openProjectionDB() {
   });
 }
 
+// Run a transaction against the projection store and ALWAYS close the DB
+// handle afterwards (each call re-opens; leaks accumulate connection slots).
+async function withProjectionStore(mode, fn) {
+  const db = await openProjectionDB();
+  try {
+    const tx = db.transaction(PROJECTION_STORE, mode);
+    const store = tx.objectStore(PROJECTION_STORE);
+    const result = await fn(store);
+    await new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || new Error('transaction aborted'));
+    });
+    return result;
+  } finally {
+    db.close();
+  }
+}
+
 async function saveProjectionState(state) {
   try {
-    const db = await openProjectionDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(PROJECTION_STORE, 'readwrite');
-      const store = tx.objectStore(PROJECTION_STORE);
-      const putReq = store.put(state, 'lastProjection');
-      putReq.onsuccess = () => resolve();
-      putReq.onerror = () => reject(putReq.error);
+    await withProjectionStore('readwrite', (store) => {
+      return new Promise((resolve, reject) => {
+        const putReq = store.put(state, 'lastProjection');
+        putReq.onsuccess = () => resolve();
+        putReq.onerror = () => reject(putReq.error);
+      });
     });
   } catch (e) {
     console.warn('Projection state save failed:', e);
@@ -3999,13 +4017,12 @@ async function saveProjectionState(state) {
 
 async function loadProjectionState() {
   try {
-    const db = await openProjectionDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(PROJECTION_STORE, 'readonly');
-      const store = tx.objectStore(PROJECTION_STORE);
-      const getReq = store.get('lastProjection');
-      getReq.onsuccess = () => resolve(getReq.result || null);
-      getReq.onerror = () => reject(getReq.error);
+    return await withProjectionStore('readonly', (store) => {
+      return new Promise((resolve, reject) => {
+        const getReq = store.get('lastProjection');
+        getReq.onsuccess = () => resolve(getReq.result || null);
+        getReq.onerror = () => reject(getReq.error);
+      });
     });
   } catch (e) {
     console.warn('Projection state load failed:', e);

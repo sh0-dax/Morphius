@@ -11,7 +11,8 @@
   <link rel="icon" href="./assets/icon-192.png" sizes="192x192">
   <link rel="apple-touch-icon" href="./assets/icon-192.png">
   <link rel="stylesheet" href="./css/styles.css">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net https://esm.run; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.cdnfonts.com; font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://fonts.cdnfonts.com; connect-src 'self' blob: data: https://generativelanguage.googleapis.com wss://generativelanguage.googleapis.com https://api.openai.com https://api.meta.ai https://api.bazaarlink.ai http://localhost:11434 http://localhost:8000 https://storage.googleapis.com https://huggingface.co https://cdn.jsdelivr.net https://unpkg.com https://esm.run https://threejs.org https://raw.githubusercontent.com; img-src 'self' blob: data: https://cdn.jsdelivr.net; media-src 'self' blob: data:; worker-src 'self' blob:; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net https://esm.run; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.cdnfonts.com; font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://fonts.cdnfonts.com; connect-src 'self' blob: data: https://generativelanguage.googleapis.com wss://generativelanguage.googleapis.com https://storage.googleapis.com https://huggingface.co https://cdn.jsdelivr.net https://unpkg.com https://esm.run https://threejs.org; img-src 'self' blob: data: https://cdn.jsdelivr.net; media-src 'self' blob: data:; worker-src 'self' blob:; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="referrer" content="no-referrer">
   <!-- CSP note: 'unsafe-eval' is required by three.js KTX2Loader's basis transcoder, which evaluates
        the basis_transcoder.js string in a blob worker to compile WASM ('wasm-unsafe-eval' alone does
        not cover that path). Kept pragmatic for a static no-build PWA on GitHub Pages. -->
@@ -91,19 +92,19 @@
         </button>
         <div class="settings-section-body">
           <div class="field-group">
-            <label data-i18n="settings.provider">Provider</label>
+            <label for="cfgProvider" data-i18n="settings.provider">Provider</label>
             <select id="cfgProvider">
               <option value="agent" selected>Local Agent (default, 100% offline)</option>
               <option value="webllm">WebLLM (optional in-browser LLM)</option>
             </select>
           </div>
           <div class="field-group" id="groupModel">
-            <label data-i18n="settings.modelName">Model Name</label>
+            <label for="cfgModel" data-i18n="settings.modelName">Model Name</label>
             <input type="text" id="cfgModel" value="gemini-2.5-flash">
             <small data-i18n="settings.modelHint" id="modelHint">Example: gemini-2.5-flash or llama3.2</small>
           </div>
           <div class="field-group" id="groupWebLlmModel" style="display:none;">
-            <label data-i18n="settings.webllmModel">WebLLM Model</label>
+            <label for="cfgWebLlmModel" data-i18n="settings.webllmModel">WebLLM Model</label>
             <select id="cfgWebLlmModel">
               <option value="TinyLlama-1.1B-Chat-v1.0-q4f32_1-MLC">TinyLlama 1.1B (~0.7 GB)</option>
               <option value="Llama-3.2-3B-Instruct-q4f32_1-MLC">Llama-3.2 3B (~2 GB)</option>
@@ -122,18 +123,18 @@
             <small data-i18n="settings.webllmModelHint">Runs fully in-browser. The model downloads once, then loads from cache. Bigger models need more RAM/VRAM.</small>
           </div>
           <div class="field-group" id="groupKey">
-            <label data-i18n="settings.apiKey">API Key</label>
+            <label for="cfgKey" data-i18n="settings.apiKey">API Key</label>
             <input type="password" id="cfgKey" data-i18n-placeholder="settings.keyPlaceholder" placeholder="Paste API key here">
             <small data-i18n="settings.keyHint">Required for Gemini. Leave empty for Ollama.</small>
           </div>
           <div class="field-group" id="groupUrl">
-            <label data-i18n="settings.baseUrl">Base URL / Endpoint</label>
+            <label for="cfgUrl" data-i18n="settings.baseUrl">Base URL / Endpoint</label>
             <input type="text" id="cfgUrl" data-i18n-placeholder="settings.urlPlaceholder" placeholder="https://generativelanguage.googleapis.com/v1beta">
             <small data-i18n="settings.urlHint" id="urlHint">Auto-configured per provider</small>
           </div>
           <div class="row-2">
-            <div class="field-group"><label data-i18n="settings.temperature">Temperature</label><input type="number" id="cfgTemp" min="0" max="2" step="0.1" value="0.7"></div>
-            <div class="field-group"><label data-i18n="settings.maxTokens">Max Tokens</label><input type="number" id="cfgMaxTokens" min="1" max="8192" step="1" value="1024"></div>
+            <div class="field-group"><label for="cfgTemp" data-i18n="settings.temperature">Temperature</label><input type="number" id="cfgTemp" min="0" max="2" step="0.1" value="0.7"></div>
+            <div class="field-group"><label for="cfgMaxTokens" data-i18n="settings.maxTokens">Max Tokens</label><input type="number" id="cfgMaxTokens" min="1" max="8192" step="1" value="1024"></div>
           </div>
           <div style="display:flex;gap:8px;margin-top:12px;">
             <button id="btnSave" class="btn" style="flex:1;" data-i18n="btn.save">Save Settings</button>
@@ -151,7 +152,7 @@
         </button>
         <div class="settings-section-body">
           <div class="field-group">
-            <label data-i18n="settings.voiceLang">Voice Language (TTS + STT)</label>
+            <label for="cfgTtsLang" data-i18n="settings.voiceLang">Voice Language (TTS + STT)</label>
             <select id="cfgTtsLang">
               <option value="en-US">English (en-US)</option>
               <option value="ar-SA">Arabic (ar-SA)</option>
@@ -170,20 +171,20 @@
           </div>
           <div class="field-group">
             <div class="row-between">
-              <label data-i18n="settings.masterVolume">Master Volume</label>
+              <label for="cfgMasterVolume" data-i18n="settings.masterVolume">Master Volume</label>
               <span id="masterVolumeValue" style="opacity:.7;">100%</span>
             </div>
             <input type="range" id="cfgMasterVolume" min="0" max="100" value="100" style="width:100%;">
           </div>
           <div class="field-group" id="outputDeviceGroup">
-            <label data-i18n="settings.outputDevice">Output Device</label>
+            <label for="cfgOutputDevice" data-i18n="settings.outputDevice">Output Device</label>
             <select id="cfgOutputDevice">
               <option value="default">System default</option>
             </select>
             <small data-i18n="settings.outputDeviceHint">Playback routing where the browser allows it. Browser voices always use the system default device.</small>
           </div>
           <div class="field-group" style="border-top:1px solid var(--panel-border);padding-top:14px;">
-            <label data-i18n="settings.micEngine">Microphone Engine</label>
+            <label for="cfgMicEngine" data-i18n="settings.micEngine">Microphone Engine</label>
             <select id="cfgMicEngine">
               <option value="browser">Browser (system voices)</option>
               <option value="local">On-device Whisper (offline)</option>
@@ -191,7 +192,7 @@
             <small data-i18n="settings.micEngineHint">On-device = in-browser Whisper. First use downloads a small model, then it works offline. Audio never leaves your machine.</small>
           </div>
 <div class="field-group" id="whisperTierGroup" style="display:none;">
-            <label data-i18n="settings.whisperTier">Whisper Model Size</label>
+            <label for="cfgWhisperTier" data-i18n="settings.whisperTier">Whisper Model Size</label>
             <select id="cfgWhisperTier">
               <option value="Xenova/whisper-tiny">Tiny (~40 MB, fastest)</option>
               <option value="Xenova/whisper-base">Base (~140 MB, balanced)</option>
@@ -200,7 +201,7 @@
             <small data-i18n="settings.whisperTierHint">Bigger models transcribe more accurately but download and run slower on-device.</small>
           </div>
           <div class="field-group" style="border-top:1px solid var(--panel-border);padding-top:14px;">
-            <label data-i18n="settings.ttsEngine">Speech Output Engine</label>
+            <label for="cfgTtsEngine" data-i18n="settings.ttsEngine">Speech Output Engine</label>
             <select id="cfgTtsEngine">
               <option value="browser">Browser voices</option>
               <option value="local">On-device (Kokoro / MMS)</option>
@@ -216,17 +217,17 @@
           </div>
           <div id="geminiTtsFields" style="display:none;">
             <div class="field-group">
-              <label data-i18n="settings.voiceKey">Gemini API Key (for voice)</label>
+              <label for="cfgGeminiTtsKey" data-i18n="settings.voiceKey">Gemini API Key (for voice)</label>
               <input type="password" id="cfgGeminiTtsKey" data-i18n-placeholder="settings.voiceKeyPlaceholder" placeholder="Paste your Gemini API key here">
               <small data-i18n="settings.voiceKeyHint">Reused automatically if Provider above is already set to Gemini</small>
             </div>
             <div class="row-2">
               <div class="field-group">
-                <label data-i18n="settings.ttsModel">TTS Model</label>
+                <label for="cfgGeminiTtsModel" data-i18n="settings.ttsModel">TTS Model</label>
                 <input type="text" id="cfgGeminiTtsModel" value="gemini-2.5-flash-preview-tts">
               </div>
               <div class="field-group">
-                <label data-i18n="settings.voice">Voice</label>
+                <label for="cfgGeminiVoice" data-i18n="settings.voice">Voice</label>
                 <select id="cfgGeminiVoice">
                   <option value="Kore">Kore</option>
                   <option value="Puck">Puck</option>
@@ -249,12 +250,12 @@
           </div>
           <div id="liveVoiceFields" style="display:none;">
             <div class="field-group">
-              <label data-i18n="settings.liveKey">Gemini API Key (for live call)</label>
+              <label for="cfgLiveKey" data-i18n="settings.liveKey">Gemini API Key (for live call)</label>
               <input type="password" id="cfgLiveKey" data-i18n-placeholder="settings.voiceKeyPlaceholder" placeholder="Paste your Gemini API key here">
               <small data-i18n="settings.liveKeyHint">Reuses the Gemini key above if the main provider is set to Gemini</small>
             </div>
             <div class="field-group">
-              <label data-i18n="settings.liveModel">Live Model</label>
+              <label for="cfgLiveModel" data-i18n="settings.liveModel">Live Model</label>
               <input type="text" id="cfgLiveModel" value="gemini-2.5-flash-native-audio-preview-12-2025">
               <small data-i18n="settings.liveModelHint">Example: gemini-2.5-flash-native-audio-preview-12-2025</small>
             </div>
@@ -287,7 +288,7 @@
             <small data-i18n="settings.mirrorLiveHint">MediaPipe FaceLandmarker reads your face from the camera. Frames are analyzed on your GPU locally -- nothing leaves this device.</small>
           </div>
           <div class="field-group" id="mirrorModeGroup" style="display:none;">
-            <label data-i18n="settings.mirrorMode">Mirror Mode</label>
+            <label for="cfgMirrorMode" data-i18n="settings.mirrorMode">Mirror Mode</label>
             <select id="cfgMirrorMode">
               <option value="copy">Copy my expressions</option>
               <option value="emotion">Detect emotion only</option>
@@ -306,7 +307,7 @@
         </button>
         <div class="settings-section-body">
           <div class="field-group">
-            <label data-i18n="settings.feelingSource">Sentiment source</label>
+            <label for="cfgFeelingMode" data-i18n="settings.feelingSource">Sentiment source</label>
             <select id="cfgFeelingMode">
               <option value="auto">Auto (response + my words + live words)</option>
               <option value="response">AI response only</option>
@@ -333,7 +334,7 @@
             <small data-i18n="settings.visionLiveHint">Detects objects from your camera on-device (YOLO26n via WebGPU, or COCO-SSD fallback). Frames stay on your device.</small>
           </div>
           <div class="field-group" id="visionBackendGroup" style="display:none;">
-            <label data-i18n="settings.visionBackend">Vision Backend</label>
+            <label for="cfgVisionBackend" data-i18n="settings.visionBackend">Vision Backend</label>
             <select id="cfgVisionBackend">
               <option value="auto">Auto</option>
               <option value="yolo">WebGPU YOLO</option>
@@ -342,7 +343,7 @@
             <small data-i18n="settings.visionBackendHint">Auto picks WebGPU YOLO when available, otherwise falls back to COCO-SSD on WebGL.</small>
           </div>
           <div class="field-group" id="visionFpsGroup" style="display:none;">
-            <label data-i18n="settings.visionMaxFps">Max detection rate (FPS)</label>
+            <label for="cfgVisionMaxFps" data-i18n="settings.visionMaxFps">Max detection rate (FPS)</label>
             <input type="number" id="cfgVisionMaxFps" min="1" max="30" step="1" value="8">
           </div>
           <div class="field-group" id="visionReactGroup" style="display:none;">
@@ -392,11 +393,11 @@
         </button>
         <div class="settings-section-body">
           <div class="field-group">
-            <label data-i18n="settings.systemPrompt">System Prompt</label>
+            <label for="cfgSystem" data-i18n="settings.systemPrompt">System Prompt</label>
             <textarea id="cfgSystem" rows="4">You are a friendly AI assistant. Keep responses concise and helpful.</textarea>
           </div>
           <div class="field-group">
-            <label data-i18n="settings.model3d">3D Model</label>
+            <label for="cfgModel3d" data-i18n="settings.model3d">3D Model</label>
             <select id="cfgModel3d">
               <option value="facecap">FaceCap (Classic)</option>
               <option value="custom">Custom GLB/VRM...</option>
@@ -404,7 +405,7 @@
             <small data-i18n="settings.model3dHint">Switch to Custom to load your own GLB, GLTF or VRM model.</small>
           </div>
           <div class="field-group" id="customModelGroup" style="display:none;">
-            <label data-i18n="settings.loadModel">Load Model</label>
+            <label for="cfgLocalModels" data-i18n="settings.loadModel">Load Model</label>
             <select id="cfgLocalModels">
               <option value="">-- Select a model --</option>
             </select>
@@ -427,7 +428,7 @@
             <small data-i18n="settings.showFaceHint">Show/hide the 3D face model. Uncheck to use only visual effects.</small>
           </div>
           <div class="field-group">
-            <label data-i18n="settings.visualStyle">Visual Style</label>
+            <label for="cfgWaveStyle" data-i18n="settings.visualStyle">Visual Style</label>
             <select id="cfgWaveStyle">
               <option value="wave">Audio Wave</option>
               <option value="particles">Particle Field</option>
@@ -437,7 +438,7 @@
 <small data-i18n="settings.visualStyleHint">Audio-reactive visual effect behind the face.</small>
           </div>
           <div class="field-group">
-            <label data-i18n="settings.visemePlayground">Viseme Playground</label>
+            <label for="visemeInput" data-i18n="settings.visemePlayground">Viseme Playground</label>
             <div class="viseme-row">
               <input type="text" id="visemeInput" maxlength="1" placeholder="A" aria-label="viseme" autocomplete="off">
               <button id="visemePreviewBtn" class="btn" type="button" data-i18n="btn.previewBtn">Hold Preview</button>
@@ -452,7 +453,7 @@
             <small data-i18n="settings.autoRestoreHint">On load, resume your most recent conversation.</small>
           </div>
           <div class="field-group">
-            <label data-i18n="settings.theme">Theme</label>
+            <label for="cfgTheme" data-i18n="settings.theme">Theme</label>
             <select id="cfgTheme">
               <option value="blueprint" data-i18n="theme.blueprint">Blueprint (Blue)</option>
               <option value="matrix" data-i18n="theme.matrix">Matrix (Green)</option>
@@ -461,7 +462,7 @@
             </select>
           </div>
           <div class="field-group">
-            <label data-i18n="settings.lightingPreset">Lighting Preset</label>
+            <label for="cfgLightPreset" data-i18n="settings.lightingPreset">Lighting Preset</label>
             <select id="cfgLightPreset">
               <option value="blueprint" data-i18n="theme.blueprint">Blueprint (Blue)</option>
               <option value="matrix" data-i18n="theme.matrix">Matrix (Green)</option>
@@ -472,7 +473,7 @@
             <small data-i18n="settings.lightingHint">Global ambient light tint and brightness.</small>
           </div>
           <div class="field-group">
-            <label data-i18n="settings.locale">Interface Language</label>
+            <label for="cfgLocale" data-i18n="settings.locale">Interface Language</label>
             <select id="cfgLocale">
               <option value="en">English</option>
               <option value="ar">العربية</option>

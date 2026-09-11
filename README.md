@@ -185,7 +185,7 @@ npm test        # vitest run → all suites pass (see CI/CD §12)
 | **Local Agent** | **Local · default** | From-scratch NB/NLP/LM in pure JS — keyless, serverless, no GPU; 24 intents × ar/fr/en; memory + bounded learning loop; fully offline |
 | **WebLLM** | Local · optional | 100% in-browser via WebGPU for free-form chat — no key, no server |
 
-WebLLM requires Chrome/Edge with WebGPU and downloads weights on first use. Legacy cloud providers (Gemini, OpenAI, Ollama, OpenAI-compatible) remain in the codebase but are hidden from the Settings UI in this release.
+WebLLM requires Chrome/Edge with WebGPU and downloads weights on first use. Other cloud provider branches were removed in M7 — the app is offline-first: Local Agent is the default and WebLLM is the only optional in-browser cloud-free alternative.
 
 ---
 
@@ -278,7 +278,7 @@ Every push to `main` runs a **mandatory test gate** (`.github/workflows/deploy.y
 
 | Suite | File | Tests |
 |-------|------|-------|
-| Local Agent — NLP/NB/LM/E2E/lifecycle/memory | `tests/agent.test.mjs` | 42 |
+| Local Agent — NLP/NB/LM/E2E/lifecycle/memory | `tests/agent.test.mjs` | 46 |
 | Agent parity (JS ↔ Python trainer) | `tests/agentParity.test.mjs` | 6 |
 | Chat store (IndexedDB) | `tests/chatStore.test.mjs` | 13 |
 | Pure helpers | `tests/pure.test.mjs` | 89 |
@@ -287,7 +287,7 @@ Every push to `main` runs a **mandatory test gate** (`.github/workflows/deploy.y
 | Morph engine | `tests/morphEngine.test.mjs` | 9 |
 | State chart | `tests/stateChart.test.mjs` | 4 |
 | i18n parity | `tests/i18n.test.mjs` | 7 |
-| **Total (unit)** | | **277** |
+| **Total (unit)** | | **281** |
 
 CodeQL static analysis also runs on push/PR (`.github/workflows/codeql.yml`).
 
@@ -301,7 +301,7 @@ Per-phase Playwright E2E gates across development phases A–H (chat, multimodal
 - [x] **M8 — Agent intelligence**: long-term fact memory (`memory_store`/`memory_fact`, exact → fuzzy → confirm-on-ambiguous → honest unknown), in-UI teaching loop (👍/👎 with teach/reject), cross-language canonical slot filling (`SLOT_ALIASES`: `warm|chaud|chaude|ساخن|دافئ` → `warm`)
 - [ ] **M9 — Better features**: semantic hashing / embeddings, per-user calibration
 - [ ] **M10 — Neural upgrade**: optional ONNX intent model once WebGPU thresholds allow
-- [ ] Restore the legacy cloud provider toggle as an explicit opt-in (Gemini / OpenAI)
+- [ ] Optional cloud provider opt-in for advanced use cases (Gemini / OpenAI)
 - [ ] Additional GLB face models and community model contributions
 - [ ] More TTS voices per locale
 - [ ] Expanded Live API support
