@@ -35,12 +35,16 @@ let asrPipeline = null;
 let mmsPipeline = null;
 let kokoro = null;
 let whisperModel = 'Xenova/whisper-tiny';
+let asrLoadToken = 0; // bumped by setWhisperModel so a stale load can't win
 
 // Switches the on-device Whisper repo id. If a pipeline is already loaded it is
 // dropped so the next STT session reloads with the new (larger/smaller) model.
+// Any in-flight loadAsr() is invalidated via asrLoadToken and its late result
+// is discarded instead of resurrecting the old model.
 export function setWhisperModel(repoId) {
   if (typeof repoId !== 'string' || !repoId) return;
   whisperModel = repoId;
+  asrLoadToken += 1;
   if (asrPipeline) {
     asrPipeline = null;
     LocalSpeech.sttReady = false;
@@ -72,12 +76,20 @@ async function loadAsr() {
     return !!asrPipeline;
   }
   LocalSpeech.sttLoading = true;
+  const token = asrLoadToken;
+  const wantModel = whisperModel;
   try {
     const tf = await import('@huggingface/transformers');
+    if (token !== asrLoadToken) return false; // model switched mid-load
     wireTfProgress(tf.env, 'Whisper');
-    asrPipeline = await tf.pipeline('automatic-speech-recognition', whisperModel, {
+    const pipe = await tf.pipeline('automatic-speech-recognition', wantModel, {
       dtype: { encoder_model: 'fp32', decoder_model_merged: 'q8' },
     });
+    if (token !== asrLoadToken) {
+      try { if (pipe && typeof pipe.dispose === 'function') await pipe.dispose(); } catch (e) {}
+      return false;
+    }
+    asrPipeline = pipe;
     LocalSpeech.sttReady = true;
     return true;
   } catch (e) {

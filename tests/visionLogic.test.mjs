@@ -430,6 +430,14 @@ describe('decideDetectionGate (idle-floor scene gate)', () => {
     expect(r.nextDelayMs).toBe(0);
   });
 
+  it('fires immediately (delay 0) when an inference is due', () => {
+    const state = { burstUntil: -Infinity, stableSince: -1 };
+    const now = 5000;
+    const r = decideDetectionGate({ now, lastRun: now - 400, ...COLD_MOTION, ...GATE, state });
+    expect(r.shouldRun).toBe(true);
+    expect(r.nextDelayMs).toBe(0); // parity with shouldRunVisionFrame
+  });
+
   it('does not mutate the caller state object (pure)', () => {
     const state = { burstUntil: -Infinity, stableSince: 0 };
     const snapshot = { ...state };

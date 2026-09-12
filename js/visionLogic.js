@@ -229,8 +229,11 @@ export function decideDetectionGate({
   const elapsed = now - lastRun;
   const first = !lastRun || lastRun <= 0; // mirror shouldRunVisionFrame: kick off immediately
   const shouldRun = first || elapsed >= interval;
+  // Parity with shouldRunVisionFrame: when an inference is due NOW the caller
+  // must fire immediately (delay 0), not wait another full interval. The
+  // interval is the delay AFTER a run, returned by the caller scheduling it.
   const nextDelayMs = shouldRun
-    ? interval
+    ? 0
     : Math.max(0, Math.min(interval - elapsed, 5000));
   return { shouldRun, intervalMs: interval, nextDelayMs, state: s };
 }

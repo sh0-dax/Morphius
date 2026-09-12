@@ -113,10 +113,19 @@ export async function loadMeta() {
 }
 
 // Full reset (used by the corrupted-model recovery path and by tests).
+// IndexedDB has no "drop all stores, keep version" op: deleting stores inside
+// the open connection leaves the DB schema-less, so the next openDB() at the
+// same version never fires onupgradeneeded and every tx fails with NotFoundError.
+// The safe reset is deleteDatabase() — the next open recreates all stores.
 export async function nukeAgentStore() {
+  if (typeof indexedDB === 'undefined' || typeof indexedDB.deleteDatabase !== 'function') return false;
   try {
-    const db = await openDB();
-    const names = [...db.objectStoreNames];
-    for (const name of names) db.deleteObjectStore(name);
-  } catch (e) { /* not fatal */ }
+    await new Promise((resolve, reject) => {
+      const req = indexedDB.deleteDatabase(DB_NAME);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+      req.onblocked = () => resolve(); // don't hang the caller; deletion proceeds
+    });
+    return true;
+  } catch (e) { return false; /* not fatal */ }
 }

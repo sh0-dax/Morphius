@@ -32,7 +32,7 @@ export const INTENT_LEXICON = {
   ]),
   farewell: new Set([
     'bye', 'goodbye', 'farewell', 'tata', 'later', 'see', 'الي', 'اللقاء',
-    'وداعا', 'باي', 'معالسلامة', 'تصبح', 'على', 'خير',
+    'وداعا', 'باي', 'معالسلامة', 'تصبح', 'خير',
   ]),
   help: new Set([
     'help', 'assist', 'support', 'stuck', 'solve', 'fix', 'ساعد', 'ساعدني',
@@ -54,7 +54,7 @@ export const INTENT_LEXICON = {
     'انزعجت', 'غلط', 'فاشل', 'حزين', 'خاطئ', 'مستاء', 'مستاءة',
   ]),
   question: new Set([
-    'what', 'when', 'where', 'why', 'how', 'which', 'any', 'هل', 'ماذا',
+    'who', 'what', 'when', 'where', 'why', 'how', 'which', 'any', 'هل', 'ماذا',
     'لماذا', 'كيف', 'أين', 'اين', 'متى', 'ما', 'ليش', 'إيش', 'أي',
   ]),
 };
@@ -122,5 +122,10 @@ export function classifyIntent(text, features, extraLexicon) {
   const relative = best / (best + second);
   const ramp = Math.min(1, best / CONF_RAMP);
   const confidence = Number((relative * ramp).toFixed(3));
+  if (f && f.negationCount > 0) {
+    if (bestKey === 'positive') bestKey = 'negative';
+    else if (bestKey === 'negative') bestKey = 'positive';
+  }
+
   return { intent: /** @type {IntentKey} */ (bestKey), confidence };
 }

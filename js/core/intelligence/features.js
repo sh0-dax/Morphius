@@ -30,13 +30,22 @@ export const QUESTION_WORDS = new Set([
 ]);
 
 export const NEGATION_WORDS = new Set([
-  'not', 'no', 'never', 'dont', 'cannot', 'cant', 'won t', 'wont',
+  'not', 'no', 'never', 'dont', 'cannot', 'cant', 'wont',
   'لم', 'لا', 'ليس', 'ليست', 'لن', 'أبدا', 'مش', 'مو',
 ]);
 
 const PUNCT_RE = /[!?؟]+/g;
 const SENTENCE_END_RE = /[.!?؟]+/g;
 const TOKEN_RE = /[\p{L}\p{N}]+/gu;
+/** Normalize English contractions BEFORE tokenization so apostrophe forms
+ *  survive as single tokens (don't → dont, can't → cant, won't → wont,
+ *  it's → its). Curly/straight apostrophes between letters are dropped;
+ *  everything else is left for the tokenizer to split. */
+export function normalizeContractions(text) {
+  return String(text ?? '')
+    .replace(/[‘’‚‛`´ʹʼˊ＇]/g, "'")
+    .replace(/([A-Za-z])'([A-Za-z])/g, '$1$2');
+}
 
 /**
  * Extract a flat lexical feature vector from a text string.
@@ -51,7 +60,8 @@ const TOKEN_RE = /[\p{L}\p{N}]+/gu;
  */
 export function extractFeatures(text) {
   const raw = String(text == null ? '' : text).trim();
-  const rawTokens = raw ? [...raw.toLowerCase().matchAll(TOKEN_RE)].map((m) => m[0]) : [];
+  const normalized = normalizeContractions(raw);
+  const rawTokens = normalized ? [...normalized.toLowerCase().matchAll(TOKEN_RE)].map((m) => m[0]) : [];
 
   const fullyQuestionMarked = (raw.match(/[?؟]$/) !== null);
   const questionMarks = (raw.match(PUNCT_RE) || []).join('').length;

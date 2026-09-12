@@ -49,7 +49,7 @@ const CORRECTION_PATTERNS = [
   /(?:أقصد|اقصد|يعني|أعني|قلت)\s+([^.؟;]+)/,
 ];
 
-const REJECTION_MARKER = /(?:no\b|not\b|لا|ليس|مش|\bبل\b)/i;
+const REJECTION_MARKER = /(?:^|[\s,;:.!?؟…'"«»()\[\]{}—–-])(?:no|not|لا|ليس|ليست|لن|مش|مو|بل)(?=[\s,;:.!?؟…'"«»()\[\]{}—–-]|$)/iu;
 
 /** Is this token already meaningful to the static classifier? */
 function isSeedToken(token) {

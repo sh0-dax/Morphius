@@ -4,6 +4,10 @@ import {
   sessionTitle,
   makeSessionId,
   buildSession,
+  dataUrlBytes,
+  CHAT_MAX_MESSAGES,
+  CHAT_MAX_TEXT_CHARS,
+  CHAT_MAX_IMAGE_BYTES,
 } from '../js/chatStore.js';
 
 describe('sanitizeMessages', () => {
@@ -53,6 +57,33 @@ describe('sanitizeMessages', () => {
     const copy = JSON.parse(JSON.stringify(src));
     sanitizeMessages(src);
     expect(src).toEqual(copy);
+  });
+
+  it('drops oversized/non-data images and caps text + history', () => {
+    const big = 'data:image/png;base64,' + 'A'.repeat(CHAT_MAX_IMAGE_BYTES * 2);
+    const small = 'data:image/png;base64,' + 'QQ==';
+    expect(dataUrlBytes(small)).toBe(1);
+    expect(dataUrlBytes(big)).toBeGreaterThan(CHAT_MAX_IMAGE_BYTES);
+    const sample = [{
+      role: 'user',
+      content: [
+        { type: 'text', text: 'ok' },
+        { type: 'image_url', image_url: { url: big } },
+        { type: 'image_url', image_url: { url: 'https://x/y.png' } },
+        { type: 'image_url', image_url: { url: small } },
+      ],
+    }];
+    const out = sanitizeMessages(sample);
+    expect(out[0].content).toEqual([
+      { type: 'text', text: 'ok' },
+      { type: 'image_url', image_url: { url: small } },
+    ]);
+    const long = [{ role: 'user', content: 'x'.repeat(CHAT_MAX_TEXT_CHARS + 10) }];
+    expect(sanitizeMessages(long)[0].content).toHaveLength(CHAT_MAX_TEXT_CHARS);
+    const many = Array.from({ length: CHAT_MAX_MESSAGES + 10 }, (_, i) => ({ role: 'user', content: 'm' + i }));
+    const capped = sanitizeMessages(many);
+    expect(capped).toHaveLength(CHAT_MAX_MESSAGES);
+    expect(capped[capped.length - 1].content).toBe('m' + (CHAT_MAX_MESSAGES + 9));
   });
 });
 

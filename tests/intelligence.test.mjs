@@ -30,6 +30,15 @@ describe('features', () => {
     expect(extractFeatures('never').negationCount).toBe(1);
   });
 
+  it('normalizes apostrophe contractions to single tokens', () => {
+    expect(extractFeatures("I don't like this").negationCount).toBe(1);
+    expect(extractFeatures("I don’t like this").negationCount).toBe(1);
+    expect(extractFeatures("I can't go").negationCount).toBe(1);
+    expect(extractFeatures("I won't go").negationCount).toBe(1);
+    // "It's" must not split into it+s noise
+    expect(extractFeatures("It's great").tokens).not.toContain('s');
+  });
+
   it('computes lexical statistics', () => {
     const f = extractFeatures('abcdef! hi. Won der?');
     expect(f.avgTokenLength).toBe(3.5); // (6+2+3+3)/4

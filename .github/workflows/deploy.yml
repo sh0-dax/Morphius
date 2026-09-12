@@ -34,9 +34,7 @@ jobs:
       - name: Syntax check (all browser JS)
         run: |
           set -e
-          for f in js/*.js; do
-            node --check "$f"
-          done
+          git ls-files 'js/**/*.js' | xargs -n1 node --check
           echo "Syntax OK"
 
       - name: Run unit tests

@@ -99,6 +99,8 @@ function term(msg, type) {
   termEl.scrollTop = termEl.scrollHeight;
 }
 
+const DEBUG_MAX = 200;
+
 function dbg(msg, type) {
   const t = new Date().toTimeString().slice(0, 8);
   const span = document.createElement('div');
@@ -108,6 +110,9 @@ function dbg(msg, type) {
   if (type === 'warn') color = 'var(--warn)';
   span.innerHTML = '<span style="color:var(--dim)">[' + esc(t) + ']</span> <span style="color:' + esc(color) + '">' + esc(msg) + '</span>';
   debugEl.appendChild(span);
+  // Cap the debug log like the terminal: long sessions used to grow this DOM
+  // list without bound (thousands of divs).
+  while (debugEl.children.length > DEBUG_MAX) debugEl.removeChild(debugEl.firstChild);
   debugEl.scrollTop = debugEl.scrollHeight;
   term(msg, type);
   console.log('[' + type.toUpperCase() + '] ' + msg);

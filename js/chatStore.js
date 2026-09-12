@@ -14,6 +14,30 @@ const VALID_ROLES = new Set(['user', 'assistant', 'system', 'error']);
 
 // ---- Pure helpers (unit-tested) ----
 
+// Persistence quotas: IndexedDB has no server-side trim, so cap at the
+// sanitize layer. A single 5MB base64 photo x 50 turns would otherwise
+// blow the per-origin quota and break ALL future saves with QuotaExceeded.
+export const CHAT_MAX_MESSAGES = 200;
+export const CHAT_MAX_TEXT_CHARS = 20000;
+export const CHAT_MAX_IMAGE_BYTES = 500 * 1024;
+export const CHAT_MAX_IMAGES_PER_MESSAGE = 4;
+
+// Approximate decoded bytes of a data: URL (base64 ~4/3 overhead).
+export function dataUrlBytes(url) {
+  if (typeof url !== 'string') return 0;
+  const comma = url.indexOf(',');
+  const b64 = comma >= 0 ? url.slice(comma + 1) : url;
+  // Strip whitespace; non-base64 chars (e.g. non-data URLs) count 0.
+  const clean = b64.replace(/\s+/g, '');
+  if (!clean || /[^A-Za-z0-9+\/=]/.test(clean)) return 0;
+  const pad = (clean.match(/=+$/) || [''])[0].length;
+  return Math.max(0, Math.floor((clean.length * 3) / 4) - pad);
+}
+
+function clipText(s) {
+  return s.length > CHAT_MAX_TEXT_CHARS ? s.slice(0, CHAT_MAX_TEXT_CHARS) : s;
+}
+
 // Normalizes an arbitrary messages list into persistable {role, content}
 // records. Text content is kept as a string; future multimodal parts
 // arrive as an array of {type, text|image_url} objects.
@@ -24,20 +48,27 @@ export function sanitizeMessages(messages) {
     if (!m || typeof m !== 'object' || typeof m.role !== 'string') continue;
     if (!VALID_ROLES.has(m.role)) continue;
     if (typeof m.content === 'string') {
-      if (m.content.trim()) out.push({ role: m.role, content: m.content });
+      if (m.content.trim()) out.push({ role: m.role, content: clipText(m.content) });
     } else if (Array.isArray(m.content)) {
       const parts = [];
+      let images = 0;
       for (const p of m.content) {
         if (!p || typeof p !== 'object') continue;
-        if (typeof p.text === 'string' && p.text.trim()) parts.push({ type: 'text', text: p.text });
+        if (typeof p.text === 'string' && p.text.trim()) parts.push({ type: 'text', text: clipText(p.text) });
         else if (p.type === 'image_url' && p.image_url && typeof p.image_url === 'object') {
-          parts.push({ type: 'image_url', image_url: p.image_url });
+          const url = p.image_url.url;
+          if (typeof url !== 'string' || !url.startsWith('data:')) continue;
+          if (dataUrlBytes(url) > CHAT_MAX_IMAGE_BYTES) continue;
+          if (images >= CHAT_MAX_IMAGES_PER_MESSAGE) continue;
+          images += 1;
+          parts.push({ type: 'image_url', image_url: { url } });
         }
       }
       if (parts.length) out.push({ role: m.role, content: parts });
     }
   }
-  return out;
+  // Keep the most recent turns when the history overflows the cap.
+  return out.length > CHAT_MAX_MESSAGES ? out.slice(out.length - CHAT_MAX_MESSAGES) : out;
 }
 
 // Derives a display title from the first user message.

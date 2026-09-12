@@ -15,17 +15,13 @@
 // runtime AND the test-suite share the same extraction spec.
 // ============================================================
 
-import { tokenize, hasArabicScript } from './nlp.js';
+import { tokenize, hasArabicScript, normalizeArabic } from './nlp.js';
 
-// ---- normalization (mirrors nlp.js tokenize: marks stripped + AR_MAP) ----
-const AR_MAP = { 'أ': 'ا', 'إ': 'ا', 'آ': 'ا', 'ى': 'ي', 'ة': 'ه', 'ئ': 'ي', 'ؤ': 'و' };
+// ---- normalization (single source of truth: nlp.js normalizeArabic + tokenize) ----
 function normKey(text) {
   if (hasArabicScript(String(text))) {
-    const stripped = String(text)
-      .replace(/[\u0610-\u061A\u0620\u064B-\u065F\u0670\u06D6-\u06ED\u08D4-\u08E1]/g, '')
-      .split('')
-      .map((ch) => AR_MAP[ch] || ch)
-      .join('');
+    // normalizeArabic strips harakat/tatweel (incl. U+0640 + U+FB1D) + maps أإآ/ى/ة/ئ/ؤ.
+    const stripped = normalizeArabic(String(text));
     return tokenize(stripped).join(' ') || tokenize(String(text)).join(' ') || '';
   }
   return tokenize(text).join(' ');
