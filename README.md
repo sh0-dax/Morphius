@@ -240,7 +240,7 @@ Key internal modules:
 - **Encrypted key vault** — AES-GCM, non-extractable, IndexedDB (never plain text). *Limits: this protects data at rest; it does not stop XSS or in-page code from using the key while a request runs (see [PRIVACY.md](PRIVACY.md)).*
 - **Onboarding flow** — first-run step-by-step setup.
 - **Model downloads** — progress surfaced to the HUD via `progress.js`.
-- **7 bundled GLB models** including FaceCap (CDN), ARKit 52, robot, raccoon, android, and more.
+- **3 bundled GLB models** (FaceCap via CDN, ARKit 52 blendshape, and a raccoon head) plus your own uploads.
 - **Scene projection** (`projection.js`) — drop or pick an image / `GLB` / `GLTF` / `VRM` file to beam it into the 3D scene as a hologram. Raycast gestures (pan, pinch-scale, rotate, double-tap reset, wheel) interact with the item while leaving OrbitControls untouched. Projecting a **model** enters a "show mode": the avatar face hides, the stage expands, the camera auto-frames and free-orbits the model, then everything restores on clear. Optional [anime.js v4](https://animejs.com) entry/float/**exit**/speaking-pulse polish degrades cleanly when offline or `prefers-reduced-motion`. Driven by the **⓪ projector** button in the composer or by drag-and-drop anywhere on the page; exposed programmatically via `window.AIFace.projectImage() / projectModel() / clearProjections()`.
 
 ### AI Vision
