@@ -47,6 +47,7 @@ const SHELL_FILES = [
   './js/core/retry.js',
   './js/core/morphEngine.js',
   './js/core/stateChart.js',
+  './js/modules/esc.js',
   './js/core/intelligence/features.js',
   './js/core/intelligence/intent.js',
   './js/core/intelligence/emotion.js',

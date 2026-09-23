@@ -21,6 +21,7 @@ import { STATE_TARGETS, EMOTION_TARGETS, FEELING_TARGETS, VISION_TARGETS, STATE_
 import { saveSession, loadSession, listSessions, deleteSession, getLastSession, buildSession, makeSessionId, sanitizeMessages, sessionTitle } from './chatStore.js';
 import { createProjectionManager, MATERIAL_MODES } from './projection.js';
 import { startHandTracking, stopHandTracking } from './handTracking.js';
+import { esc } from './modules/esc.js';
 import { extractFeatures } from './core/intelligence/features.js';
 import { classifyIntent, MIN_CONFIDENCE } from './core/intelligence/intent.js';
 import { composeEmotion } from './core/intelligence/emotion.js';
@@ -81,12 +82,6 @@ async function applyI18n(locale) {
 const debugEl = document.getElementById('debugLog');
 const termEl = document.getElementById('terminalOutput');
 const TERM_MAX = 50;
-
-function esc(s) {
-  return String(s ?? '')
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
 
 function term(msg, type) {
   const t = new Date().toTimeString().slice(0, 8);
