@@ -79,6 +79,7 @@ const SHELL_FILES = [
   './assets/icon-512.png',
   './js/agent/nlp.js',
   './js/agent/nb.js',
+  './js/agent/logreg.js',
   './js/agent/lm.js',
   './js/agent/memory.js',
   './js/agent/modelStore.js',
