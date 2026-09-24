@@ -6,6 +6,7 @@ import {
   detectEmotion,
   contentToText,
   contentImages,
+  isSafeImageUrl,
   buildUserContent,
   dataUrlMeta,
   geminiContentParts,
@@ -653,5 +654,37 @@ describe('shouldRenderFaceFrame (frame skipping)', () => {
   it('treats missing/garbage cap as 60fps', () => {
     expect(shouldRenderFaceFrame(1, undefined)).toBe(true);
     expect(shouldRenderFaceFrame(1, 'fast')).toBe(true);
+  });
+});
+
+describe('isSafeImageUrl (render-time image guard)', () => {
+  it('accepts raster data: URLs', () => {
+    expect(isSafeImageUrl('data:image/png;base64,iVBORw0KGgo=')).toBe(true);
+    expect(isSafeImageUrl('data:image/jpeg;base64,/9j/4AAQ')).toBe(true);
+    expect(isSafeImageUrl('data:image/webp;base64,UklGRg==')).toBe(true);
+  });
+
+  it('accepts same-session blob: URLs', () => {
+    expect(isSafeImageUrl('blob:http://localhost:3000/8f3c-1')).toBe(true);
+  });
+
+  it('rejects script-bearing and remote schemes', () => {
+    expect(isSafeImageUrl('javascript:alert(1)')).toBe(false);
+    expect(isSafeImageUrl('vbscript:msgbox(1)')).toBe(false);
+    expect(isSafeImageUrl('data:text/html;base64,PHNjcmlwdD4=')).toBe(false);
+    expect(isSafeImageUrl('data:image/svg+xml;base64,PHN2Zz4=')).toBe(false);
+    expect(isSafeImageUrl('file:///C:/secret.png')).toBe(false);
+    expect(isSafeImageUrl('https://evil.example/track.png')).toBe(false);
+    expect(isSafeImageUrl('//evil.example/x.png')).toBe(false);
+  });
+
+  it('rejects empty / non-string / non-base64 payloads', () => {
+    expect(isSafeImageUrl('')).toBe(false);
+    expect(isSafeImageUrl('   ')).toBe(false);
+    expect(isSafeImageUrl(null)).toBe(false);
+    expect(isSafeImageUrl(undefined)).toBe(false);
+    expect(isSafeImageUrl(42)).toBe(false);
+    expect(isSafeImageUrl('data:image/png;base64,<script>')).toBe(false);
+    expect(isSafeImageUrl('data:image/png,plaintext')).toBe(false);
   });
 });

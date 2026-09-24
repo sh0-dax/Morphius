@@ -94,6 +94,26 @@ export function contentImages(content) {
     .map((p) => p.image_url.url);
 }
 
+// ---- Image URL safety (render-time guard) ----
+// Chat content can round-trip through persistence, session import/export and
+// cloud providers, so a URL that ends up in the DOM is untrusted input. Only
+// raster data: URLs and same-session blob: URLs are renderable; every other
+// scheme (javascript:, file:, http(s):// random hosts, data:text/html,
+// data:image/svg+xml) is rejected. Pure + unit-tested.
+const SAFE_RASTER_DATA_URL_RE = /^data:image\/(?:png|jpe?g|webp|gif|avif|bmp);base64,[A-Za-z0-9+/=\s]+$/i;
+
+/**
+ * @param {string} url candidate src for an <img>
+ * @returns {boolean} true when the URL is safe to render
+ */
+export function isSafeImageUrl(url) {
+  if (typeof url !== 'string') return false;
+  const u = url.trim();
+  if (!u) return false;
+  if (u.startsWith('blob:')) return true;
+  return SAFE_RASTER_DATA_URL_RE.test(u);
+}
+
 // Builds the content a user turn should carry given optional text + image.
 export function buildUserContent(text, image) {
   const t = String(text || '').trim();

@@ -2,8 +2,11 @@
    AI Face v6 ظ¤ Styles
    ============================================================ */
 
-@import url("https://fonts.cdnfonts.com/css/thegoodmonolith");
-@import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap");
+/* Fonts load via <link> in index.html (preconnect + display=swap, non-blocking):
+   https://fonts.cdnfonts.com/css/thegoodmonolith
+   https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap
+   (kept out of this stylesheet so a slow/blocked font host cannot block FCP,
+   and so the service worker can cache the CSS like the other CDN pins.) */
 
 /* ---- Design Tokens ---- */
 @property --glow-intensity {

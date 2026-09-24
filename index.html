@@ -10,12 +10,28 @@
   <link rel="icon" href="./assets/icon.svg" type="image/svg+xml">
   <link rel="icon" href="./assets/icon-192.png" sizes="192x192">
   <link rel="apple-touch-icon" href="./assets/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.cdnfonts.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.cdnfonts.com/css/thegoodmonolith">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap">
   <link rel="stylesheet" href="./css/styles.css">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net https://esm.run; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.cdnfonts.com; font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://fonts.cdnfonts.com; connect-src 'self' blob: data: https://generativelanguage.googleapis.com wss://generativelanguage.googleapis.com https://api.openai.com https://api.anthropic.com https://api.meta.ai https://api.bazaarlink.ai http://localhost:11434 http://localhost:8000 https://storage.googleapis.com https://huggingface.co https://cdn.jsdelivr.net https://unpkg.com https://esm.run https://threejs.org; img-src 'self' blob: data: https://cdn.jsdelivr.net; media-src 'self' blob: data:; worker-src 'self' blob:; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-XL8irmOkNXH3bEzsKU97KWppAdgv2WaISKhfA3ksNDs=' 'wasm-unsafe-eval' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net https://esm.run; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.cdnfonts.com; font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://fonts.cdnfonts.com; connect-src 'self' blob: data: https://generativelanguage.googleapis.com wss://generativelanguage.googleapis.com https://api.openai.com https://api.anthropic.com https://api.meta.ai https://api.bazaarlink.ai http://localhost:11434 http://localhost:8000 https://storage.googleapis.com https://huggingface.co https://cdn.jsdelivr.net https://unpkg.com https://esm.run https://threejs.org; img-src 'self' blob: data: https://cdn.jsdelivr.net; media-src 'self' blob: data:; worker-src 'self' blob:; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="referrer" content="no-referrer">
-  <!-- CSP note: 'unsafe-eval' is required by three.js KTX2Loader's basis transcoder, which evaluates
-       the basis_transcoder.js string in a blob worker to compile WASM ('wasm-unsafe-eval' alone does
-       not cover that path). Kept pragmatic for a static no-build PWA on GitHub Pages. -->
+  <!-- CSP note: all inline <script> blocks were extracted to ./js/boot/*.js so
+       script-src no longer needs 'unsafe-inline'. The two blocks that MUST stay
+       inline/ordered differently are covered by sha256 hashes — the import map
+       above is the only inline block left. Regenerate the hash after editing it:
+           node scripts/gen-csp-hash.mjs
+       tests/csp.test.mjs fails if the hash drifts.
+       'wasm-unsafe-eval' covers WebAssembly compile
+       (onnxruntime-web, transformers.js, basis transcoder).
+       'unsafe-eval' is still required by the basis transcoder that three.js
+       KTX2Loader evaluates in a blob worker ('wasm-unsafe-eval' alone does not
+       cover that path). `node scripts/gen-csp-hash.mjs --strict` prints a
+       variant without it for deployments that never load KTX2/Basis textures.
+       style-src keeps 'unsafe-inline' for the markup's style="" attributes
+       (styles cannot execute script; tracked as a follow-up cleanup). -->
 </head>
 <body>
   <div class="bg-grid"></div>
@@ -131,8 +147,9 @@
           </div>
           <div class="field-group" id="groupKey">
             <label for="cfgKey" data-i18n="settings.apiKey">API Key</label>
-            <input type="password" id="cfgKey" data-i18n-placeholder="settings.keyPlaceholder" placeholder="Paste API key here">
+            <input type="password" id="cfgKey" data-i18n-placeholder="settings.keyPlaceholder" placeholder="Paste API key here" autocomplete="off" spellcheck="false">
             <small data-i18n="settings.keyHint">Required for cloud chat providers (Gemini, OpenAI, Claude, ...). Leave empty for Local Agent / WebLLM / Ollama.</small>
+            <div id="keyPersistWarning" class="status-pill warn" style="display:none;" data-i18n="settings.keysNotSaved">Keys NOT saved: encryption unavailable in this context -- serve over http://localhost or https.</div>
           </div>
           <div class="field-group" id="groupUrl">
             <label for="cfgUrl" data-i18n="settings.baseUrl">Base URL / Endpoint</label>
@@ -147,6 +164,10 @@
             <button id="btnSave" class="btn" style="flex:1;" data-i18n="btn.save">Save Settings</button>
             <button id="btnTest" class="btn" style="flex:1;" data-i18n="btn.test">Test Connection</button>
           </div>
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <button id="btnClearKeys" class="btn" style="flex:1;border-color:var(--danger,#e5484d);color:var(--danger,#e5484d);" data-i18n="btn.clearKeys">Clear Stored Keys</button>
+          </div>
+          <div id="keyPersistWarning" class="status-pill warn" style="display:none;width:100%;text-align:center;box-sizing:border-box;" data-i18n="settings.keysNotPersisted">Keys NOT stored: encryption unavailable on this page (open via http://localhost or https).</div>
           <div id="connStatus"></div>
         </div>
       </div>
@@ -225,7 +246,7 @@
           <div id="geminiTtsFields" style="display:none;">
             <div class="field-group">
               <label for="cfgGeminiTtsKey" data-i18n="settings.voiceKey">Gemini API Key (for voice)</label>
-              <input type="password" id="cfgGeminiTtsKey" data-i18n-placeholder="settings.voiceKeyPlaceholder" placeholder="Paste your Gemini API key here">
+              <input type="password" id="cfgGeminiTtsKey" data-i18n-placeholder="settings.voiceKeyPlaceholder" placeholder="Paste your Gemini API key here" autocomplete="off" spellcheck="false">
               <small data-i18n="settings.voiceKeyHint">Reused automatically if Provider above is already set to Gemini</small>
             </div>
             <div class="row-2">
@@ -258,7 +279,7 @@
           <div id="liveVoiceFields" style="display:none;">
             <div class="field-group">
               <label for="cfgLiveKey" data-i18n="settings.liveKey">Gemini API Key (for live call)</label>
-              <input type="password" id="cfgLiveKey" data-i18n-placeholder="settings.voiceKeyPlaceholder" placeholder="Paste your Gemini API key here">
+              <input type="password" id="cfgLiveKey" data-i18n-placeholder="settings.voiceKeyPlaceholder" placeholder="Paste your Gemini API key here" autocomplete="off" spellcheck="false">
               <small data-i18n="settings.liveKeyHint">Reuses the Gemini key above if the main provider is set to Gemini</small>
             </div>
             <div class="field-group">
@@ -670,82 +691,9 @@
     }
   }
   </script>
-  <script>
-    // Apply saved theme BEFORE first paint to prevent flash
-    try {
-      var s = JSON.parse(localStorage.getItem('aiface_llm_settings'));
-      if (s && s.theme && s.theme !== 'blueprint') document.documentElement.className = 'theme-' + s.theme;
-    } catch(e) {}
-  </script>
-  <script>
-    // DEV/self-heal kill switch: loading with ?nosw unregisters any service
-    // worker and clears app-shell caches so a stale SW can never pin old code.
-    // NOTE: this must run before the module script below.
-    window.__NOSW = new URLSearchParams(location.search).has('nosw');
-    if (window.__NOSW) {
-      (function() {
-        try {
-          navigator.serviceWorker.getRegistrations().then(function(regs) {
-            return Promise.all(regs.map(function(r) { return r.unregister(); }));
-          }).catch(function() {});
-          caches.keys().then(function(keys) {
-            return Promise.all(keys.filter(function(k) { return k.indexOf('aiface-shell') === 0; }).map(function(k) { return caches.delete(k); }));
-          }).catch(function() {});
-        } catch (e) {}
-        document.addEventListener('DOMContentLoaded', function() {
-          var chip = document.createElement('div');
-          chip.className = 'nosw-chip';
-          chip.title = 'Service worker bypassed — PWA/offline disabled. Remove ?nosw from the URL to re-enable.';
-          chip.textContent = 'NO-SW // DEV';
-          document.body.appendChild(chip);
-        });
-      })();
-      console.warn('[nosw] service worker bypassed — PWA/offline disabled.');
-    }
-  </script>
+  <script src="./js/boot/theme.js"></script>
+  <script src="./js/boot/nosw.js"></script>
   <script type="module" src="./js/app.js"></script>
-  <script>
-    // Detect if modules failed (file:// protocol) and show a helpful message
-    window.addEventListener('DOMContentLoaded', function() {
-      setTimeout(function() {
-        var loadMsg = document.getElementById('loadMsg');
-        if (loadMsg && loadMsg.style.display !== 'none' && loadMsg.textContent.indexOf('server') === -1) {
-          if (location.protocol === 'file:') {
-            loadMsg.textContent = 'ES modules require a web server. Run: npx serve . --port 3000';
-            loadMsg.style.display = 'flex';
-            loadMsg.style.color = '#ff4757';
-          }
-        }
-      }, 3000);
-    });
-    // Watchdog: if app.js's module graph never evaluates (a pinned CDN library
-    // is unreachable), show the error banner instead of hanging on "Initializing".
-    window.__APP_STATIC_READY = 0;
-    window.addEventListener('DOMContentLoaded', function() {
-      setTimeout(function() {
-        var banner = document.getElementById('loadErrorBanner');
-        var msgEl = document.getElementById('loadErrorMsg');
-        if (!window.__APP_STATIC_READY && banner && msgEl) {
-          msgEl.textContent = 'App module failed to load (a CDN/library is unreachable). Check your connection, then Retry, or load the URL with ?nosw to bypass the cache.';
-          banner.hidden = false;
-        }
-      }, 15000);
-    });
-    if ('serviceWorker' in navigator && !window.__NOSW) {
-      window.addEventListener('load', function() {
-        navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
-          .then(function(reg) {
-            if (reg && typeof reg.update === 'function') return reg.update();
-          })
-          .catch(function(e) { console.warn('SW registration skipped:', e.message); });
-        var refreshing = false;
-        navigator.serviceWorker.addEventListener('controllerchange', function() {
-          if (refreshing) return;
-          refreshing = true;
-          window.location.reload();
-        });
-      });
-    }
-  </script>
+  <script src="./js/boot/watchdog.js"></script>
 </body>
 </html>

@@ -13,7 +13,7 @@ import { Vision } from './vision.js';
 import { LocalSpeech, startLocalSTT, stopLocalSTT, generateLocalAudio, playLocalAudio, setLocalCallbacks, stopLocalAudio, setWhisperModel, applyMasterSettings } from './localSpeech.js';
 import { modelProgress } from './progress.js';
 import { getMasterVolume, setMasterVolume, setOutputDevice, routeOutput } from './masterBus.js';
-import { detectFeeling, visemeFor, DEFAULT_VISEME, VISEME_KEYS, contentToText, contentImages, buildUserContent, geminiContentParts, dataUrlMeta, detectDeviceTier, recommendedWebLlmModel, createEventBus, lerpWeight, fetchWithRetry, computeFaceRenderCap, shouldRenderFaceFrame, faceRenderQuality } from './pure.js';
+import { detectFeeling, visemeFor, DEFAULT_VISEME, VISEME_KEYS, contentToText, contentImages, isSafeImageUrl, buildUserContent, geminiContentParts, dataUrlMeta, detectDeviceTier, recommendedWebLlmModel, createEventBus, lerpWeight, fetchWithRetry, computeFaceRenderCap, shouldRenderFaceFrame, faceRenderQuality } from './pure.js';
 import { computeBlendedWeights, shouldIdleLife } from './core/morphEngine.js';
 import { stateBodyClass, isValidState } from './core/stateChart.js';
 import { computeVisionFeeling, decideVisionCommentary, getSpeakHint, displayClass, VISION_SPEAK_CLASSES, canRunCameraPipeline, computeNewClasses, splitBands } from './visionLogic.js';
@@ -29,9 +29,11 @@ import { behaviorPolicy, neutralBehavior } from './core/intelligence/behavior.js
 import { createUserModel } from './core/intelligence/userModel.js';
 import { createAnomalyTracker } from './core/intelligence/anomaly.js';
 import { createIntentLearner } from './core/intelligence/learn.js';
+import { unifyTextWithAgent } from './core/intelligence/intentMap.js';
 import { createLocalAgent } from './agent/agent.js';
 import { AGENT_MODEL_VERSION } from './agent/agent.js';
 import { addLearningEvent } from './agent/modelStore.js';
+import { createSecretStore, createIdbKeySlot } from './core/secretStore.js';
 
 // ---- i18n (lightweight loader, EN fallback, dir flip for RTL) ----
 const I18N_FILES = { en: 'i18n/en.json', ar: 'i18n/ar.json', fr: 'i18n/fr.json', de: 'i18n/de.json', es: 'i18n/es.json', ja: 'i18n/ja.json' };
@@ -281,7 +283,7 @@ function recordInterruption(reason) {
   dbg('Intelligence: interruption recorded (' + reason + ')', 'warn');
 }
 
-function solveInteraction(text, baseFeeling, features) {
+function solveInteraction(text, baseFeeling, features, agentIntent) {
   if (!intelligenceEnabled) {
     S.intent = 'none';
     S.intentConfidence = 0;
@@ -289,9 +291,13 @@ function solveInteraction(text, baseFeeling, features) {
     S.behavior = neutralBehavior();
     return null;
   }
-  // Pipeline order: features → intent → affect → userModel(userTurn) → behavior.
+  // Pipeline order: features → intent (both brains, unified) → affect →
+  // userModel(userTurn) → behavior. The agent brain decides only when the
+  // caller passes its decision for the same turn; otherwise the heuristic
+  // reading stands alone (heuristic-only source).
   const feats = features || extractFeatures(text);
-  const classified = classifyIntent(text, feats, learner.getExtraLexicon());
+  const unified = unifyTextWithAgent(text, agentIntent ?? null, feats, learner.getExtraLexicon());
+  const classified = { intent: unified.intent, confidence: unified.heuristic.confidence };
   const affect = composeEmotion({ intent: classified.intent, confidence: classified.confidence, baseFeeling });
   userModel.reconcile({ type: 'userTurn', isQuestion: feats.isQuestion });
   const directive = behaviorPolicy({
@@ -1932,6 +1938,8 @@ const cfgMasterVolume = document.getElementById('cfgMasterVolume');
 const cfgMasterVolumeValue = document.getElementById('masterVolumeValue');
 const cfgOutputDevice = document.getElementById('cfgOutputDevice');
 const cfgLocale = document.getElementById('cfgLocale');
+const btnClearKeys = document.getElementById('btnClearKeys');
+if (btnClearKeys) btnClearKeys.addEventListener('click', () => { clearAllKeys(); });
 
 // ---- Viseme playground ----
 const visemeInput = document.getElementById('visemeInput');
@@ -2616,77 +2624,47 @@ if (cfgWebLlmCustom) {
   });
 }
 
-// ---- Local key protection ----
-const SECURE_DB = 'aiface_secure_store';
-const SECURE_STORE = 'keys';
-function openKeyDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(SECURE_DB, 1);
-    req.onupgradeneeded = () => req.result.createObjectStore(SECURE_STORE);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-async function getOrCreateCryptoKey() {
-  const db = await openKeyDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(SECURE_STORE, 'readwrite');
-    const store = tx.objectStore(SECURE_STORE);
-    const getReq = store.get('masterKey');
-    getReq.onsuccess = async () => {
-      if (getReq.result) { resolve(getReq.result); return; }
-      try {
-        const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
-        const putReq = store.put(key, 'masterKey');
-        putReq.onsuccess = () => resolve(key);
-        putReq.onerror = () => reject(putReq.error);
-      } catch (e) { reject(e); }
-    };
-    getReq.onerror = () => reject(getReq.error);
-  });
-}
-async function encryptText(plain) {
-  if (!plain) return '';
-  try {
-    const key = await getOrCreateCryptoKey();
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const data = new TextEncoder().encode(plain);
-    const cipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data);
-    const ivB64 = btoa(String.fromCharCode(...iv));
-    const dataB64 = btoa(String.fromCharCode(...new Uint8Array(cipher)));
-    return 'enc:' + ivB64 + ':' + dataB64;
-  } catch (e) {
-    dbg('Key encryption unavailable (' + e.message + ') -- falling back to plain storage', 'warn');
-    return plain;
+// ---- Local key protection (fail-closed vault, see js/core/secretStore.js) ----
+// The vault encrypts with AES-GCM-256; when WebCrypto is unavailable (file://)
+// it REFUSES to persist keys instead of writing them in plaintext.
+const secretVault = createSecretStore({ keySlot: createIdbKeySlot(), log: (m, k) => dbg(m, k) });
+let keysPersistedWarned = false;
+function refreshKeyWarning() {
+  const warnEl = document.getElementById('keyPersistWarning');
+  if (!warnEl) return;
+  const show = !secretVault.keysPersisted();
+  warnEl.style.display = show ? 'block' : 'none';
+  if (show && !keysPersistedWarned) {
+    keysPersistedWarned = true;
+    dbg('Keys NOT persisted: WebCrypto unavailable -- serve over http://localhost or https (fail-closed)', 'warn');
   }
 }
-async function decryptText(stored) {
-  if (!stored) return '';
-  if (!stored.startsWith('enc:')) return stored;
+async function clearAllKeys() {
   try {
-    const parts = stored.split(':');
-    const iv = Uint8Array.from(atob(parts[1]), c => c.charCodeAt(0));
-    const data = Uint8Array.from(atob(parts[2]), c => c.charCodeAt(0));
-    const key = await getOrCreateCryptoKey();
-    const plainBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
-    return new TextDecoder().decode(plainBuf);
-  } catch (e) {
-    dbg('Key decryption failed: ' + e.message, 'err');
-    return '';
-  }
+    const raw = localStorage.getItem('aiface_llm_settings');
+    const s = raw ? JSON.parse(raw) : {};
+    await secretVault.clearAllKeys(s);
+    localStorage.setItem('aiface_llm_settings', JSON.stringify(s));
+  } catch (e) { /* storage unreadable: still wipe the vault + fields */ }
+  cfgKey.value = '';
+  cfgGeminiTtsKey.value = '';
+  cfgLiveKey.value = '';
+  showStatus(t('settings.keysCleared') || 'All stored API keys cleared', 'ok');
+  dbg('All stored API keys cleared', 'ok');
+  refreshKeyWarning();
 }
 
 async function saveSettings() {
-  const [key, geminiTtsKey, liveKey] = await Promise.all([
-    encryptText(cfgKey.value), encryptText(cfgGeminiTtsKey.value), encryptText(cfgLiveKey.value)
-  ]);
-  const settings = {
-    provider: cfgProvider.value, model: cfgModel.value, key,
-    url: cfgUrl.value, temp: cfgTemp.value, maxTokens: cfgMaxTokens.value,
+  const { settings, keysPersisted } = await secretVault.persistSettings(
+    { key: cfgKey.value, geminiTtsKey: cfgGeminiTtsKey.value, liveKey: cfgLiveKey.value },
+    {
+      keyVersion: 1,
+      provider: cfgProvider.value, model: cfgModel.value,
+      url: cfgUrl.value, temp: cfgTemp.value, maxTokens: cfgMaxTokens.value,
     system: cfgSystem.value, ttsLang: cfgTtsLang.value, autoSend: cfgAutoSend.checked,
-    useGeminiTts: cfgUseGeminiTts.checked, geminiTtsKey,
+    useGeminiTts: cfgUseGeminiTts.checked,
     geminiTtsModel: cfgGeminiTtsModel.value, geminiVoice: cfgGeminiVoice.value,
-    liveVoice: cfgLiveVoice.checked, liveKey,
+    liveVoice: cfgLiveVoice.checked,
     liveModel: cfgLiveModel.value, liveTranscript: cfgLiveTranscript.checked,
     model3d: cfgModel3d.value, customModelUrl: cfgCustomModelUrl.value,
     waveStyle: cfgWaveStyle.value, theme: cfgTheme.value,
@@ -2706,9 +2684,17 @@ async function saveSettings() {
     visionMaxFps: cfgVisionMaxFps ? cfgVisionMaxFps.value : '8',
     visionReact: cfgVisionReact ? cfgVisionReact.checked : true,
     visionCommentary: cfgVisionCommentary ? cfgVisionCommentary.checked : true,
-  };
+    keyVersion: 1,
+    }
+  );
   localStorage.setItem('aiface_llm_settings', JSON.stringify(settings));
-  showStatus('Settings saved (keys encrypted locally)', 'ok');
+  refreshKeyWarning();
+  showStatus(
+    keysPersisted
+      ? (t('settings.savedEncrypted') || 'Settings saved (keys encrypted locally)')
+      : (t('settings.savedNoKeys') || 'Settings saved -- keys NOT stored (encryption unavailable; use http://localhost or https)'),
+    keysPersisted ? 'ok' : 'warn'
+  );
 }
 
 async function loadSettings() {
@@ -2724,7 +2710,18 @@ async function loadSettings() {
     const s = JSON.parse(raw);
     cfgProvider.value = (s.provider && DEFAULTS[s.provider]) ? s.provider : 'agent';
     cfgModel.value = s.model || '';
-    cfgKey.value = await decryptText(s.key);
+    // Legacy fail-open values (stored without enc:/v1: prefix by the old
+    // fallback) are never trusted: wipe them. Legacy enc: migrates on save.
+    for (const f of ['key', 'geminiTtsKey', 'liveKey']) {
+      if (s[f] && typeof s[f] === 'string' && !s[f].startsWith('enc:') && !s[f].startsWith('v1:')) {
+        dbg('Dropping legacy plaintext key field "' + f + '" (fail-closed migration)', 'warn');
+        s[f] = '';
+      }
+    }
+    const restored = await secretVault.restoreSettings(s);
+    cfgKey.value = restored.key;
+    cfgGeminiTtsKey.value = restored.geminiTtsKey;
+    cfgLiveKey.value = restored.liveKey;
     cfgUrl.value = s.url || '';
     cfgTemp.value = s.temp !== undefined ? s.temp : '0.7';
     cfgMaxTokens.value = s.maxTokens !== undefined ? s.maxTokens : '1024';
@@ -2733,12 +2730,10 @@ async function loadSettings() {
     cfgAutoSend.checked = s.autoSend !== undefined ? s.autoSend : true;
     cfgUseGeminiTts.checked = s.useGeminiTts !== undefined ? s.useGeminiTts : false;
     geminiTtsFields.style.display = cfgUseGeminiTts.checked ? 'block' : 'none';
-    cfgGeminiTtsKey.value = await decryptText(s.geminiTtsKey);
     cfgGeminiTtsModel.value = s.geminiTtsModel || 'gemini-2.5-flash-preview-tts';
     cfgGeminiVoice.value = s.geminiVoice || 'Kore';
     cfgLiveVoice.checked = s.liveVoice !== undefined ? s.liveVoice : false;
     liveVoiceFields.style.display = cfgLiveVoice.checked ? 'block' : 'none';
-    cfgLiveKey.value = await decryptText(s.liveKey);
     let liveModel = s.liveModel || 'gemini-2.5-flash-native-audio-preview-12-2025';
     if (liveModel.includes('2.0-flash-live')) liveModel = 'gemini-2.5-flash-native-audio-preview-12-2025';
     cfgLiveModel.value = liveModel;
@@ -2804,7 +2799,9 @@ async function loadSettings() {
     if (cfgAutoRestoreChat) cfgAutoRestoreChat.checked = s.autoRestoreChat !== undefined ? s.autoRestoreChat : true;
     initWaveStyle();
     applyProviderDefaults();
-    if (s.key && !s.key.startsWith('enc:')) saveSettings();
+    refreshKeyWarning();
+    // Legacy enc: values transparently upgrade to v1: on the next save.
+    if (s.key && s.key.startsWith('enc:')) saveSettings();
   } catch (e) { dbg('Load settings fail: ' + e.message, 'warn'); }
 }
 let resolveSettingsReady;
@@ -2813,7 +2810,21 @@ loadSettings().catch((e) => { dbg('Settings init failed: ' + (e && e.message), '
   if (resolveSettingsReady) resolveSettingsReady();
   restoreLastSession();
 });
-btnSave.addEventListener('click', saveSettings);
+btnSave.addEventListener('click', async () => {
+  await saveSettings();
+  // The encrypted copy now lives in localStorage; blank the DOM fields so
+  // plaintext keys are not left sitting in the page (or in a saved DOM dump).
+  for (const input of [cfgKey, cfgGeminiTtsKey, cfgLiveKey]) {
+    if (input) input.value = '';
+  }
+});
+// Reduce plaintext-key exposure: the key inputs never autocomplete, and the
+// saved copy in localStorage is always encrypted (see secretStore.js).
+for (const input of [cfgKey, cfgGeminiTtsKey, cfgLiveKey]) {
+  if (!input) continue;
+  input.setAttribute('autocomplete', 'off');
+  input.setAttribute('spellcheck', 'false');
+}
 
 function showStatus(text, type) {
   if (!type) type = 'ok';
@@ -2888,11 +2899,15 @@ function addMessage(role, text, isError) {
   textEl.textContent = typeof text === 'string' ? text : contentToText(text);
   const imgs = typeof text === 'string' ? [] : contentImages(text);
   imgs.slice(0, 1).forEach((url) => {
+    // Render-time guard: a persisted/imported/provider-supplied URL is
+    // untrusted, so only raster data: and blob: sources reach the DOM.
+    if (!isSafeImageUrl(url)) return;
     const img = document.createElement('img');
     img.className = 'chat-img';
     img.src = url;
     img.alt = '';
     img.draggable = false;
+    img.referrerPolicy = 'no-referrer';
     textEl.appendChild(img);
   });
   chatHistory.appendChild(div);
@@ -3175,7 +3190,7 @@ async function refreshSessionsList() {
   if (!listEl) return;
   const list = await listSessions();
   if (!list.length) {
-    listEl.innerHTML = '<div style="color:var(--dim);padding:10px 0;font-size:12px;">' + t('sessions.empty', 'No saved conversations yet.') + '</div>';
+    listEl.innerHTML = '<div style="color:var(--dim);padding:10px 0;font-size:12px;">' + esc(t('sessions.empty', 'No saved conversations yet.')) + '</div>';
     return;
   }
   listEl.innerHTML = '';
@@ -3879,7 +3894,7 @@ function createMaterialModeToggle() {
   container.innerHTML = `
     <label style="display:flex;align-items:center;gap:8px;color:#7dd3fc;font-size:13px;cursor:pointer;font-family:var(--font-mono, monospace);">
       <input type="checkbox" id="materialModeCheckbox" style="width:18px;height:18px;accent-color:#2f81f7;">
-      <span id="materialModeLabel">${t('projection.materialModeBlueprint', 'الوضع: Blueprint (سلكي + توهج)')}</span>
+      <span id="materialModeLabel">${esc(t('projection.materialModeBlueprint', 'الوضع: Blueprint (سلكي + توهج)'))}</span>
     </label>
   `;
   const checkbox = container.querySelector('#materialModeCheckbox');

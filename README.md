@@ -12,12 +12,12 @@
 [![WebLLM](https://img.shields.io/badge/WebLLM-100%25_Local-ffaa00?style=for-the-badge&logo=webgpu&logoColor=white)]()
 [![PWA](https://img.shields.io/badge/Installable-PWA-2f81f7?style=for-the-badge&logo=pwa&logoColor=white)]()
 [![i18n](https://img.shields.io/badge/i18n-6_Locales-ec4899?style=for-the-badge&logo=google-translate&logoColor=white)]()
-[![Tests](https://img.shields.io/badge/Tests-281_passing-00d4aa?style=for-the-badge&logo=vitest&logoColor=white)]()
+[![Tests](https://img.shields.io/badge/Tests-320_passing-00d4aa?style=for-the-badge&logo=vitest&logoColor=white)]()
 [![CI](https://github.com/sh0-dax/Morphius/actions/workflows/deploy.yml/badge.svg)](https://github.com/sh0-dax/Morphius/actions/workflows/deploy.yml)
 [![Status](https://img.shields.io/badge/Status-v7.3.0_Ready-22c55e?style=for-the-badge)]()
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](./LICENSE)
 
-[![Local Agent](https://img.shields.io/badge/Local_Agent-24_Intents-10b981?style=for-the-badge)]()
+[![Local Agent](https://img.shields.io/badge/Local_Agent-26_Intents-10b981?style=for-the-badge)]()
 [![WebLLM](https://img.shields.io/badge/WebLLM_%28Optional%29-Supported-ffaa00?style=for-the-badge)]()
 [![Whisper](https://img.shields.io/badge/Whisper-Supported-00b8d9?style=for-the-badge&logo=openai&logoColor=white)]()
 [![GitHub Pages](https://img.shields.io/badge/Deploy-GitHub_Pages-181717?style=for-the-badge&logo=github&logoColor=white)](https://sh0-dax.github.io/Morphius/)
@@ -283,20 +283,25 @@ Toggle **Settings → Vision** and enable **Real-time object detection (AI Visio
 
 ## 12\. CI/CD & QA
 
-Every push to `main` runs a **mandatory test gate** (`.github/workflows/deploy.yml` → `test` job): `node --check` on every JS module plus the full vitest suite. If any check fails, the **deploy is blocked** — broken code never reaches production Pages. The `deploy` job only runs after the `test` gate passes.
+Every push to `main` runs a **mandatory test gate** (`.github/workflows/deploy.yml` → `test` job): `node --check` on every JS module (app, tests, tooling) plus the full vitest suite. If any check fails, the **deploy is blocked** — broken code never reaches production Pages. The `deploy` job only runs after the `test` gate passes.
 
 | Suite | File | Tests |
 |-------|------|-------|
 | Local Agent — NLP/NB/LM/E2E/lifecycle/memory | `tests/agent.test.mjs` | 46 |
 | Agent parity (JS ↔ Python trainer) | `tests/agentParity.test.mjs` | 6 |
-| Chat store (IndexedDB) | `tests/chatStore.test.mjs` | 13 |
-| Pure helpers | `tests/pure.test.mjs` | 89 |
-| Intelligence / face logic | `tests/intelligence.test.mjs` | 42 |
-| AI Vision logic (pure) | `tests/visionLogic.test.mjs` | 65 |
+| Chat store (IndexedDB) | `tests/chatStore.test.mjs` | 14 |
+| Pure helpers | `tests/pure.test.mjs` | 93 |
+| Intelligence / face logic | `tests/intelligence.test.mjs` | 43 |
+| Intent unification (agent ↔ affect map) | `tests/intentMap.test.mjs` | 10 |
+| Secret vault (fail-closed key encryption) | `tests/secretStore.test.mjs` | 9 |
+| CSP hashes + boot scripts + SW shell parity | `tests/csp.test.mjs` | 12 |
+| AI Vision logic (pure) | `tests/visionLogic.test.mjs` | 66 |
 | Morph engine | `tests/morphEngine.test.mjs` | 9 |
 | State chart | `tests/stateChart.test.mjs` | 4 |
-| i18n parity | `tests/i18n.test.mjs` | 7 |
-| **Total (unit)** | | **281** |
+| i18n parity | `tests/i18n.test.mjs` | 8 |
+| **Total (unit)** | | **320** |
+
+After editing the inline import map in `index.html`, regenerate the CSP hash with `npm run csp` and paste the suggested `script-src` — `tests/csp.test.mjs` fails otherwise.
 
 CodeQL static analysis also runs on push/PR (`.github/workflows/codeql.yml`).
 

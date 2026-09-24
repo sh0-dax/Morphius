@@ -7,7 +7,7 @@
 // app keeps working through CDN outages and offline. Offline still works via
 // cache fallbacks.
 // Bump CACHE_NAME on any shell change to invalidate old caches automatically.
-const CACHE_NAME = 'aiface-shell-v53';
+const CACHE_NAME = 'aiface-shell-v55';
 const CDN_CACHE = 'aiface-cdn-v2';
 
 // Exact pinned CDN resources (substring match against href). These are cached
@@ -21,7 +21,14 @@ const CDN_PINS = [
   'cdn.jsdelivr.net/gh/mrdoob/three.js@148ef33ecb6d2502ff796d4554abd1549c95d519/examples/models/gltf/facecap.glb',
   'esm.run/@mlc-ai/web-llm',
   'cdn.jsdelivr.net/npm/@tensorflow/tfjs/dist',
-  'cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd/dist'
+  'cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd/dist',
+  // Display fonts (<link> in index.html): same cache-first treatment as the
+  // other pins so first paint keeps its type offline too.
+  'fonts.cdnfonts.com/css/thegoodmonolith',
+  'fonts.googleapis.com/css2?family=Orbitron',
+  // three.js KTX2Loader fetches the Basis transcoder from this path at runtime
+  // (see js/app.js setTranscoderPath). Pinned so KTX2 models also work offline.
+  'cdn.jsdelivr.net/npm/three@0.183.0/examples/jsm/libs/basis'
 ];
 
 function isCdnPinned(url) {
@@ -44,9 +51,13 @@ const SHELL_FILES = [
   './js/projection.js',
   './js/masterBus.js',
   './js/progress.js',
+  './js/boot/theme.js',
+  './js/boot/nosw.js',
+  './js/boot/watchdog.js',
   './js/core/retry.js',
   './js/core/morphEngine.js',
   './js/core/stateChart.js',
+  './js/core/secretStore.js',
   './js/modules/esc.js',
   './js/core/intelligence/features.js',
   './js/core/intelligence/intent.js',
@@ -55,6 +66,7 @@ const SHELL_FILES = [
   './js/core/intelligence/userModel.js',
   './js/core/intelligence/anomaly.js',
   './js/core/intelligence/learn.js',
+  './js/core/intelligence/intentMap.js',
   './i18n/en.json',
   './i18n/ar.json',
   './i18n/fr.json',

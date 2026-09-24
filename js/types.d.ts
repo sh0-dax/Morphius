@@ -6,6 +6,15 @@
 
 export {};
 
+declare global {
+  interface Window {
+    /** Set by js/boot/nosw.js before js/app.js runs (?nosw bypass flag). */
+    __NOSW?: boolean;
+    /** Set to 1 by js/app.js once the module graph evaluated; watchdog.js reads it. */
+    __APP_STATIC_READY?: number;
+  }
+}
+
 /**
  * Per-slot morph weight map (slot name -> 0..1 target amount).
  * @typedef {Object<string, number>} WeightMap

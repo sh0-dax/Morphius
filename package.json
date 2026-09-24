@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc -p jsconfig.json"
+    "typecheck": "tsc -p jsconfig.json",
+    "csp": "node scripts/gen-csp-hash.mjs"
   },
   "devDependencies": {
     "vitest": "^3.2.1",
