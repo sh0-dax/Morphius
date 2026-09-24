@@ -1,0 +1,3186 @@
+{
+  "algorithm": "knn-cosine-1",
+  "classes": [
+    "greeting",
+    "farewell",
+    "thanks",
+    "how_are_you",
+    "who_are_you",
+    "name_inquiry",
+    "capabilities",
+    "help",
+    "time",
+    "date",
+    "small_talk",
+    "compliment",
+    "joke",
+    "repeat",
+    "stop_talking",
+    "change_face",
+    "lighting",
+    "mirror",
+    "vision",
+    "projection",
+    "memory_recall",
+    "memory_store",
+    "memory_fact",
+    "settings",
+    "privacy",
+    "weather_offline"
+  ],
+  "examples": [
+    {
+      "cls": "greeting",
+      "tokens": [
+        "bonjour"
+      ]
+    },
+    {
+      "cls": "greeting",
+      "tokens": [
+        "salut"
+      ]
+    },
+    {
+      "cls": "greeting",
+      "tokens": [
+        "hello"
+      ]
+    },
+    {
+      "cls": "greeting",
+      "tokens": [
+        "coucou"
+      ]
+    },
+    {
+      "cls": "greeting",
+      "tokens": [
+        "bonsoir"
+      ]
+    },
+    {
+      "cls": "greeting",
+      "tokens": [
+        "hey"
+      ]
+    },
+    {
+      "cls": "greeting",
+      "tokens": [
+        "coucou",
+        "toi"
+      ]
+    },
+    {
+      "cls": "greeting",
+      "tokens": [
+        "salut",
+        "toi"
+      ]
+    },
+    {
+      "cls": "greeting",
+      "tokens": [
+        "bonjour",
+        "aiface"
+      ]
+    },
+    {
+      "cls": "greeting",
+      "tokens": [
+        "bien",
+        "le",
+        "bonjour"
+      ]
+    },
+    {
+      "cls": "greeting",
+      "tokens": [
+        "bonne",
+        "journ",
+        "e",
+        "toi"
+      ]
+    },
+    {
+      "cls": "farewell",
+      "tokens": [
+        "au",
+        "revoir"
+      ]
+    },
+    {
+      "cls": "farewell",
+      "tokens": [
+        "bye"
+      ]
+    },
+    {
+      "cls": "farewell",
+      "tokens": [
+        "salut",
+        "plus"
+      ]
+    },
+    {
+      "cls": "farewell",
+      "tokens": [
+        "plus",
+        "tard"
+      ]
+    },
+    {
+      "cls": "farewell",
+      "tokens": [
+        "bient",
+        "t"
+      ]
+    },
+    {
+      "cls": "farewell",
+      "tokens": [
+        "bonne",
+        "nuit"
+      ]
+    },
+    {
+      "cls": "farewell",
+      "tokens": [
+        "prends",
+        "soin",
+        "de",
+        "toi"
+      ]
+    },
+    {
+      "cls": "farewell",
+      "tokens": [
+        "la",
+        "prochaine"
+      ]
+    },
+    {
+      "cls": "farewell",
+      "tokens": [
+        "ciao"
+      ]
+    },
+    {
+      "cls": "farewell",
+      "tokens": [
+        "je",
+        "m",
+        "en",
+        "vais"
+      ]
+    },
+    {
+      "cls": "farewell",
+      "tokens": [
+        "il",
+        "faut",
+        "que",
+        "j",
+        "y",
+        "aille"
+      ]
+    },
+    {
+      "cls": "thanks",
+      "tokens": [
+        "merci"
+      ]
+    },
+    {
+      "cls": "thanks",
+      "tokens": [
+        "merci",
+        "beaucoup"
+      ]
+    },
+    {
+      "cls": "thanks",
+      "tokens": [
+        "merci",
+        "bien"
+      ]
+    },
+    {
+      "cls": "thanks",
+      "tokens": [
+        "c",
+        "est",
+        "vraiment",
+        "gentil"
+      ]
+    },
+    {
+      "cls": "thanks",
+      "tokens": [
+        "je",
+        "te",
+        "remercie"
+      ]
+    },
+    {
+      "cls": "thanks",
+      "tokens": [
+        "un",
+        "grand",
+        "merci"
+      ]
+    },
+    {
+      "cls": "thanks",
+      "tokens": [
+        "merci",
+        "toi"
+      ]
+    },
+    {
+      "cls": "thanks",
+      "tokens": [
+        "trop",
+        "gentil"
+      ]
+    },
+    {
+      "cls": "thanks",
+      "tokens": [
+        "parfait",
+        "merci"
+      ]
+    },
+    {
+      "cls": "thanks",
+      "tokens": [
+        "g",
+        "nial",
+        "merci"
+      ]
+    },
+    {
+      "cls": "how_are_you",
+      "tokens": [
+        "comment",
+        "a",
+        "va"
+      ]
+    },
+    {
+      "cls": "how_are_you",
+      "tokens": [
+        "comment",
+        "vas",
+        "tu"
+      ]
+    },
+    {
+      "cls": "how_are_you",
+      "tokens": [
+        "a",
+        "va"
+      ]
+    },
+    {
+      "cls": "how_are_you",
+      "tokens": [
+        "comment",
+        "tu",
+        "vas"
+      ]
+    },
+    {
+      "cls": "how_are_you",
+      "tokens": [
+        "quoi",
+        "de",
+        "neuf"
+      ]
+    },
+    {
+      "cls": "how_are_you",
+      "tokens": [
+        "a",
+        "roule"
+      ]
+    },
+    {
+      "cls": "how_are_you",
+      "tokens": [
+        "comment",
+        "a",
+        "marche"
+      ]
+    },
+    {
+      "cls": "how_are_you",
+      "tokens": [
+        "tu",
+        "vas",
+        "bien"
+      ]
+    },
+    {
+      "cls": "how_are_you",
+      "tokens": [
+        "tout",
+        "va",
+        "bien"
+      ]
+    },
+    {
+      "cls": "how_are_you",
+      "tokens": [
+        "comment",
+        "te",
+        "sens",
+        "tu"
+      ]
+    },
+    {
+      "cls": "how_are_you",
+      "tokens": [
+        "a",
+        "va",
+        "bien",
+        "et",
+        "toi"
+      ]
+    },
+    {
+      "cls": "who_are_you",
+      "tokens": [
+        "qui",
+        "es",
+        "tu"
+      ]
+    },
+    {
+      "cls": "who_are_you",
+      "tokens": [
+        "tu",
+        "es",
+        "qui"
+      ]
+    },
+    {
+      "cls": "who_are_you",
+      "tokens": [
+        "pr",
+        "sente",
+        "toi"
+      ]
+    },
+    {
+      "cls": "who_are_you",
+      "tokens": [
+        "es",
+        "tu",
+        "un",
+        "robot"
+      ]
+    },
+    {
+      "cls": "who_are_you",
+      "tokens": [
+        "es",
+        "tu",
+        "une",
+        "ia"
+      ]
+    },
+    {
+      "cls": "who_are_you",
+      "tokens": [
+        "tu",
+        "es",
+        "quoi",
+        "exactement"
+      ]
+    },
+    {
+      "cls": "who_are_you",
+      "tokens": [
+        "quelle",
+        "mission",
+        "as",
+        "tu"
+      ]
+    },
+    {
+      "cls": "who_are_you",
+      "tokens": [
+        "tu",
+        "es",
+        "une",
+        "vraie",
+        "personne"
+      ]
+    },
+    {
+      "cls": "who_are_you",
+      "tokens": [
+        "tu",
+        "es",
+        "un",
+        "chatbot"
+      ]
+    },
+    {
+      "cls": "name_inquiry",
+      "tokens": [
+        "comment",
+        "tu",
+        "t",
+        "appelles"
+      ]
+    },
+    {
+      "cls": "name_inquiry",
+      "tokens": [
+        "ton",
+        "nom"
+      ]
+    },
+    {
+      "cls": "name_inquiry",
+      "tokens": [
+        "quel",
+        "est",
+        "ton",
+        "nom"
+      ]
+    },
+    {
+      "cls": "name_inquiry",
+      "tokens": [
+        "tu",
+        "as",
+        "un",
+        "nom"
+      ]
+    },
+    {
+      "cls": "name_inquiry",
+      "tokens": [
+        "comment",
+        "t",
+        "appeler"
+      ]
+    },
+    {
+      "cls": "name_inquiry",
+      "tokens": [
+        "donne",
+        "moi",
+        "ton",
+        "nom"
+      ]
+    },
+    {
+      "cls": "name_inquiry",
+      "tokens": [
+        "qui",
+        "est",
+        "ce",
+        "que",
+        "je",
+        "parle"
+      ]
+    },
+    {
+      "cls": "name_inquiry",
+      "tokens": [
+        "ton",
+        "pr",
+        "nom"
+      ]
+    },
+    {
+      "cls": "name_inquiry",
+      "tokens": [
+        "c",
+        "est",
+        "quoi",
+        "ton",
+        "nom"
+      ]
+    },
+    {
+      "cls": "capabilities",
+      "tokens": [
+        "tu",
+        "sais",
+        "faire",
+        "quoi"
+      ]
+    },
+    {
+      "cls": "capabilities",
+      "tokens": [
+        "tes",
+        "capacit",
+        "s"
+      ]
+    },
+    {
+      "cls": "capabilities",
+      "tokens": [
+        "qu",
+        "est",
+        "ce",
+        "que",
+        "tu",
+        "sais",
+        "faire"
+      ]
+    },
+    {
+      "cls": "capabilities",
+      "tokens": [
+        "tes",
+        "fonctions"
+      ]
+    },
+    {
+      "cls": "capabilities",
+      "tokens": [
+        "dis",
+        "moi",
+        "tes",
+        "capacit",
+        "s"
+      ]
+    },
+    {
+      "cls": "capabilities",
+      "tokens": [
+        "que",
+        "peux",
+        "tu",
+        "faire"
+      ]
+    },
+    {
+      "cls": "capabilities",
+      "tokens": [
+        "tu",
+        "fais",
+        "quoi"
+      ]
+    },
+    {
+      "cls": "capabilities",
+      "tokens": [
+        "aide",
+        "moi",
+        "te",
+        "conna",
+        "tre"
+      ]
+    },
+    {
+      "cls": "help",
+      "tokens": [
+        "aide"
+      ]
+    },
+    {
+      "cls": "help",
+      "tokens": [
+        "aide",
+        "moi"
+      ]
+    },
+    {
+      "cls": "help",
+      "tokens": [
+        "tu",
+        "peux",
+        "m",
+        "aider"
+      ]
+    },
+    {
+      "cls": "help",
+      "tokens": [
+        "j",
+        "ai",
+        "besoin",
+        "d",
+        "aide"
+      ]
+    },
+    {
+      "cls": "help",
+      "tokens": [
+        "que",
+        "faire"
+      ]
+    },
+    {
+      "cls": "help",
+      "tokens": [
+        "comment",
+        "utiliser",
+        "a"
+      ]
+    },
+    {
+      "cls": "help",
+      "tokens": [
+        "guide",
+        "moi"
+      ]
+    },
+    {
+      "cls": "help",
+      "tokens": [
+        "au",
+        "secours"
+      ]
+    },
+    {
+      "cls": "help",
+      "tokens": [
+        "l",
+        "aide"
+      ]
+    },
+    {
+      "cls": "help",
+      "tokens": [
+        "je",
+        "ne",
+        "sais",
+        "pas",
+        "quoi",
+        "faire"
+      ]
+    },
+    {
+      "cls": "time",
+      "tokens": [
+        "quelle",
+        "heure",
+        "est",
+        "il"
+      ]
+    },
+    {
+      "cls": "time",
+      "tokens": [
+        "il",
+        "est",
+        "quelle",
+        "heure"
+      ]
+    },
+    {
+      "cls": "time",
+      "tokens": [
+        "donne",
+        "moi",
+        "l",
+        "heure"
+      ]
+    },
+    {
+      "cls": "time",
+      "tokens": [
+        "l",
+        "heure",
+        "s",
+        "il",
+        "te",
+        "pla",
+        "t"
+      ]
+    },
+    {
+      "cls": "time",
+      "tokens": [
+        "tu",
+        "sais",
+        "l",
+        "heure"
+      ]
+    },
+    {
+      "cls": "time",
+      "tokens": [
+        "il",
+        "est",
+        "quelle",
+        "heure",
+        "maintenant"
+      ]
+    },
+    {
+      "cls": "time",
+      "tokens": [
+        "l",
+        "heure",
+        "actuelle"
+      ]
+    },
+    {
+      "cls": "time",
+      "tokens": [
+        "quelle",
+        "heure"
+      ]
+    },
+    {
+      "cls": "time",
+      "tokens": [
+        "donne",
+        "l",
+        "heure"
+      ]
+    },
+    {
+      "cls": "date",
+      "tokens": [
+        "quelle",
+        "est",
+        "la",
+        "date"
+      ]
+    },
+    {
+      "cls": "date",
+      "tokens": [
+        "on",
+        "est",
+        "quel",
+        "jour"
+      ]
+    },
+    {
+      "cls": "date",
+      "tokens": [
+        "quelle",
+        "date",
+        "aujourd",
+        "hui"
+      ]
+    },
+    {
+      "cls": "date",
+      "tokens": [
+        "dis",
+        "moi",
+        "la",
+        "date"
+      ]
+    },
+    {
+      "cls": "date",
+      "tokens": [
+        "la",
+        "date",
+        "du",
+        "jour"
+      ]
+    },
+    {
+      "cls": "date",
+      "tokens": [
+        "on",
+        "est",
+        "quelle",
+        "date"
+      ]
+    },
+    {
+      "cls": "date",
+      "tokens": [
+        "quel",
+        "jour",
+        "sommes",
+        "nous"
+      ]
+    },
+    {
+      "cls": "date",
+      "tokens": [
+        "la",
+        "date",
+        "s",
+        "il",
+        "te",
+        "pla",
+        "t"
+      ]
+    },
+    {
+      "cls": "small_talk",
+      "tokens": [
+        "quel",
+        "temps",
+        "fait",
+        "il"
+      ]
+    },
+    {
+      "cls": "small_talk",
+      "tokens": [
+        "il",
+        "fait",
+        "beau"
+      ]
+    },
+    {
+      "cls": "small_talk",
+      "tokens": [
+        "quelle",
+        "belle",
+        "journ",
+        "e"
+      ]
+    },
+    {
+      "cls": "small_talk",
+      "tokens": [
+        "tu",
+        "aimes",
+        "la",
+        "musique"
+      ]
+    },
+    {
+      "cls": "small_talk",
+      "tokens": [
+        "dis",
+        "quelque",
+        "chose",
+        "de",
+        "gentil"
+      ]
+    },
+    {
+      "cls": "small_talk",
+      "tokens": [
+        "remonte",
+        "moi",
+        "le",
+        "moral"
+      ]
+    },
+    {
+      "cls": "small_talk",
+      "tokens": [
+        "je",
+        "m",
+        "ennuie"
+      ]
+    },
+    {
+      "cls": "small_talk",
+      "tokens": [
+        "amuse",
+        "moi"
+      ]
+    },
+    {
+      "cls": "small_talk",
+      "tokens": [
+        "un",
+        "peu",
+        "de",
+        "bavardage"
+      ]
+    },
+    {
+      "cls": "small_talk",
+      "tokens": [
+        "comment",
+        "marche",
+        "ton",
+        "visage"
+      ]
+    },
+    {
+      "cls": "compliment",
+      "tokens": [
+        "tu",
+        "es",
+        "cool"
+      ]
+    },
+    {
+      "cls": "compliment",
+      "tokens": [
+        "tu",
+        "es",
+        "g",
+        "nial"
+      ]
+    },
+    {
+      "cls": "compliment",
+      "tokens": [
+        "tu",
+        "es",
+        "intelligent"
+      ]
+    },
+    {
+      "cls": "compliment",
+      "tokens": [
+        "je",
+        "t",
+        "aime",
+        "bien"
+      ]
+    },
+    {
+      "cls": "compliment",
+      "tokens": [
+        "tu",
+        "es",
+        "mignonne"
+      ]
+    },
+    {
+      "cls": "compliment",
+      "tokens": [
+        "jolie",
+        "t",
+        "te"
+      ]
+    },
+    {
+      "cls": "compliment",
+      "tokens": [
+        "tu",
+        "es",
+        "magnifique"
+      ]
+    },
+    {
+      "cls": "compliment",
+      "tokens": [
+        "tu",
+        "assures"
+      ]
+    },
+    {
+      "cls": "compliment",
+      "tokens": [
+        "beau",
+        "travail",
+        "aiface"
+      ]
+    },
+    {
+      "cls": "compliment",
+      "tokens": [
+        "tu",
+        "es",
+        "le",
+        "meilleur"
+      ]
+    },
+    {
+      "cls": "compliment",
+      "tokens": [
+        "j",
+        "adore",
+        "ton",
+        "visage"
+      ]
+    },
+    {
+      "cls": "compliment",
+      "tokens": [
+        "tu",
+        "es",
+        "adorable"
+      ]
+    },
+    {
+      "cls": "joke",
+      "tokens": [
+        "raconte",
+        "une",
+        "blague"
+      ]
+    },
+    {
+      "cls": "joke",
+      "tokens": [
+        "dis",
+        "une",
+        "blague"
+      ]
+    },
+    {
+      "cls": "joke",
+      "tokens": [
+        "tu",
+        "connais",
+        "des",
+        "blagues"
+      ]
+    },
+    {
+      "cls": "joke",
+      "tokens": [
+        "fais",
+        "moi",
+        "rire"
+      ]
+    },
+    {
+      "cls": "joke",
+      "tokens": [
+        "dis",
+        "quelque",
+        "chose",
+        "de",
+        "dr",
+        "le"
+      ]
+    },
+    {
+      "cls": "joke",
+      "tokens": [
+        "une",
+        "autre",
+        "blague"
+      ]
+    },
+    {
+      "cls": "joke",
+      "tokens": [
+        "tu",
+        "as",
+        "des",
+        "blagues"
+      ]
+    },
+    {
+      "cls": "joke",
+      "tokens": [
+        "sois",
+        "dr",
+        "le"
+      ]
+    },
+    {
+      "cls": "joke",
+      "tokens": [
+        "fais",
+        "moi",
+        "sourire"
+      ]
+    },
+    {
+      "cls": "repeat",
+      "tokens": [
+        "r",
+        "p",
+        "te"
+      ]
+    },
+    {
+      "cls": "repeat",
+      "tokens": [
+        "redis",
+        "a"
+      ]
+    },
+    {
+      "cls": "repeat",
+      "tokens": [
+        "tu",
+        "peux",
+        "r",
+        "p",
+        "ter"
+      ]
+    },
+    {
+      "cls": "repeat",
+      "tokens": [
+        "r",
+        "p",
+        "te",
+        "s",
+        "il",
+        "te",
+        "pla",
+        "t"
+      ]
+    },
+    {
+      "cls": "repeat",
+      "tokens": [
+        "r",
+        "p",
+        "te",
+        "cela"
+      ]
+    },
+    {
+      "cls": "repeat",
+      "tokens": [
+        "dis",
+        "le",
+        "encore"
+      ]
+    },
+    {
+      "cls": "repeat",
+      "tokens": [
+        "encore",
+        "une",
+        "fois"
+      ]
+    },
+    {
+      "cls": "repeat",
+      "tokens": [
+        "je",
+        "n",
+        "ai",
+        "pas",
+        "entendu"
+      ]
+    },
+    {
+      "cls": "repeat",
+      "tokens": [
+        "tu",
+        "as",
+        "dit",
+        "quoi"
+      ]
+    },
+    {
+      "cls": "stop_talking",
+      "tokens": [
+        "stop"
+      ]
+    },
+    {
+      "cls": "stop_talking",
+      "tokens": [
+        "arr",
+        "te",
+        "de",
+        "parler"
+      ]
+    },
+    {
+      "cls": "stop_talking",
+      "tokens": [
+        "tais",
+        "toi"
+      ]
+    },
+    {
+      "cls": "stop_talking",
+      "tokens": [
+        "chut"
+      ]
+    },
+    {
+      "cls": "stop_talking",
+      "tokens": [
+        "silence"
+      ]
+    },
+    {
+      "cls": "stop_talking",
+      "tokens": [
+        "a",
+        "suffit"
+      ]
+    },
+    {
+      "cls": "stop_talking",
+      "tokens": [
+        "arr",
+        "te"
+      ]
+    },
+    {
+      "cls": "stop_talking",
+      "tokens": [
+        "assez"
+      ]
+    },
+    {
+      "cls": "stop_talking",
+      "tokens": [
+        "du",
+        "calme"
+      ]
+    },
+    {
+      "cls": "stop_talking",
+      "tokens": [
+        "coupe",
+        "le",
+        "son"
+      ]
+    },
+    {
+      "cls": "change_face",
+      "tokens": [
+        "change",
+        "de",
+        "visage"
+      ]
+    },
+    {
+      "cls": "change_face",
+      "tokens": [
+        "fais",
+        "une",
+        "t",
+        "te"
+      ]
+    },
+    {
+      "cls": "change_face",
+      "tokens": [
+        "montre",
+        "un",
+        "visage",
+        "content"
+      ]
+    },
+    {
+      "cls": "change_face",
+      "tokens": [
+        "fais",
+        "moi",
+        "un",
+        "sourire"
+      ]
+    },
+    {
+      "cls": "change_face",
+      "tokens": [
+        "fais",
+        "une",
+        "t",
+        "te",
+        "triste"
+      ]
+    },
+    {
+      "cls": "change_face",
+      "tokens": [
+        "prends",
+        "un",
+        "air",
+        "surpris"
+      ]
+    },
+    {
+      "cls": "change_face",
+      "tokens": [
+        "change",
+        "ton",
+        "expression"
+      ]
+    },
+    {
+      "cls": "change_face",
+      "tokens": [
+        "fais",
+        "une",
+        "dr",
+        "le",
+        "de",
+        "t",
+        "te"
+      ]
+    },
+    {
+      "cls": "change_face",
+      "tokens": [
+        "tu",
+        "peux",
+        "grimacer"
+      ]
+    },
+    {
+      "cls": "change_face",
+      "tokens": [
+        "change",
+        "d",
+        "air"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "change",
+        "l",
+        "clairage"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "modifie",
+        "les",
+        "lumi",
+        "res"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "fais",
+        "plus",
+        "sombre"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "fais",
+        "plus",
+        "lumineux"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "lumi",
+        "re",
+        "bleue"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "lumi",
+        "re",
+        "verte"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "lumi",
+        "re",
+        "chaude"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "clairage",
+        "doux"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "mode",
+        "matrix"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "mets",
+        "du",
+        "noir"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "clairage",
+        "du",
+        "visage"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "allume",
+        "les",
+        "lumi",
+        "res",
+        "chaudes"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "teins",
+        "la",
+        "lumi",
+        "re"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "allume",
+        "la",
+        "lumi",
+        "re"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "lumi",
+        "re",
+        "teinte"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "lumi",
+        "re",
+        "allum",
+        "e"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "teins",
+        "les",
+        "lumi",
+        "res"
+      ]
+    },
+    {
+      "cls": "mirror",
+      "tokens": [
+        "allume",
+        "le",
+        "miroir"
+      ]
+    },
+    {
+      "cls": "mirror",
+      "tokens": [
+        "active",
+        "le",
+        "miroir"
+      ]
+    },
+    {
+      "cls": "mirror",
+      "tokens": [
+        "ouvre",
+        "le",
+        "mode",
+        "miroir"
+      ]
+    },
+    {
+      "cls": "mirror",
+      "tokens": [
+        "montre",
+        "mon",
+        "miroir"
+      ]
+    },
+    {
+      "cls": "mirror",
+      "tokens": [
+        "miroir",
+        "on"
+      ]
+    },
+    {
+      "cls": "mirror",
+      "tokens": [
+        "teins",
+        "le",
+        "miroir"
+      ]
+    },
+    {
+      "cls": "mirror",
+      "tokens": [
+        "arr",
+        "te",
+        "le",
+        "miroir"
+      ]
+    },
+    {
+      "cls": "mirror",
+      "tokens": [
+        "ferme",
+        "le",
+        "miroir"
+      ]
+    },
+    {
+      "cls": "mirror",
+      "tokens": [
+        "miroir",
+        "off"
+      ]
+    },
+    {
+      "cls": "mirror",
+      "tokens": [
+        "d",
+        "sactive",
+        "le",
+        "miroir",
+        "facial"
+      ]
+    },
+    {
+      "cls": "vision",
+      "tokens": [
+        "allume",
+        "la",
+        "cam",
+        "ra"
+      ]
+    },
+    {
+      "cls": "vision",
+      "tokens": [
+        "lance",
+        "la",
+        "vision"
+      ]
+    },
+    {
+      "cls": "vision",
+      "tokens": [
+        "active",
+        "la",
+        "cam",
+        "ra"
+      ]
+    },
+    {
+      "cls": "vision",
+      "tokens": [
+        "utilise",
+        "la",
+        "cam",
+        "ra"
+      ]
+    },
+    {
+      "cls": "vision",
+      "tokens": [
+        "vision",
+        "on"
+      ]
+    },
+    {
+      "cls": "vision",
+      "tokens": [
+        "active",
+        "la",
+        "vision",
+        "cam",
+        "ra"
+      ]
+    },
+    {
+      "cls": "vision",
+      "tokens": [
+        "teins",
+        "la",
+        "cam",
+        "ra"
+      ]
+    },
+    {
+      "cls": "vision",
+      "tokens": [
+        "arr",
+        "te",
+        "la",
+        "vision"
+      ]
+    },
+    {
+      "cls": "vision",
+      "tokens": [
+        "d",
+        "sactive",
+        "la",
+        "cam",
+        "ra"
+      ]
+    },
+    {
+      "cls": "vision",
+      "tokens": [
+        "vision",
+        "off"
+      ]
+    },
+    {
+      "cls": "vision",
+      "tokens": [
+        "ferme",
+        "la",
+        "cam",
+        "ra"
+      ]
+    },
+    {
+      "cls": "projection",
+      "tokens": [
+        "affiche",
+        "une",
+        "projection"
+      ]
+    },
+    {
+      "cls": "projection",
+      "tokens": [
+        "mets",
+        "un",
+        "mod",
+        "le",
+        "dans",
+        "la",
+        "sc",
+        "ne"
+      ]
+    },
+    {
+      "cls": "projection",
+      "tokens": [
+        "projette",
+        "quelque",
+        "chose"
+      ]
+    },
+    {
+      "cls": "projection",
+      "tokens": [
+        "affiche",
+        "un",
+        "mod",
+        "le",
+        "3d"
+      ]
+    },
+    {
+      "cls": "projection",
+      "tokens": [
+        "ajoute",
+        "un",
+        "mod",
+        "le"
+      ]
+    },
+    {
+      "cls": "projection",
+      "tokens": [
+        "comment",
+        "projeter",
+        "un",
+        "mod",
+        "le"
+      ]
+    },
+    {
+      "cls": "projection",
+      "tokens": [
+        "charge",
+        "un",
+        "fichier",
+        "glb"
+      ]
+    },
+    {
+      "cls": "projection",
+      "tokens": [
+        "mode",
+        "projection"
+      ]
+    },
+    {
+      "cls": "projection",
+      "tokens": [
+        "tu",
+        "peux",
+        "montrer",
+        "un",
+        "mod",
+        "le"
+      ]
+    },
+    {
+      "cls": "memory_recall",
+      "tokens": [
+        "de",
+        "quoi",
+        "on",
+        "a",
+        "parl"
+      ]
+    },
+    {
+      "cls": "memory_recall",
+      "tokens": [
+        "souviens",
+        "toi",
+        "de",
+        "notre",
+        "conversation"
+      ]
+    },
+    {
+      "cls": "memory_recall",
+      "tokens": [
+        "qu",
+        "ai",
+        "je",
+        "dit",
+        "avant"
+      ]
+    },
+    {
+      "cls": "memory_recall",
+      "tokens": [
+        "tu",
+        "te",
+        "souviens",
+        "de",
+        "moi"
+      ]
+    },
+    {
+      "cls": "memory_recall",
+      "tokens": [
+        "rappelle",
+        "notre",
+        "discussion"
+      ]
+    },
+    {
+      "cls": "memory_recall",
+      "tokens": [
+        "qu",
+        "est",
+        "ce",
+        "qu",
+        "on",
+        "a",
+        "dit"
+      ]
+    },
+    {
+      "cls": "memory_recall",
+      "tokens": [
+        "montre",
+        "mon",
+        "historique"
+      ]
+    },
+    {
+      "cls": "memory_recall",
+      "tokens": [
+        "tu",
+        "as",
+        "de",
+        "la",
+        "m",
+        "moire"
+      ]
+    },
+    {
+      "cls": "memory_recall",
+      "tokens": [
+        "notre",
+        "derni",
+        "re",
+        "conversation"
+      ]
+    },
+    {
+      "cls": "memory_recall",
+      "tokens": [
+        "qu",
+        "est",
+        "ce",
+        "que",
+        "tu",
+        "as",
+        "retenu"
+      ]
+    },
+    {
+      "cls": "memory_store",
+      "tokens": [
+        "souviens",
+        "toi",
+        "que",
+        "ma",
+        "couleur",
+        "pr",
+        "f",
+        "r",
+        "e",
+        "est",
+        "le",
+        "bleu"
+      ]
+    },
+    {
+      "cls": "memory_store",
+      "tokens": [
+        "m",
+        "morise",
+        "que",
+        "mon",
+        "plat",
+        "pr",
+        "f",
+        "r",
+        "est",
+        "la",
+        "pizza"
+      ]
+    },
+    {
+      "cls": "memory_store",
+      "tokens": [
+        "retiens",
+        "que",
+        "mon",
+        "nom",
+        "est",
+        "sam"
+      ]
+    },
+    {
+      "cls": "memory_store",
+      "tokens": [
+        "note",
+        "que",
+        "ma",
+        "ville",
+        "pr",
+        "f",
+        "r",
+        "e",
+        "est",
+        "paris"
+      ]
+    },
+    {
+      "cls": "memory_store",
+      "tokens": [
+        "souviens",
+        "toi",
+        "que",
+        "mon",
+        "nom",
+        "est",
+        "sarah"
+      ]
+    },
+    {
+      "cls": "memory_store",
+      "tokens": [
+        "mon",
+        "nom",
+        "est",
+        "sarah"
+      ]
+    },
+    {
+      "cls": "memory_store",
+      "tokens": [
+        "mon",
+        "nom",
+        "est",
+        "sam"
+      ]
+    },
+    {
+      "cls": "memory_store",
+      "tokens": [
+        "retenez",
+        "ceci",
+        "pour",
+        "moi"
+      ]
+    },
+    {
+      "cls": "memory_fact",
+      "tokens": [
+        "quelle",
+        "est",
+        "ma",
+        "couleur",
+        "pr",
+        "f",
+        "r",
+        "e"
+      ]
+    },
+    {
+      "cls": "memory_fact",
+      "tokens": [
+        "c",
+        "est",
+        "quoi",
+        "mon",
+        "nom"
+      ]
+    },
+    {
+      "cls": "memory_fact",
+      "tokens": [
+        "tu",
+        "te",
+        "souviens",
+        "de",
+        "mon",
+        "plat",
+        "pr",
+        "f",
+        "r"
+      ]
+    },
+    {
+      "cls": "memory_fact",
+      "tokens": [
+        "rappelle",
+        "moi",
+        "mon",
+        "nom"
+      ]
+    },
+    {
+      "cls": "memory_fact",
+      "tokens": [
+        "quel",
+        "est",
+        "mon",
+        "plat",
+        "pr",
+        "f",
+        "r"
+      ]
+    },
+    {
+      "cls": "memory_fact",
+      "tokens": [
+        "qu",
+        "est",
+        "ce",
+        "que",
+        "tu",
+        "sais",
+        "de",
+        "moi"
+      ]
+    },
+    {
+      "cls": "memory_fact",
+      "tokens": [
+        "de",
+        "quoi",
+        "tu",
+        "te",
+        "souviens",
+        "propos",
+        "de",
+        "moi"
+      ]
+    },
+    {
+      "cls": "memory_fact",
+      "tokens": [
+        "c",
+        "est",
+        "quoi",
+        "ma",
+        "ville",
+        "pr",
+        "f",
+        "r",
+        "e"
+      ]
+    },
+    {
+      "cls": "memory_fact",
+      "tokens": [
+        "dis",
+        "moi",
+        "mon",
+        "plat",
+        "pr",
+        "f",
+        "r"
+      ]
+    },
+    {
+      "cls": "settings",
+      "tokens": [
+        "ouvre",
+        "les",
+        "param",
+        "tres"
+      ]
+    },
+    {
+      "cls": "settings",
+      "tokens": [
+        "o",
+        "sont",
+        "les",
+        "r",
+        "glages"
+      ]
+    },
+    {
+      "cls": "settings",
+      "tokens": [
+        "affiche",
+        "les",
+        "param",
+        "tres"
+      ]
+    },
+    {
+      "cls": "settings",
+      "tokens": [
+        "comment",
+        "changer",
+        "les",
+        "r",
+        "glages"
+      ]
+    },
+    {
+      "cls": "settings",
+      "tokens": [
+        "ouvre",
+        "la",
+        "configuration"
+      ]
+    },
+    {
+      "cls": "settings",
+      "tokens": [
+        "r",
+        "glages",
+        "s",
+        "il",
+        "te",
+        "pla",
+        "t"
+      ]
+    },
+    {
+      "cls": "settings",
+      "tokens": [
+        "je",
+        "veux",
+        "changer",
+        "un",
+        "r",
+        "glage"
+      ]
+    },
+    {
+      "cls": "settings",
+      "tokens": [
+        "va",
+        "dans",
+        "les",
+        "param",
+        "tres"
+      ]
+    },
+    {
+      "cls": "privacy",
+      "tokens": [
+        "mes",
+        "donn",
+        "es",
+        "sont",
+        "elles",
+        "priv",
+        "es"
+      ]
+    },
+    {
+      "cls": "privacy",
+      "tokens": [
+        "tu",
+        "envoies",
+        "mes",
+        "donn",
+        "es"
+      ]
+    },
+    {
+      "cls": "privacy",
+      "tokens": [
+        "tu",
+        "me",
+        "surveilles"
+      ]
+    },
+    {
+      "cls": "privacy",
+      "tokens": [
+        "est",
+        "ce",
+        "que",
+        "tu",
+        "uploades"
+      ]
+    },
+    {
+      "cls": "privacy",
+      "tokens": [
+        "c",
+        "est",
+        "priv"
+      ]
+    },
+    {
+      "cls": "privacy",
+      "tokens": [
+        "tu",
+        "stockes",
+        "mes",
+        "messages"
+      ]
+    },
+    {
+      "cls": "privacy",
+      "tokens": [
+        "o",
+        "vont",
+        "mes",
+        "donn",
+        "es"
+      ]
+    },
+    {
+      "cls": "privacy",
+      "tokens": [
+        "mes",
+        "chats",
+        "sont",
+        "sur",
+        "un",
+        "serveur"
+      ]
+    },
+    {
+      "cls": "weather_offline",
+      "tokens": [
+        "quel",
+        "temps",
+        "fait",
+        "il",
+        "aujourd",
+        "hui"
+      ]
+    },
+    {
+      "cls": "weather_offline",
+      "tokens": [
+        "est",
+        "ce",
+        "qu",
+        "il",
+        "fait",
+        "froid",
+        "dehors"
+      ]
+    },
+    {
+      "cls": "weather_offline",
+      "tokens": [
+        "la",
+        "m",
+        "t",
+        "o"
+      ]
+    },
+    {
+      "cls": "weather_offline",
+      "tokens": [
+        "va",
+        "t",
+        "il",
+        "pleuvoir"
+      ]
+    },
+    {
+      "cls": "weather_offline",
+      "tokens": [
+        "il",
+        "fait",
+        "chaud"
+      ]
+    },
+    {
+      "cls": "weather_offline",
+      "tokens": [
+        "il",
+        "fait",
+        "soleil"
+      ]
+    },
+    {
+      "cls": "weather_offline",
+      "tokens": [
+        "donne",
+        "moi",
+        "la",
+        "m",
+        "t",
+        "o"
+      ]
+    },
+    {
+      "cls": "weather_offline",
+      "tokens": [
+        "pr",
+        "visions",
+        "m",
+        "t",
+        "o"
+      ]
+    }
+  ],
+  "idf": {
+    "3d": 5.537334267018537,
+    "a": 3.2347491740244907,
+    "active": 4.438721978350427,
+    "actuelle": 5.537334267018537,
+    "adorable": 5.537334267018537,
+    "adore": 5.537334267018537,
+    "affiche": 4.438721978350427,
+    "ai": 4.438721978350427,
+    "aide": 3.927896354584436,
+    "aider": 5.537334267018537,
+    "aiface": 4.844187086458591,
+    "aille": 5.537334267018537,
+    "aime": 5.537334267018537,
+    "aimes": 5.537334267018537,
+    "air": 4.844187086458591,
+    "ajoute": 5.537334267018537,
+    "allum": 5.537334267018537,
+    "allume": 4.151039905898646,
+    "amuse": 5.537334267018537,
+    "appeler": 5.537334267018537,
+    "appelles": 5.537334267018537,
+    "arr": 4.151039905898646,
+    "as": 3.7455747977904816,
+    "assez": 5.537334267018537,
+    "assures": 5.537334267018537,
+    "au": 4.844187086458591,
+    "aujourd": 4.844187086458591,
+    "autre": 5.537334267018537,
+    "avant": 5.537334267018537,
+    "bavardage": 5.537334267018537,
+    "beau": 4.844187086458591,
+    "beaucoup": 5.537334267018537,
+    "belle": 5.537334267018537,
+    "besoin": 5.537334267018537,
+    "bien": 3.7455747977904816,
+    "bient": 5.537334267018537,
+    "blague": 4.438721978350427,
+    "blagues": 4.844187086458591,
+    "bleu": 5.537334267018537,
+    "bleue": 5.537334267018537,
+    "bonjour": 4.438721978350427,
+    "bonne": 4.844187086458591,
+    "bonsoir": 5.537334267018537,
+    "bye": 5.537334267018537,
+    "c": 3.927896354584436,
+    "calme": 5.537334267018537,
+    "cam": 3.591424117963223,
+    "capacit": 4.844187086458591,
+    "ce": 3.591424117963223,
+    "ceci": 5.537334267018537,
+    "cela": 5.537334267018537,
+    "change": 4.151039905898646,
+    "changer": 4.844187086458591,
+    "charge": 5.537334267018537,
+    "chatbot": 5.537334267018537,
+    "chats": 5.537334267018537,
+    "chaud": 5.537334267018537,
+    "chaude": 5.537334267018537,
+    "chaudes": 5.537334267018537,
+    "chose": 4.438721978350427,
+    "chut": 5.537334267018537,
+    "ciao": 5.537334267018537,
+    "clairage": 4.438721978350427,
+    "comment": 3.139438994220166,
+    "configuration": 5.537334267018537,
+    "conna": 5.537334267018537,
+    "connais": 5.537334267018537,
+    "content": 5.537334267018537,
+    "conversation": 4.844187086458591,
+    "cool": 5.537334267018537,
+    "coucou": 4.844187086458591,
+    "couleur": 4.844187086458591,
+    "coupe": 5.537334267018537,
+    "d": 4.151039905898646,
+    "dans": 4.844187086458591,
+    "date": 3.7455747977904816,
+    "de": 2.8292840659163265,
+    "dehors": 5.537334267018537,
+    "derni": 5.537334267018537,
+    "des": 4.844187086458591,
+    "dis": 3.591424117963223,
+    "discussion": 5.537334267018537,
+    "dit": 4.438721978350427,
+    "donn": 4.438721978350427,
+    "donne": 4.151039905898646,
+    "doux": 5.537334267018537,
+    "dr": 4.438721978350427,
+    "du": 4.151039905898646,
+    "e": 3.591424117963223,
+    "elles": 5.537334267018537,
+    "en": 5.537334267018537,
+    "encore": 4.844187086458591,
+    "ennuie": 5.537334267018537,
+    "entendu": 5.537334267018537,
+    "envoies": 5.537334267018537,
+    "es": 2.7041209229623204,
+    "est": 2.205129756843333,
+    "et": 5.537334267018537,
+    "exactement": 5.537334267018537,
+    "expression": 5.537334267018537,
+    "f": 3.457892725338701,
+    "facial": 5.537334267018537,
+    "faire": 3.927896354584436,
+    "fais": 3.340109689682317,
+    "fait": 3.7455747977904816,
+    "faut": 5.537334267018537,
+    "ferme": 4.844187086458591,
+    "fichier": 5.537334267018537,
+    "fois": 5.537334267018537,
+    "fonctions": 5.537334267018537,
+    "froid": 5.537334267018537,
+    "g": 4.844187086458591,
+    "gentil": 4.438721978350427,
+    "glage": 5.537334267018537,
+    "glages": 4.438721978350427,
+    "glb": 5.537334267018537,
+    "grand": 5.537334267018537,
+    "grimacer": 5.537334267018537,
+    "guide": 5.537334267018537,
+    "hello": 5.537334267018537,
+    "heure": 3.340109689682317,
+    "hey": 5.537334267018537,
+    "historique": 5.537334267018537,
+    "hui": 4.844187086458591,
+    "ia": 5.537334267018537,
+    "il": 2.8292840659163265,
+    "intelligent": 5.537334267018537,
+    "j": 4.438721978350427,
+    "je": 3.340109689682317,
+    "jolie": 5.537334267018537,
+    "jour": 4.438721978350427,
+    "journ": 4.844187086458591,
+    "l": 3.591424117963223,
+    "la": 2.401840051089387,
+    "lance": 5.537334267018537,
+    "le": 2.4928118292951136,
+    "les": 3.457892725338701,
+    "lumi": 3.2347491740244907,
+    "lumineux": 5.537334267018537,
+    "m": 3.457892725338701,
+    "ma": 4.151039905898646,
+    "magnifique": 5.537334267018537,
+    "maintenant": 5.537334267018537,
+    "marche": 4.844187086458591,
+    "matrix": 5.537334267018537,
+    "me": 5.537334267018537,
+    "meilleur": 5.537334267018537,
+    "merci": 3.591424117963223,
+    "mes": 3.927896354584436,
+    "messages": 5.537334267018537,
+    "mets": 4.844187086458591,
+    "mignonne": 5.537334267018537,
+    "miroir": 3.2347491740244907,
+    "mission": 5.537334267018537,
+    "mod": 3.927896354584436,
+    "mode": 4.438721978350427,
+    "modifie": 5.537334267018537,
+    "moi": 2.592895287852096,
+    "moire": 5.537334267018537,
+    "mon": 3.0524276172305362,
+    "montre": 4.438721978350427,
+    "montrer": 5.537334267018537,
+    "moral": 5.537334267018537,
+    "morise": 5.537334267018537,
+    "musique": 5.537334267018537,
+    "n": 5.537334267018537,
+    "ne": 4.844187086458591,
+    "neuf": 5.537334267018537,
+    "nial": 4.844187086458591,
+    "noir": 5.537334267018537,
+    "nom": 3.0524276172305362,
+    "note": 5.537334267018537,
+    "notre": 4.438721978350427,
+    "nous": 5.537334267018537,
+    "nuit": 5.537334267018537,
+    "o": 3.927896354584436,
+    "off": 4.844187086458591,
+    "on": 3.7455747977904816,
+    "ouvre": 4.438721978350427,
+    "p": 4.151039905898646,
+    "param": 4.438721978350427,
+    "parfait": 5.537334267018537,
+    "paris": 5.537334267018537,
+    "parl": 5.537334267018537,
+    "parle": 5.537334267018537,
+    "parler": 5.537334267018537,
+    "pas": 4.844187086458591,
+    "personne": 5.537334267018537,
+    "peu": 5.537334267018537,
+    "peux": 3.927896354584436,
+    "pizza": 5.537334267018537,
+    "pla": 4.151039905898646,
+    "plat": 4.151039905898646,
+    "pleuvoir": 5.537334267018537,
+    "plus": 4.151039905898646,
+    "pour": 5.537334267018537,
+    "pr": 3.139438994220166,
+    "prends": 4.844187086458591,
+    "priv": 4.844187086458591,
+    "prochaine": 5.537334267018537,
+    "projection": 4.844187086458591,
+    "projeter": 5.537334267018537,
+    "projette": 5.537334267018537,
+    "propos": 5.537334267018537,
+    "qu": 3.7455747977904816,
+    "que": 2.972384909557,
+    "quel": 3.7455747977904816,
+    "quelle": 3.2347491740244907,
+    "quelque": 4.438721978350427,
+    "qui": 4.438721978350427,
+    "quoi": 3.139438994220166,
+    "r": 2.7647455447787554,
+    "ra": 3.591424117963223,
+    "raconte": 5.537334267018537,
+    "rappelle": 4.844187086458591,
+    "re": 3.457892725338701,
+    "redis": 5.537334267018537,
+    "remercie": 5.537334267018537,
+    "remonte": 5.537334267018537,
+    "res": 4.438721978350427,
+    "retenez": 5.537334267018537,
+    "retenu": 5.537334267018537,
+    "retiens": 5.537334267018537,
+    "revoir": 5.537334267018537,
+    "rire": 5.537334267018537,
+    "robot": 5.537334267018537,
+    "roule": 5.537334267018537,
+    "s": 3.7455747977904816,
+    "sactive": 4.844187086458591,
+    "sais": 3.927896354584436,
+    "salut": 4.438721978350427,
+    "sam": 4.844187086458591,
+    "sarah": 4.844187086458591,
+    "sc": 5.537334267018537,
+    "secours": 5.537334267018537,
+    "sens": 5.537334267018537,
+    "sente": 5.537334267018537,
+    "serveur": 5.537334267018537,
+    "silence": 5.537334267018537,
+    "soin": 5.537334267018537,
+    "sois": 5.537334267018537,
+    "soleil": 5.537334267018537,
+    "sombre": 5.537334267018537,
+    "sommes": 5.537334267018537,
+    "son": 5.537334267018537,
+    "sont": 4.438721978350427,
+    "sourire": 4.844187086458591,
+    "souviens": 3.7455747977904816,
+    "stockes": 5.537334267018537,
+    "stop": 5.537334267018537,
+    "suffit": 5.537334267018537,
+    "sur": 5.537334267018537,
+    "surpris": 5.537334267018537,
+    "surveilles": 5.537334267018537,
+    "t": 2.7647455447787554,
+    "tais": 5.537334267018537,
+    "tard": 5.537334267018537,
+    "te": 2.5416019934645457,
+    "teins": 4.151039905898646,
+    "teinte": 5.537334267018537,
+    "temps": 4.844187086458591,
+    "ter": 5.537334267018537,
+    "tes": 4.438721978350427,
+    "toi": 3.139438994220166,
+    "ton": 3.457892725338701,
+    "tout": 5.537334267018537,
+    "travail": 5.537334267018537,
+    "tre": 5.537334267018537,
+    "tres": 4.438721978350427,
+    "triste": 5.537334267018537,
+    "trop": 5.537334267018537,
+    "tu": 1.730671777248217,
+    "un": 2.7647455447787554,
+    "une": 3.2347491740244907,
+    "uploades": 5.537334267018537,
+    "utilise": 5.537334267018537,
+    "utiliser": 5.537334267018537,
+    "va": 3.7455747977904816,
+    "vais": 5.537334267018537,
+    "vas": 4.438721978350427,
+    "verte": 5.537334267018537,
+    "veux": 5.537334267018537,
+    "ville": 4.844187086458591,
+    "visage": 3.927896354584436,
+    "vision": 3.927896354584436,
+    "visions": 5.537334267018537,
+    "vont": 5.537334267018537,
+    "vraie": 5.537334267018537,
+    "vraiment": 5.537334267018537,
+    "y": 5.537334267018537
+  },
+  "k": 3,
+  "metric": "cosine",
+  "nDocs": 254,
+  "probes": [
+    {
+      "confidence": 0.14389986238130045,
+      "id": "weather_offline",
+      "margin": 0.10965585687655247,
+      "probs": [
+        0.03424400550474798,
+        0.03424400550474798,
+        0.03424400550474798,
+        0.03424400550474798,
+        0.03424400550474798,
+        0.03424400550474798,
+        0.03424400550474798,
+        0.03424400550474798,
+        0.03424400550474798,
+        0.03424400550474798,
+        0.03424400550474798,
+        0.03424400550474798,
+        0.03424400550474798,
+        0.03424400550474798,
+        0.03424400550474798,
+        0.03424400550474798,
+        0.03424400550474798,
+        0.03424400550474798,
+        0.03424400550474798,
+        0.03424400550474798,
+        0.03424400550474798,
+        0.03424400550474798,
+        0.03424400550474798,
+        0.03424400550474798,
+        0.03424400550474798,
+        0.14389986238130045
+      ],
+      "scores": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.435606129912364
+      ],
+      "tokens": [
+        "b",
+        "o",
+        "n",
+        "j",
+        "o",
+        "u",
+        "r",
+        " ",
+        "c",
+        "o",
+        "m",
+        "m",
+        "e",
+        "n",
+        "t",
+        " ",
+        "c",
+        "a",
+        " ",
+        "v",
+        "a"
+      ]
+    },
+    {
+      "confidence": 0.0529215824479774,
+      "id": "lighting",
+      "margin": 0.0005209576196480228,
+      "probs": [
+        0.05240062482832938,
+        0.036662419720347526,
+        0.036662419720347526,
+        0.036662419720347526,
+        0.036662419720347526,
+        0.036662419720347526,
+        0.036662419720347526,
+        0.036662419720347526,
+        0.036662419720347526,
+        0.036662419720347526,
+        0.05144213915570027,
+        0.036662419720347526,
+        0.036662419720347526,
+        0.036662419720347526,
+        0.036662419720347526,
+        0.036662419720347526,
+        0.0529215824479774,
+        0.036662419720347526,
+        0.036662419720347526,
+        0.036662419720347526,
+        0.036662419720347526,
+        0.036662419720347526,
+        0.036662419720347526,
+        0.036662419720347526,
+        0.036662419720347526,
+        0.036662419720347526
+      ],
+      "scores": [
+        0.35716627085338715,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.3387054199103975,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.3670589968374798,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "tokens": [
+        "q",
+        "u",
+        "e",
+        "l",
+        "l",
+        "e",
+        " ",
+        "h",
+        "e",
+        "u",
+        "r",
+        "e",
+        " ",
+        "e",
+        "s",
+        "t",
+        " ",
+        "i",
+        "l"
+      ]
+    },
+    {
+      "confidence": 0.08238532289609816,
+      "id": "weather_offline",
+      "margin": 0.031623149222487754,
+      "probs": [
+        0.03611885430959547,
+        0.03611885430959547,
+        0.03611885430959547,
+        0.03611885430959547,
+        0.03611885430959547,
+        0.03611885430959547,
+        0.03611885430959547,
+        0.03611885430959547,
+        0.03611885430959547,
+        0.03611885430959547,
+        0.03611885430959547,
+        0.03611885430959547,
+        0.03611885430959547,
+        0.03611885430959547,
+        0.03611885430959547,
+        0.03611885430959547,
+        0.03611885430959547,
+        0.03611885430959547,
+        0.03611885430959547,
+        0.03611885430959547,
+        0.03611885430959547,
+        0.03611885430959547,
+        0.03611885430959547,
+        0.05076217367361041,
+        0.03611885430959547,
+        0.08238532289609816
+      ],
+      "scores": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.3403364554562051,
+        0.0,
+        0.824592291814878
+      ],
+      "tokens": [
+        "a",
+        "u",
+        " ",
+        "r",
+        "e",
+        "v",
+        "o",
+        "i",
+        "r",
+        " ",
+        "a",
+        " ",
+        "b",
+        "i",
+        "e",
+        "n",
+        "t",
+        "o",
+        "t"
+      ]
+    },
+    {
+      "confidence": 0.05756075276332305,
+      "id": "memory_fact",
+      "margin": 0.005680389604326888,
+      "probs": [
+        0.036501540455645035,
+        0.036501540455645035,
+        0.036501540455645035,
+        0.036501540455645035,
+        0.036501540455645035,
+        0.036501540455645035,
+        0.036501540455645035,
+        0.036501540455645035,
+        0.036501540455645035,
+        0.036501540455645035,
+        0.036501540455645035,
+        0.036501540455645035,
+        0.036501540455645035,
+        0.051023453597845096,
+        0.036501540455645035,
+        0.036501540455645035,
+        0.036501540455645035,
+        0.036501540455645035,
+        0.036501540455645035,
+        0.036501540455645035,
+        0.036501540455645035,
+        0.036501540455645035,
+        0.05756075276332305,
+        0.036501540455645035,
+        0.05188036315899616,
+        0.036501540455645035
+      ],
+      "scores": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.3349309375199029,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.45548649586109335,
+        0.0,
+        0.35158589544227575,
+        0.0
+      ],
+      "tokens": [
+        "m",
+        "e",
+        "r",
+        "c",
+        "i",
+        " ",
+        "b",
+        "e",
+        "a",
+        "u",
+        "c",
+        "o",
+        "u",
+        "p"
+      ]
+    }
+  ],
+  "schema": 1,
+  "vocabulary": [
+    "3d",
+    "a",
+    "active",
+    "actuelle",
+    "adorable",
+    "adore",
+    "affiche",
+    "ai",
+    "aide",
+    "aider",
+    "aiface",
+    "aille",
+    "aime",
+    "aimes",
+    "air",
+    "ajoute",
+    "allum",
+    "allume",
+    "amuse",
+    "appeler",
+    "appelles",
+    "arr",
+    "as",
+    "assez",
+    "assures",
+    "au",
+    "aujourd",
+    "autre",
+    "avant",
+    "bavardage",
+    "beau",
+    "beaucoup",
+    "belle",
+    "besoin",
+    "bien",
+    "bient",
+    "blague",
+    "blagues",
+    "bleu",
+    "bleue",
+    "bonjour",
+    "bonne",
+    "bonsoir",
+    "bye",
+    "c",
+    "calme",
+    "cam",
+    "capacit",
+    "ce",
+    "ceci",
+    "cela",
+    "change",
+    "changer",
+    "charge",
+    "chatbot",
+    "chats",
+    "chaud",
+    "chaude",
+    "chaudes",
+    "chose",
+    "chut",
+    "ciao",
+    "clairage",
+    "comment",
+    "configuration",
+    "conna",
+    "connais",
+    "content",
+    "conversation",
+    "cool",
+    "coucou",
+    "couleur",
+    "coupe",
+    "d",
+    "dans",
+    "date",
+    "de",
+    "dehors",
+    "derni",
+    "des",
+    "dis",
+    "discussion",
+    "dit",
+    "donn",
+    "donne",
+    "doux",
+    "dr",
+    "du",
+    "e",
+    "elles",
+    "en",
+    "encore",
+    "ennuie",
+    "entendu",
+    "envoies",
+    "es",
+    "est",
+    "et",
+    "exactement",
+    "expression",
+    "f",
+    "facial",
+    "faire",
+    "fais",
+    "fait",
+    "faut",
+    "ferme",
+    "fichier",
+    "fois",
+    "fonctions",
+    "froid",
+    "g",
+    "gentil",
+    "glage",
+    "glages",
+    "glb",
+    "grand",
+    "grimacer",
+    "guide",
+    "hello",
+    "heure",
+    "hey",
+    "historique",
+    "hui",
+    "ia",
+    "il",
+    "intelligent",
+    "j",
+    "je",
+    "jolie",
+    "jour",
+    "journ",
+    "l",
+    "la",
+    "lance",
+    "le",
+    "les",
+    "lumi",
+    "lumineux",
+    "m",
+    "ma",
+    "magnifique",
+    "maintenant",
+    "marche",
+    "matrix",
+    "me",
+    "meilleur",
+    "merci",
+    "mes",
+    "messages",
+    "mets",
+    "mignonne",
+    "miroir",
+    "mission",
+    "mod",
+    "mode",
+    "modifie",
+    "moi",
+    "moire",
+    "mon",
+    "montre",
+    "montrer",
+    "moral",
+    "morise",
+    "musique",
+    "n",
+    "ne",
+    "neuf",
+    "nial",
+    "noir",
+    "nom",
+    "note",
+    "notre",
+    "nous",
+    "nuit",
+    "o",
+    "off",
+    "on",
+    "ouvre",
+    "p",
+    "param",
+    "parfait",
+    "paris",
+    "parl",
+    "parle",
+    "parler",
+    "pas",
+    "personne",
+    "peu",
+    "peux",
+    "pizza",
+    "pla",
+    "plat",
+    "pleuvoir",
+    "plus",
+    "pour",
+    "pr",
+    "prends",
+    "priv",
+    "prochaine",
+    "projection",
+    "projeter",
+    "projette",
+    "propos",
+    "qu",
+    "que",
+    "quel",
+    "quelle",
+    "quelque",
+    "qui",
+    "quoi",
+    "r",
+    "ra",
+    "raconte",
+    "rappelle",
+    "re",
+    "redis",
+    "remercie",
+    "remonte",
+    "res",
+    "retenez",
+    "retenu",
+    "retiens",
+    "revoir",
+    "rire",
+    "robot",
+    "roule",
+    "s",
+    "sactive",
+    "sais",
+    "salut",
+    "sam",
+    "sarah",
+    "sc",
+    "secours",
+    "sens",
+    "sente",
+    "serveur",
+    "silence",
+    "soin",
+    "sois",
+    "soleil",
+    "sombre",
+    "sommes",
+    "son",
+    "sont",
+    "sourire",
+    "souviens",
+    "stockes",
+    "stop",
+    "suffit",
+    "sur",
+    "surpris",
+    "surveilles",
+    "t",
+    "tais",
+    "tard",
+    "te",
+    "teins",
+    "teinte",
+    "temps",
+    "ter",
+    "tes",
+    "toi",
+    "ton",
+    "tout",
+    "travail",
+    "tre",
+    "tres",
+    "triste",
+    "trop",
+    "tu",
+    "un",
+    "une",
+    "uploades",
+    "utilise",
+    "utiliser",
+    "va",
+    "vais",
+    "vas",
+    "verte",
+    "veux",
+    "ville",
+    "visage",
+    "vision",
+    "visions",
+    "vont",
+    "vraie",
+    "vraiment",
+    "y"
+  ]
+}

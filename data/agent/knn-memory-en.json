@@ -1,0 +1,3181 @@
+{
+  "algorithm": "knn-cosine-1",
+  "classes": [
+    "greeting",
+    "farewell",
+    "thanks",
+    "how_are_you",
+    "who_are_you",
+    "name_inquiry",
+    "capabilities",
+    "help",
+    "time",
+    "date",
+    "small_talk",
+    "compliment",
+    "joke",
+    "repeat",
+    "stop_talking",
+    "change_face",
+    "lighting",
+    "mirror",
+    "vision",
+    "projection",
+    "memory_recall",
+    "memory_store",
+    "memory_fact",
+    "settings",
+    "privacy",
+    "weather_offline"
+  ],
+  "examples": [
+    {
+      "cls": "greeting",
+      "tokens": [
+        "hello"
+      ]
+    },
+    {
+      "cls": "greeting",
+      "tokens": [
+        "hi"
+      ]
+    },
+    {
+      "cls": "greeting",
+      "tokens": [
+        "hey"
+      ]
+    },
+    {
+      "cls": "greeting",
+      "tokens": [
+        "hey",
+        "there"
+      ]
+    },
+    {
+      "cls": "greeting",
+      "tokens": [
+        "hiya"
+      ]
+    },
+    {
+      "cls": "greeting",
+      "tokens": [
+        "howdy"
+      ]
+    },
+    {
+      "cls": "greeting",
+      "tokens": [
+        "yo"
+      ]
+    },
+    {
+      "cls": "greeting",
+      "tokens": [
+        "hello",
+        "there"
+      ]
+    },
+    {
+      "cls": "greeting",
+      "tokens": [
+        "good",
+        "morning"
+      ]
+    },
+    {
+      "cls": "greeting",
+      "tokens": [
+        "good",
+        "afternoon"
+      ]
+    },
+    {
+      "cls": "greeting",
+      "tokens": [
+        "good",
+        "evening"
+      ]
+    },
+    {
+      "cls": "greeting",
+      "tokens": [
+        "hey",
+        "friend"
+      ]
+    },
+    {
+      "cls": "greeting",
+      "tokens": [
+        "hi",
+        "aiface"
+      ]
+    },
+    {
+      "cls": "greeting",
+      "tokens": [
+        "hello",
+        "buddy"
+      ]
+    },
+    {
+      "cls": "farewell",
+      "tokens": [
+        "goodbye"
+      ]
+    },
+    {
+      "cls": "farewell",
+      "tokens": [
+        "bye"
+      ]
+    },
+    {
+      "cls": "farewell",
+      "tokens": [
+        "bye",
+        "bye"
+      ]
+    },
+    {
+      "cls": "farewell",
+      "tokens": [
+        "see",
+        "you",
+        "later"
+      ]
+    },
+    {
+      "cls": "farewell",
+      "tokens": [
+        "see",
+        "you",
+        "soon"
+      ]
+    },
+    {
+      "cls": "farewell",
+      "tokens": [
+        "good",
+        "night"
+      ]
+    },
+    {
+      "cls": "farewell",
+      "tokens": [
+        "take",
+        "care"
+      ]
+    },
+    {
+      "cls": "farewell",
+      "tokens": [
+        "see",
+        "ya"
+      ]
+    },
+    {
+      "cls": "farewell",
+      "tokens": [
+        "farewell"
+      ]
+    },
+    {
+      "cls": "farewell",
+      "tokens": [
+        "ciao"
+      ]
+    },
+    {
+      "cls": "farewell",
+      "tokens": [
+        "i",
+        "am",
+        "leaving",
+        "now"
+      ]
+    },
+    {
+      "cls": "farewell",
+      "tokens": [
+        "got",
+        "to",
+        "go"
+      ]
+    },
+    {
+      "cls": "thanks",
+      "tokens": [
+        "thanks"
+      ]
+    },
+    {
+      "cls": "thanks",
+      "tokens": [
+        "thank",
+        "you"
+      ]
+    },
+    {
+      "cls": "thanks",
+      "tokens": [
+        "thank",
+        "you",
+        "very",
+        "much"
+      ]
+    },
+    {
+      "cls": "thanks",
+      "tokens": [
+        "thanks",
+        "a",
+        "lot"
+      ]
+    },
+    {
+      "cls": "thanks",
+      "tokens": [
+        "much",
+        "appreciated"
+      ]
+    },
+    {
+      "cls": "thanks",
+      "tokens": [
+        "appreciate",
+        "it"
+      ]
+    },
+    {
+      "cls": "thanks",
+      "tokens": [
+        "thx"
+      ]
+    },
+    {
+      "cls": "thanks",
+      "tokens": [
+        "ty"
+      ]
+    },
+    {
+      "cls": "thanks",
+      "tokens": [
+        "great",
+        "job",
+        "thanks"
+      ]
+    },
+    {
+      "cls": "thanks",
+      "tokens": [
+        "cheers",
+        "mate"
+      ]
+    },
+    {
+      "cls": "thanks",
+      "tokens": [
+        "i",
+        "appreciate",
+        "that"
+      ]
+    },
+    {
+      "cls": "how_are_you",
+      "tokens": [
+        "how",
+        "are",
+        "you"
+      ]
+    },
+    {
+      "cls": "how_are_you",
+      "tokens": [
+        "how",
+        "are",
+        "you",
+        "doing"
+      ]
+    },
+    {
+      "cls": "how_are_you",
+      "tokens": [
+        "how",
+        "is",
+        "it",
+        "going"
+      ]
+    },
+    {
+      "cls": "how_are_you",
+      "tokens": [
+        "how",
+        "do",
+        "you",
+        "do"
+      ]
+    },
+    {
+      "cls": "how_are_you",
+      "tokens": [
+        "how",
+        "are",
+        "things"
+      ]
+    },
+    {
+      "cls": "how_are_you",
+      "tokens": [
+        "whats",
+        "up"
+      ]
+    },
+    {
+      "cls": "how_are_you",
+      "tokens": [
+        "what",
+        "s",
+        "up"
+      ]
+    },
+    {
+      "cls": "how_are_you",
+      "tokens": [
+        "sup"
+      ]
+    },
+    {
+      "cls": "how_are_you",
+      "tokens": [
+        "how",
+        "are",
+        "you",
+        "feeling"
+      ]
+    },
+    {
+      "cls": "how_are_you",
+      "tokens": [
+        "are",
+        "you",
+        "okay"
+      ]
+    },
+    {
+      "cls": "how_are_you",
+      "tokens": [
+        "how",
+        "have",
+        "you",
+        "been"
+      ]
+    },
+    {
+      "cls": "how_are_you",
+      "tokens": [
+        "you",
+        "alright"
+      ]
+    },
+    {
+      "cls": "who_are_you",
+      "tokens": [
+        "who",
+        "are",
+        "you"
+      ]
+    },
+    {
+      "cls": "who_are_you",
+      "tokens": [
+        "what",
+        "are",
+        "you"
+      ]
+    },
+    {
+      "cls": "who_are_you",
+      "tokens": [
+        "tell",
+        "me",
+        "about",
+        "yourself"
+      ]
+    },
+    {
+      "cls": "who_are_you",
+      "tokens": [
+        "are",
+        "you",
+        "a",
+        "robot"
+      ]
+    },
+    {
+      "cls": "who_are_you",
+      "tokens": [
+        "are",
+        "you",
+        "an",
+        "ai"
+      ]
+    },
+    {
+      "cls": "who_are_you",
+      "tokens": [
+        "what",
+        "are",
+        "you",
+        "exactly"
+      ]
+    },
+    {
+      "cls": "who_are_you",
+      "tokens": [
+        "introduce",
+        "yourself"
+      ]
+    },
+    {
+      "cls": "who_are_you",
+      "tokens": [
+        "what",
+        "kind",
+        "of",
+        "ai",
+        "are",
+        "you"
+      ]
+    },
+    {
+      "cls": "who_are_you",
+      "tokens": [
+        "are",
+        "you",
+        "real"
+      ]
+    },
+    {
+      "cls": "who_are_you",
+      "tokens": [
+        "are",
+        "you",
+        "a",
+        "chatbot"
+      ]
+    },
+    {
+      "cls": "name_inquiry",
+      "tokens": [
+        "what",
+        "is",
+        "your",
+        "name"
+      ]
+    },
+    {
+      "cls": "name_inquiry",
+      "tokens": [
+        "what",
+        "s",
+        "your",
+        "name"
+      ]
+    },
+    {
+      "cls": "name_inquiry",
+      "tokens": [
+        "your",
+        "name"
+      ]
+    },
+    {
+      "cls": "name_inquiry",
+      "tokens": [
+        "do",
+        "you",
+        "have",
+        "a",
+        "name"
+      ]
+    },
+    {
+      "cls": "name_inquiry",
+      "tokens": [
+        "what",
+        "should",
+        "i",
+        "call",
+        "you"
+      ]
+    },
+    {
+      "cls": "name_inquiry",
+      "tokens": [
+        "give",
+        "me",
+        "your",
+        "name"
+      ]
+    },
+    {
+      "cls": "name_inquiry",
+      "tokens": [
+        "what",
+        "are",
+        "you",
+        "called"
+      ]
+    },
+    {
+      "cls": "name_inquiry",
+      "tokens": [
+        "who",
+        "am",
+        "i",
+        "talking",
+        "to"
+      ]
+    },
+    {
+      "cls": "name_inquiry",
+      "tokens": [
+        "what",
+        "is",
+        "your",
+        "nickname"
+      ]
+    },
+    {
+      "cls": "capabilities",
+      "tokens": [
+        "what",
+        "can",
+        "you",
+        "do"
+      ]
+    },
+    {
+      "cls": "capabilities",
+      "tokens": [
+        "what",
+        "are",
+        "your",
+        "abilities"
+      ]
+    },
+    {
+      "cls": "capabilities",
+      "tokens": [
+        "what",
+        "do",
+        "you",
+        "do"
+      ]
+    },
+    {
+      "cls": "capabilities",
+      "tokens": [
+        "your",
+        "features"
+      ]
+    },
+    {
+      "cls": "capabilities",
+      "tokens": [
+        "tell",
+        "me",
+        "your",
+        "capabilities"
+      ]
+    },
+    {
+      "cls": "capabilities",
+      "tokens": [
+        "what",
+        "are",
+        "you",
+        "capable",
+        "of"
+      ]
+    },
+    {
+      "cls": "capabilities",
+      "tokens": [
+        "list",
+        "your",
+        "features"
+      ]
+    },
+    {
+      "cls": "capabilities",
+      "tokens": [
+        "what",
+        "can",
+        "you",
+        "help",
+        "me",
+        "with"
+      ]
+    },
+    {
+      "cls": "capabilities",
+      "tokens": [
+        "show",
+        "me",
+        "what",
+        "you",
+        "can",
+        "do"
+      ]
+    },
+    {
+      "cls": "help",
+      "tokens": [
+        "help"
+      ]
+    },
+    {
+      "cls": "help",
+      "tokens": [
+        "help",
+        "me"
+      ]
+    },
+    {
+      "cls": "help",
+      "tokens": [
+        "can",
+        "you",
+        "help",
+        "me"
+      ]
+    },
+    {
+      "cls": "help",
+      "tokens": [
+        "i",
+        "need",
+        "help"
+      ]
+    },
+    {
+      "cls": "help",
+      "tokens": [
+        "what",
+        "should",
+        "i",
+        "do"
+      ]
+    },
+    {
+      "cls": "help",
+      "tokens": [
+        "how",
+        "do",
+        "i",
+        "use",
+        "this"
+      ]
+    },
+    {
+      "cls": "help",
+      "tokens": [
+        "give",
+        "me",
+        "some",
+        "help"
+      ]
+    },
+    {
+      "cls": "help",
+      "tokens": [
+        "guide",
+        "me"
+      ]
+    },
+    {
+      "cls": "help",
+      "tokens": [
+        "help",
+        "please"
+      ]
+    },
+    {
+      "cls": "help",
+      "tokens": [
+        "i",
+        "don",
+        "t",
+        "know",
+        "what",
+        "to",
+        "do"
+      ]
+    },
+    {
+      "cls": "time",
+      "tokens": [
+        "what",
+        "time",
+        "is",
+        "it"
+      ]
+    },
+    {
+      "cls": "time",
+      "tokens": [
+        "what",
+        "s",
+        "the",
+        "time"
+      ]
+    },
+    {
+      "cls": "time",
+      "tokens": [
+        "tell",
+        "me",
+        "the",
+        "time"
+      ]
+    },
+    {
+      "cls": "time",
+      "tokens": [
+        "the",
+        "time",
+        "please"
+      ]
+    },
+    {
+      "cls": "time",
+      "tokens": [
+        "do",
+        "you",
+        "know",
+        "the",
+        "time"
+      ]
+    },
+    {
+      "cls": "time",
+      "tokens": [
+        "what",
+        "time",
+        "do",
+        "we",
+        "have"
+      ]
+    },
+    {
+      "cls": "time",
+      "tokens": [
+        "current",
+        "time"
+      ]
+    },
+    {
+      "cls": "time",
+      "tokens": [
+        "give",
+        "me",
+        "the",
+        "time"
+      ]
+    },
+    {
+      "cls": "time",
+      "tokens": [
+        "time",
+        "now"
+      ]
+    },
+    {
+      "cls": "time",
+      "tokens": [
+        "what",
+        "hour",
+        "is",
+        "it"
+      ]
+    },
+    {
+      "cls": "date",
+      "tokens": [
+        "what",
+        "is",
+        "the",
+        "date"
+      ]
+    },
+    {
+      "cls": "date",
+      "tokens": [
+        "what",
+        "s",
+        "today",
+        "s",
+        "date"
+      ]
+    },
+    {
+      "cls": "date",
+      "tokens": [
+        "what",
+        "day",
+        "is",
+        "it"
+      ]
+    },
+    {
+      "cls": "date",
+      "tokens": [
+        "tell",
+        "me",
+        "the",
+        "date"
+      ]
+    },
+    {
+      "cls": "date",
+      "tokens": [
+        "today",
+        "s",
+        "date"
+      ]
+    },
+    {
+      "cls": "date",
+      "tokens": [
+        "what",
+        "date",
+        "is",
+        "today"
+      ]
+    },
+    {
+      "cls": "date",
+      "tokens": [
+        "which",
+        "day",
+        "is",
+        "today"
+      ]
+    },
+    {
+      "cls": "date",
+      "tokens": [
+        "current",
+        "date",
+        "please"
+      ]
+    },
+    {
+      "cls": "small_talk",
+      "tokens": [
+        "how",
+        "is",
+        "the",
+        "weather"
+      ]
+    },
+    {
+      "cls": "small_talk",
+      "tokens": [
+        "nice",
+        "weather",
+        "today"
+      ]
+    },
+    {
+      "cls": "small_talk",
+      "tokens": [
+        "what",
+        "a",
+        "nice",
+        "day"
+      ]
+    },
+    {
+      "cls": "small_talk",
+      "tokens": [
+        "do",
+        "you",
+        "like",
+        "music"
+      ]
+    },
+    {
+      "cls": "small_talk",
+      "tokens": [
+        "tell",
+        "me",
+        "something",
+        "nice"
+      ]
+    },
+    {
+      "cls": "small_talk",
+      "tokens": [
+        "say",
+        "something",
+        "nice"
+      ]
+    },
+    {
+      "cls": "small_talk",
+      "tokens": [
+        "cheer",
+        "me",
+        "up"
+      ]
+    },
+    {
+      "cls": "small_talk",
+      "tokens": [
+        "i",
+        "am",
+        "bored"
+      ]
+    },
+    {
+      "cls": "small_talk",
+      "tokens": [
+        "i",
+        "m",
+        "bored"
+      ]
+    },
+    {
+      "cls": "small_talk",
+      "tokens": [
+        "entertain",
+        "me"
+      ]
+    },
+    {
+      "cls": "small_talk",
+      "tokens": [
+        "some",
+        "small",
+        "talk"
+      ]
+    },
+    {
+      "cls": "small_talk",
+      "tokens": [
+        "how",
+        "does",
+        "this",
+        "face",
+        "work"
+      ]
+    },
+    {
+      "cls": "compliment",
+      "tokens": [
+        "you",
+        "are",
+        "cool"
+      ]
+    },
+    {
+      "cls": "compliment",
+      "tokens": [
+        "you",
+        "are",
+        "awesome"
+      ]
+    },
+    {
+      "cls": "compliment",
+      "tokens": [
+        "you",
+        "are",
+        "smart"
+      ]
+    },
+    {
+      "cls": "compliment",
+      "tokens": [
+        "i",
+        "like",
+        "you"
+      ]
+    },
+    {
+      "cls": "compliment",
+      "tokens": [
+        "you",
+        "look",
+        "nice"
+      ]
+    },
+    {
+      "cls": "compliment",
+      "tokens": [
+        "nice",
+        "face"
+      ]
+    },
+    {
+      "cls": "compliment",
+      "tokens": [
+        "you",
+        "are",
+        "beautiful"
+      ]
+    },
+    {
+      "cls": "compliment",
+      "tokens": [
+        "you",
+        "rock"
+      ]
+    },
+    {
+      "cls": "compliment",
+      "tokens": [
+        "great",
+        "job",
+        "aiface"
+      ]
+    },
+    {
+      "cls": "compliment",
+      "tokens": [
+        "you",
+        "are",
+        "the",
+        "best"
+      ]
+    },
+    {
+      "cls": "compliment",
+      "tokens": [
+        "i",
+        "love",
+        "your",
+        "face"
+      ]
+    },
+    {
+      "cls": "compliment",
+      "tokens": [
+        "you",
+        "are",
+        "cute"
+      ]
+    },
+    {
+      "cls": "joke",
+      "tokens": [
+        "tell",
+        "me",
+        "a",
+        "joke"
+      ]
+    },
+    {
+      "cls": "joke",
+      "tokens": [
+        "say",
+        "a",
+        "joke"
+      ]
+    },
+    {
+      "cls": "joke",
+      "tokens": [
+        "do",
+        "you",
+        "know",
+        "any",
+        "jokes"
+      ]
+    },
+    {
+      "cls": "joke",
+      "tokens": [
+        "make",
+        "me",
+        "laugh"
+      ]
+    },
+    {
+      "cls": "joke",
+      "tokens": [
+        "tell",
+        "something",
+        "funny"
+      ]
+    },
+    {
+      "cls": "joke",
+      "tokens": [
+        "another",
+        "joke"
+      ]
+    },
+    {
+      "cls": "joke",
+      "tokens": [
+        "got",
+        "any",
+        "jokes"
+      ]
+    },
+    {
+      "cls": "joke",
+      "tokens": [
+        "be",
+        "funny"
+      ]
+    },
+    {
+      "cls": "joke",
+      "tokens": [
+        "say",
+        "something",
+        "funny"
+      ]
+    },
+    {
+      "cls": "joke",
+      "tokens": [
+        "give",
+        "me",
+        "a",
+        "joke"
+      ]
+    },
+    {
+      "cls": "repeat",
+      "tokens": [
+        "repeat"
+      ]
+    },
+    {
+      "cls": "repeat",
+      "tokens": [
+        "say",
+        "that",
+        "again"
+      ]
+    },
+    {
+      "cls": "repeat",
+      "tokens": [
+        "can",
+        "you",
+        "repeat"
+      ]
+    },
+    {
+      "cls": "repeat",
+      "tokens": [
+        "repeat",
+        "please"
+      ]
+    },
+    {
+      "cls": "repeat",
+      "tokens": [
+        "repeat",
+        "that"
+      ]
+    },
+    {
+      "cls": "repeat",
+      "tokens": [
+        "say",
+        "it",
+        "again"
+      ]
+    },
+    {
+      "cls": "repeat",
+      "tokens": [
+        "one",
+        "more",
+        "time"
+      ]
+    },
+    {
+      "cls": "repeat",
+      "tokens": [
+        "again",
+        "please"
+      ]
+    },
+    {
+      "cls": "repeat",
+      "tokens": [
+        "i",
+        "didn",
+        "t",
+        "hear",
+        "you"
+      ]
+    },
+    {
+      "cls": "repeat",
+      "tokens": [
+        "what",
+        "did",
+        "you",
+        "say"
+      ]
+    },
+    {
+      "cls": "stop_talking",
+      "tokens": [
+        "stop"
+      ]
+    },
+    {
+      "cls": "stop_talking",
+      "tokens": [
+        "stop",
+        "talking"
+      ]
+    },
+    {
+      "cls": "stop_talking",
+      "tokens": [
+        "shut",
+        "up"
+      ]
+    },
+    {
+      "cls": "stop_talking",
+      "tokens": [
+        "be",
+        "quiet"
+      ]
+    },
+    {
+      "cls": "stop_talking",
+      "tokens": [
+        "quiet",
+        "please"
+      ]
+    },
+    {
+      "cls": "stop_talking",
+      "tokens": [
+        "that",
+        "s",
+        "enough"
+      ]
+    },
+    {
+      "cls": "stop_talking",
+      "tokens": [
+        "stop",
+        "it"
+      ]
+    },
+    {
+      "cls": "stop_talking",
+      "tokens": [
+        "enough",
+        "now"
+      ]
+    },
+    {
+      "cls": "stop_talking",
+      "tokens": [
+        "silence",
+        "please"
+      ]
+    },
+    {
+      "cls": "stop_talking",
+      "tokens": [
+        "mute",
+        "yourself"
+      ]
+    },
+    {
+      "cls": "change_face",
+      "tokens": [
+        "change",
+        "your",
+        "face"
+      ]
+    },
+    {
+      "cls": "change_face",
+      "tokens": [
+        "make",
+        "a",
+        "face"
+      ]
+    },
+    {
+      "cls": "change_face",
+      "tokens": [
+        "show",
+        "me",
+        "a",
+        "happy",
+        "face"
+      ]
+    },
+    {
+      "cls": "change_face",
+      "tokens": [
+        "look",
+        "happy"
+      ]
+    },
+    {
+      "cls": "change_face",
+      "tokens": [
+        "make",
+        "a",
+        "sad",
+        "face"
+      ]
+    },
+    {
+      "cls": "change_face",
+      "tokens": [
+        "look",
+        "surprised"
+      ]
+    },
+    {
+      "cls": "change_face",
+      "tokens": [
+        "change",
+        "your",
+        "expression"
+      ]
+    },
+    {
+      "cls": "change_face",
+      "tokens": [
+        "make",
+        "a",
+        "funny",
+        "face"
+      ]
+    },
+    {
+      "cls": "change_face",
+      "tokens": [
+        "smile",
+        "for",
+        "me"
+      ]
+    },
+    {
+      "cls": "change_face",
+      "tokens": [
+        "frown",
+        "for",
+        "me"
+      ]
+    },
+    {
+      "cls": "change_face",
+      "tokens": [
+        "look",
+        "scared"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "change",
+        "the",
+        "lighting"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "set",
+        "the",
+        "lights"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "make",
+        "it",
+        "darker"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "make",
+        "it",
+        "brighter"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "blue",
+        "lighting"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "green",
+        "light"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "warm",
+        "light"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "softer",
+        "light"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "matrix",
+        "mode"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "change",
+        "the",
+        "light",
+        "color"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "set",
+        "matrix",
+        "lighting"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "turn",
+        "on",
+        "warm",
+        "lights"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "turn",
+        "off",
+        "the",
+        "lights"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "lights",
+        "off"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "turn",
+        "the",
+        "light",
+        "off"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "switch",
+        "off",
+        "the",
+        "light"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "switch",
+        "the",
+        "light",
+        "on"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "turn",
+        "on",
+        "the",
+        "light"
+      ]
+    },
+    {
+      "cls": "lighting",
+      "tokens": [
+        "light",
+        "off"
+      ]
+    },
+    {
+      "cls": "mirror",
+      "tokens": [
+        "turn",
+        "on",
+        "the",
+        "mirror"
+      ]
+    },
+    {
+      "cls": "mirror",
+      "tokens": [
+        "start",
+        "the",
+        "mirror"
+      ]
+    },
+    {
+      "cls": "mirror",
+      "tokens": [
+        "open",
+        "mirror",
+        "mode"
+      ]
+    },
+    {
+      "cls": "mirror",
+      "tokens": [
+        "show",
+        "my",
+        "mirror"
+      ]
+    },
+    {
+      "cls": "mirror",
+      "tokens": [
+        "mirror",
+        "on"
+      ]
+    },
+    {
+      "cls": "mirror",
+      "tokens": [
+        "turn",
+        "off",
+        "the",
+        "mirror"
+      ]
+    },
+    {
+      "cls": "mirror",
+      "tokens": [
+        "stop",
+        "mirror",
+        "mode"
+      ]
+    },
+    {
+      "cls": "mirror",
+      "tokens": [
+        "close",
+        "the",
+        "mirror"
+      ]
+    },
+    {
+      "cls": "mirror",
+      "tokens": [
+        "mirror",
+        "off"
+      ]
+    },
+    {
+      "cls": "mirror",
+      "tokens": [
+        "disable",
+        "the",
+        "face",
+        "mirror"
+      ]
+    },
+    {
+      "cls": "vision",
+      "tokens": [
+        "turn",
+        "on",
+        "the",
+        "camera"
+      ]
+    },
+    {
+      "cls": "vision",
+      "tokens": [
+        "start",
+        "vision"
+      ]
+    },
+    {
+      "cls": "vision",
+      "tokens": [
+        "enable",
+        "the",
+        "camera"
+      ]
+    },
+    {
+      "cls": "vision",
+      "tokens": [
+        "use",
+        "the",
+        "camera"
+      ]
+    },
+    {
+      "cls": "vision",
+      "tokens": [
+        "vision",
+        "on"
+      ]
+    },
+    {
+      "cls": "vision",
+      "tokens": [
+        "turn",
+        "on",
+        "camera",
+        "vision"
+      ]
+    },
+    {
+      "cls": "vision",
+      "tokens": [
+        "stop",
+        "the",
+        "camera"
+      ]
+    },
+    {
+      "cls": "vision",
+      "tokens": [
+        "turn",
+        "off",
+        "vision"
+      ]
+    },
+    {
+      "cls": "vision",
+      "tokens": [
+        "disable",
+        "the",
+        "camera"
+      ]
+    },
+    {
+      "cls": "vision",
+      "tokens": [
+        "vision",
+        "off"
+      ]
+    },
+    {
+      "cls": "vision",
+      "tokens": [
+        "close",
+        "the",
+        "camera"
+      ]
+    },
+    {
+      "cls": "projection",
+      "tokens": [
+        "show",
+        "a",
+        "projection"
+      ]
+    },
+    {
+      "cls": "projection",
+      "tokens": [
+        "drop",
+        "a",
+        "model",
+        "in",
+        "the",
+        "scene"
+      ]
+    },
+    {
+      "cls": "projection",
+      "tokens": [
+        "project",
+        "something"
+      ]
+    },
+    {
+      "cls": "projection",
+      "tokens": [
+        "show",
+        "a",
+        "3d",
+        "model"
+      ]
+    },
+    {
+      "cls": "projection",
+      "tokens": [
+        "add",
+        "a",
+        "model",
+        "to",
+        "the",
+        "scene"
+      ]
+    },
+    {
+      "cls": "projection",
+      "tokens": [
+        "how",
+        "do",
+        "i",
+        "project",
+        "a",
+        "model"
+      ]
+    },
+    {
+      "cls": "projection",
+      "tokens": [
+        "load",
+        "a",
+        "glb",
+        "file"
+      ]
+    },
+    {
+      "cls": "projection",
+      "tokens": [
+        "projection",
+        "mode"
+      ]
+    },
+    {
+      "cls": "projection",
+      "tokens": [
+        "can",
+        "you",
+        "show",
+        "a",
+        "model"
+      ]
+    },
+    {
+      "cls": "memory_recall",
+      "tokens": [
+        "what",
+        "did",
+        "we",
+        "talk",
+        "about"
+      ]
+    },
+    {
+      "cls": "memory_recall",
+      "tokens": [
+        "recall",
+        "our",
+        "conversation"
+      ]
+    },
+    {
+      "cls": "memory_recall",
+      "tokens": [
+        "what",
+        "did",
+        "i",
+        "say",
+        "earlier"
+      ]
+    },
+    {
+      "cls": "memory_recall",
+      "tokens": [
+        "are",
+        "you",
+        "familiar",
+        "with",
+        "our",
+        "chat"
+      ]
+    },
+    {
+      "cls": "memory_recall",
+      "tokens": [
+        "recall",
+        "our",
+        "chat"
+      ]
+    },
+    {
+      "cls": "memory_recall",
+      "tokens": [
+        "what",
+        "have",
+        "we",
+        "talked",
+        "about"
+      ]
+    },
+    {
+      "cls": "memory_recall",
+      "tokens": [
+        "show",
+        "my",
+        "history"
+      ]
+    },
+    {
+      "cls": "memory_recall",
+      "tokens": [
+        "what",
+        "did",
+        "we",
+        "discuss"
+      ]
+    },
+    {
+      "cls": "memory_recall",
+      "tokens": [
+        "do",
+        "you",
+        "have",
+        "memory"
+      ]
+    },
+    {
+      "cls": "memory_recall",
+      "tokens": [
+        "about",
+        "our",
+        "last",
+        "conversation"
+      ]
+    },
+    {
+      "cls": "memory_recall",
+      "tokens": [
+        "what",
+        "do",
+        "you",
+        "recall"
+      ]
+    },
+    {
+      "cls": "memory_store",
+      "tokens": [
+        "remember",
+        "that",
+        "my",
+        "favorite",
+        "color",
+        "is",
+        "teal"
+      ]
+    },
+    {
+      "cls": "memory_store",
+      "tokens": [
+        "note",
+        "that",
+        "my",
+        "favorite",
+        "food",
+        "is",
+        "pizza"
+      ]
+    },
+    {
+      "cls": "memory_store",
+      "tokens": [
+        "keep",
+        "in",
+        "mind",
+        "that",
+        "my",
+        "favorite",
+        "city",
+        "is",
+        "paris"
+      ]
+    },
+    {
+      "cls": "memory_store",
+      "tokens": [
+        "remember",
+        "that",
+        "my",
+        "name",
+        "is",
+        "sarah"
+      ]
+    },
+    {
+      "cls": "memory_store",
+      "tokens": [
+        "store",
+        "that",
+        "my",
+        "favorite",
+        "color",
+        "is",
+        "blue"
+      ]
+    },
+    {
+      "cls": "memory_store",
+      "tokens": [
+        "save",
+        "this",
+        "fact",
+        "for",
+        "me"
+      ]
+    },
+    {
+      "cls": "memory_store",
+      "tokens": [
+        "my",
+        "favorite",
+        "color",
+        "is",
+        "teal"
+      ]
+    },
+    {
+      "cls": "memory_store",
+      "tokens": [
+        "remember",
+        "that",
+        "i",
+        "prefer",
+        "dark",
+        "backgrounds"
+      ]
+    },
+    {
+      "cls": "memory_store",
+      "tokens": [
+        "please",
+        "remember",
+        "that",
+        "my",
+        "hometown",
+        "is",
+        "casablanca"
+      ]
+    },
+    {
+      "cls": "memory_fact",
+      "tokens": [
+        "what",
+        "is",
+        "my",
+        "favorite",
+        "color"
+      ]
+    },
+    {
+      "cls": "memory_fact",
+      "tokens": [
+        "what",
+        "s",
+        "my",
+        "name"
+      ]
+    },
+    {
+      "cls": "memory_fact",
+      "tokens": [
+        "what",
+        "is",
+        "my",
+        "favorite",
+        "food"
+      ]
+    },
+    {
+      "cls": "memory_fact",
+      "tokens": [
+        "do",
+        "you",
+        "remember",
+        "what",
+        "my",
+        "favorite",
+        "color",
+        "is"
+      ]
+    },
+    {
+      "cls": "memory_fact",
+      "tokens": [
+        "what",
+        "did",
+        "i",
+        "tell",
+        "you",
+        "to",
+        "remember"
+      ]
+    },
+    {
+      "cls": "memory_fact",
+      "tokens": [
+        "what",
+        "do",
+        "you",
+        "know",
+        "about",
+        "me"
+      ]
+    },
+    {
+      "cls": "memory_fact",
+      "tokens": [
+        "tell",
+        "me",
+        "my",
+        "favorite",
+        "color"
+      ]
+    },
+    {
+      "cls": "memory_fact",
+      "tokens": [
+        "what",
+        "do",
+        "you",
+        "remember",
+        "about",
+        "me"
+      ]
+    },
+    {
+      "cls": "memory_fact",
+      "tokens": [
+        "what",
+        "facts",
+        "have",
+        "you",
+        "stored",
+        "about",
+        "me"
+      ]
+    },
+    {
+      "cls": "memory_fact",
+      "tokens": [
+        "what",
+        "did",
+        "you",
+        "keep",
+        "about",
+        "me"
+      ]
+    },
+    {
+      "cls": "memory_fact",
+      "tokens": [
+        "do",
+        "you",
+        "recall",
+        "my",
+        "favorite",
+        "color"
+      ]
+    },
+    {
+      "cls": "memory_fact",
+      "tokens": [
+        "what",
+        "have",
+        "you",
+        "learned",
+        "about",
+        "me"
+      ]
+    },
+    {
+      "cls": "settings",
+      "tokens": [
+        "open",
+        "the",
+        "settings"
+      ]
+    },
+    {
+      "cls": "settings",
+      "tokens": [
+        "where",
+        "are",
+        "the",
+        "settings"
+      ]
+    },
+    {
+      "cls": "settings",
+      "tokens": [
+        "show",
+        "settings"
+      ]
+    },
+    {
+      "cls": "settings",
+      "tokens": [
+        "how",
+        "do",
+        "i",
+        "change",
+        "settings"
+      ]
+    },
+    {
+      "cls": "settings",
+      "tokens": [
+        "open",
+        "configuration"
+      ]
+    },
+    {
+      "cls": "settings",
+      "tokens": [
+        "settings",
+        "please"
+      ]
+    },
+    {
+      "cls": "settings",
+      "tokens": [
+        "change",
+        "a",
+        "setting"
+      ]
+    },
+    {
+      "cls": "settings",
+      "tokens": [
+        "go",
+        "to",
+        "settings"
+      ]
+    },
+    {
+      "cls": "privacy",
+      "tokens": [
+        "is",
+        "my",
+        "data",
+        "private"
+      ]
+    },
+    {
+      "cls": "privacy",
+      "tokens": [
+        "do",
+        "you",
+        "send",
+        "my",
+        "data"
+      ]
+    },
+    {
+      "cls": "privacy",
+      "tokens": [
+        "are",
+        "you",
+        "tracking",
+        "me"
+      ]
+    },
+    {
+      "cls": "privacy",
+      "tokens": [
+        "is",
+        "anything",
+        "uploaded"
+      ]
+    },
+    {
+      "cls": "privacy",
+      "tokens": [
+        "is",
+        "this",
+        "private"
+      ]
+    },
+    {
+      "cls": "privacy",
+      "tokens": [
+        "do",
+        "you",
+        "store",
+        "my",
+        "messages"
+      ]
+    },
+    {
+      "cls": "privacy",
+      "tokens": [
+        "where",
+        "does",
+        "my",
+        "data",
+        "go"
+      ]
+    },
+    {
+      "cls": "privacy",
+      "tokens": [
+        "are",
+        "my",
+        "chats",
+        "on",
+        "a",
+        "server"
+      ]
+    },
+    {
+      "cls": "weather_offline",
+      "tokens": [
+        "what",
+        "s",
+        "the",
+        "weather",
+        "today"
+      ]
+    },
+    {
+      "cls": "weather_offline",
+      "tokens": [
+        "is",
+        "it",
+        "cold",
+        "outside"
+      ]
+    },
+    {
+      "cls": "weather_offline",
+      "tokens": [
+        "weather",
+        "forecast"
+      ]
+    },
+    {
+      "cls": "weather_offline",
+      "tokens": [
+        "will",
+        "it",
+        "rain"
+      ]
+    },
+    {
+      "cls": "weather_offline",
+      "tokens": [
+        "how",
+        "hot",
+        "is",
+        "it"
+      ]
+    },
+    {
+      "cls": "weather_offline",
+      "tokens": [
+        "is",
+        "it",
+        "sunny"
+      ]
+    },
+    {
+      "cls": "weather_offline",
+      "tokens": [
+        "weather",
+        "please"
+      ]
+    },
+    {
+      "cls": "weather_offline",
+      "tokens": [
+        "tell",
+        "me",
+        "the",
+        "weather"
+      ]
+    }
+  ],
+  "idf": {
+    "3d": 5.616771097666572,
+    "a": 2.572248659943148,
+    "abilities": 5.616771097666572,
+    "about": 3.419546520330352,
+    "add": 5.616771097666572,
+    "afternoon": 5.616771097666572,
+    "again": 4.518158808998462,
+    "ai": 4.923623917106626,
+    "aiface": 4.923623917106626,
+    "alright": 5.616771097666572,
+    "am": 4.518158808998462,
+    "an": 5.616771097666572,
+    "another": 5.616771097666572,
+    "any": 4.923623917106626,
+    "anything": 5.616771097666572,
+    "appreciate": 4.923623917106626,
+    "appreciated": 5.616771097666572,
+    "are": 2.358674559645089,
+    "awesome": 5.616771097666572,
+    "backgrounds": 5.616771097666572,
+    "be": 4.923623917106626,
+    "beautiful": 5.616771097666572,
+    "been": 5.616771097666572,
+    "best": 5.616771097666572,
+    "blue": 4.923623917106626,
+    "bored": 4.923623917106626,
+    "brighter": 5.616771097666572,
+    "buddy": 5.616771097666572,
+    "bye": 4.923623917106626,
+    "call": 5.616771097666572,
+    "called": 5.616771097666572,
+    "camera": 3.670860948611258,
+    "can": 3.8250116284385163,
+    "capabilities": 5.616771097666572,
+    "capable": 5.616771097666572,
+    "care": 5.616771097666572,
+    "casablanca": 5.616771097666572,
+    "change": 3.8250116284385163,
+    "chat": 4.923623917106626,
+    "chatbot": 5.616771097666572,
+    "chats": 5.616771097666572,
+    "cheer": 5.616771097666572,
+    "cheers": 5.616771097666572,
+    "ciao": 5.616771097666572,
+    "city": 5.616771097666572,
+    "close": 4.923623917106626,
+    "cold": 5.616771097666572,
+    "color": 3.5373295559867355,
+    "configuration": 5.616771097666572,
+    "conversation": 4.923623917106626,
+    "cool": 5.616771097666572,
+    "current": 4.923623917106626,
+    "cute": 5.616771097666572,
+    "dark": 5.616771097666572,
+    "darker": 5.616771097666572,
+    "data": 4.518158808998462,
+    "date": 3.8250116284385163,
+    "day": 4.518158808998462,
+    "did": 3.8250116284385163,
+    "didn": 5.616771097666572,
+    "disable": 4.923623917106626,
+    "discuss": 5.616771097666572,
+    "do": 2.5257286443082556,
+    "does": 4.923623917106626,
+    "doing": 5.616771097666572,
+    "don": 5.616771097666572,
+    "drop": 5.616771097666572,
+    "earlier": 5.616771097666572,
+    "enable": 5.616771097666572,
+    "enough": 4.923623917106626,
+    "entertain": 5.616771097666572,
+    "evening": 5.616771097666572,
+    "exactly": 5.616771097666572,
+    "expression": 5.616771097666572,
+    "face": 3.419546520330352,
+    "fact": 5.616771097666572,
+    "facts": 5.616771097666572,
+    "familiar": 5.616771097666572,
+    "farewell": 5.616771097666572,
+    "favorite": 3.3141860046725258,
+    "features": 4.923623917106626,
+    "feeling": 5.616771097666572,
+    "file": 5.616771097666572,
+    "food": 4.923623917106626,
+    "for": 4.518158808998462,
+    "forecast": 5.616771097666572,
+    "friend": 5.616771097666572,
+    "frown": 5.616771097666572,
+    "funny": 4.230476736546681,
+    "give": 4.230476736546681,
+    "glb": 5.616771097666572,
+    "go": 4.518158808998462,
+    "going": 5.616771097666572,
+    "good": 4.230476736546681,
+    "goodbye": 5.616771097666572,
+    "got": 4.923623917106626,
+    "great": 4.923623917106626,
+    "green": 5.616771097666572,
+    "guide": 5.616771097666572,
+    "happy": 4.923623917106626,
+    "have": 3.670860948611258,
+    "hear": 5.616771097666572,
+    "hello": 4.518158808998462,
+    "help": 3.670860948611258,
+    "hey": 4.518158808998462,
+    "hi": 4.923623917106626,
+    "history": 5.616771097666572,
+    "hiya": 5.616771097666572,
+    "hometown": 5.616771097666572,
+    "hot": 5.616771097666572,
+    "hour": 5.616771097666572,
+    "how": 3.0518217402050345,
+    "howdy": 5.616771097666572,
+    "i": 2.7263993397704067,
+    "in": 4.923623917106626,
+    "introduce": 5.616771097666572,
+    "is": 2.358674559645089,
+    "it": 3.0518217402050345,
+    "job": 4.923623917106626,
+    "joke": 4.230476736546681,
+    "jokes": 4.923623917106626,
+    "keep": 4.923623917106626,
+    "kind": 5.616771097666572,
+    "know": 4.230476736546681,
+    "last": 5.616771097666572,
+    "later": 5.616771097666572,
+    "laugh": 5.616771097666572,
+    "learned": 5.616771097666572,
+    "leaving": 5.616771097666572,
+    "light": 3.419546520330352,
+    "lighting": 4.518158808998462,
+    "lights": 4.230476736546681,
+    "like": 4.923623917106626,
+    "list": 5.616771097666572,
+    "load": 5.616771097666572,
+    "look": 4.230476736546681,
+    "lot": 5.616771097666572,
+    "love": 5.616771097666572,
+    "m": 5.616771097666572,
+    "make": 3.8250116284385163,
+    "mate": 5.616771097666572,
+    "matrix": 4.923623917106626,
+    "me": 2.2155737160044158,
+    "memory": 5.616771097666572,
+    "messages": 5.616771097666572,
+    "mind": 5.616771097666572,
+    "mirror": 3.3141860046725258,
+    "mode": 4.230476736546681,
+    "model": 4.007333185232471,
+    "more": 5.616771097666572,
+    "morning": 5.616771097666572,
+    "much": 4.923623917106626,
+    "music": 5.616771097666572,
+    "mute": 5.616771097666572,
+    "my": 2.6210388241125804,
+    "name": 3.670860948611258,
+    "need": 5.616771097666572,
+    "nice": 3.8250116284385163,
+    "nickname": 5.616771097666572,
+    "night": 5.616771097666572,
+    "note": 5.616771097666572,
+    "now": 4.518158808998462,
+    "of": 4.923623917106626,
+    "off": 3.419546520330352,
+    "okay": 5.616771097666572,
+    "on": 3.419546520330352,
+    "one": 5.616771097666572,
+    "open": 4.518158808998462,
+    "our": 4.230476736546681,
+    "outside": 5.616771097666572,
+    "paris": 5.616771097666572,
+    "pizza": 5.616771097666572,
+    "please": 3.3141860046725258,
+    "prefer": 5.616771097666572,
+    "private": 4.923623917106626,
+    "project": 4.923623917106626,
+    "projection": 4.923623917106626,
+    "quiet": 4.923623917106626,
+    "rain": 5.616771097666572,
+    "real": 5.616771097666572,
+    "recall": 4.230476736546681,
+    "remember": 3.670860948611258,
+    "repeat": 4.230476736546681,
+    "robot": 5.616771097666572,
+    "rock": 5.616771097666572,
+    "s": 3.5373295559867355,
+    "sad": 5.616771097666572,
+    "sarah": 5.616771097666572,
+    "save": 5.616771097666572,
+    "say": 3.670860948611258,
+    "scared": 5.616771097666572,
+    "scene": 4.923623917106626,
+    "see": 4.518158808998462,
+    "send": 5.616771097666572,
+    "server": 5.616771097666572,
+    "set": 4.923623917106626,
+    "setting": 5.616771097666572,
+    "settings": 3.8250116284385163,
+    "should": 4.923623917106626,
+    "show": 3.5373295559867355,
+    "shut": 5.616771097666572,
+    "silence": 5.616771097666572,
+    "small": 5.616771097666572,
+    "smart": 5.616771097666572,
+    "smile": 5.616771097666572,
+    "softer": 5.616771097666572,
+    "some": 4.923623917106626,
+    "something": 4.007333185232471,
+    "soon": 5.616771097666572,
+    "start": 4.923623917106626,
+    "stop": 4.007333185232471,
+    "store": 4.923623917106626,
+    "stored": 5.616771097666572,
+    "sunny": 5.616771097666572,
+    "sup": 5.616771097666572,
+    "surprised": 5.616771097666572,
+    "switch": 4.923623917106626,
+    "t": 4.923623917106626,
+    "take": 5.616771097666572,
+    "talk": 4.923623917106626,
+    "talked": 5.616771097666572,
+    "talking": 4.923623917106626,
+    "teal": 4.923623917106626,
+    "tell": 3.3141860046725258,
+    "thank": 4.923623917106626,
+    "thanks": 4.518158808998462,
+    "that": 3.2188758248682006,
+    "the": 2.0904105730504097,
+    "there": 4.923623917106626,
+    "things": 5.616771097666572,
+    "this": 4.230476736546681,
+    "thx": 5.616771097666572,
+    "time": 3.3141860046725258,
+    "to": 3.8250116284385163,
+    "today": 3.8250116284385163,
+    "tracking": 5.616771097666572,
+    "turn": 3.419546520330352,
+    "ty": 5.616771097666572,
+    "up": 4.230476736546681,
+    "uploaded": 5.616771097666572,
+    "use": 4.923623917106626,
+    "very": 5.616771097666572,
+    "vision": 4.007333185232471,
+    "warm": 4.923623917106626,
+    "we": 4.230476736546681,
+    "weather": 3.8250116284385163,
+    "what": 1.8555709819730088,
+    "whats": 5.616771097666572,
+    "where": 4.923623917106626,
+    "which": 5.616771097666572,
+    "who": 4.923623917106626,
+    "will": 5.616771097666572,
+    "with": 4.923623917106626,
+    "work": 5.616771097666572,
+    "ya": 5.616771097666572,
+    "yo": 5.616771097666572,
+    "you": 1.556328087120152,
+    "your": 3.131864447878571,
+    "yourself": 4.518158808998462
+  },
+  "k": 3,
+  "metric": "cosine",
+  "nDocs": 275,
+  "probes": [
+    {
+      "confidence": 0.06044064819003817,
+      "id": "repeat",
+      "margin": 0.0012104460574458228,
+      "probs": [
+        0.03668038123655706,
+        0.03668038123655706,
+        0.03668038123655706,
+        0.03668038123655706,
+        0.03668038123655706,
+        0.03668038123655706,
+        0.03668038123655706,
+        0.05923020213259235,
+        0.03668038123655706,
+        0.03668038123655706,
+        0.03668038123655706,
+        0.03668038123655706,
+        0.03668038123655706,
+        0.06044064819003817,
+        0.03668038123655706,
+        0.03668038123655706,
+        0.03668038123655706,
+        0.03668038123655706,
+        0.03668038123655706,
+        0.03668038123655706,
+        0.03668038123655706,
+        0.03668038123655706,
+        0.03668038123655706,
+        0.03668038123655706,
+        0.03668038123655706,
+        0.03668038123655706
+      ],
+      "scores": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.47918954204013936,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.49941982095243415,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "tokens": [
+        "h",
+        "e",
+        "l",
+        "l",
+        "o",
+        " ",
+        "t",
+        "h",
+        "e",
+        "r",
+        "e"
+      ]
+    },
+    {
+      "confidence": 0.06087968170293859,
+      "id": "repeat",
+      "margin": 0.001283516690847572,
+      "probs": [
+        0.03597656835833506,
+        0.03597656835833506,
+        0.03597656835833506,
+        0.03597656835833506,
+        0.03597656835833506,
+        0.03597656835833506,
+        0.03597656835833506,
+        0.059596165012091015,
+        0.03597656835833506,
+        0.03597656835833506,
+        0.05206308104326396,
+        0.03597656835833506,
+        0.03597656835833506,
+        0.06087968170293859,
+        0.03597656835833506,
+        0.03597656835833506,
+        0.03597656835833506,
+        0.03597656835833506,
+        0.03597656835833506,
+        0.03597656835833506,
+        0.03597656835833506,
+        0.03597656835833506,
+        0.03597656835833506,
+        0.03597656835833506,
+        0.03597656835833506,
+        0.03597656835833506
+      ],
+      "scores": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.504723378959013,
+        0.0,
+        0.0,
+        0.3695882327523294,
+        0.0,
+        0.0,
+        0.5260316376627086,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "tokens": [
+        "w",
+        "h",
+        "a",
+        "t",
+        " ",
+        "t",
+        "i",
+        "m",
+        "e",
+        " ",
+        "i",
+        "s",
+        " ",
+        "i",
+        "t"
+      ]
+    },
+    {
+      "confidence": 0.038461538461538464,
+      "id": "greeting",
+      "margin": 0.0,
+      "probs": [
+        0.038461538461538464,
+        0.038461538461538464,
+        0.038461538461538464,
+        0.038461538461538464,
+        0.038461538461538464,
+        0.038461538461538464,
+        0.038461538461538464,
+        0.038461538461538464,
+        0.038461538461538464,
+        0.038461538461538464,
+        0.038461538461538464,
+        0.038461538461538464,
+        0.038461538461538464,
+        0.038461538461538464,
+        0.038461538461538464,
+        0.038461538461538464,
+        0.038461538461538464,
+        0.038461538461538464,
+        0.038461538461538464,
+        0.038461538461538464,
+        0.038461538461538464,
+        0.038461538461538464,
+        0.038461538461538464,
+        0.038461538461538464,
+        0.038461538461538464,
+        0.038461538461538464
+      ],
+      "scores": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "tokens": [
+        "g",
+        "o",
+        "o",
+        "d",
+        "b",
+        "y",
+        "e",
+        " ",
+        "f",
+        "o",
+        "r",
+        " ",
+        "n",
+        "o",
+        "w"
+      ]
+    },
+    {
+      "confidence": 0.06038350078029072,
+      "id": "small_talk",
+      "margin": 0.010497740620052785,
+      "probs": [
+        0.03654217504800188,
+        0.03654217504800188,
+        0.03654217504800188,
+        0.03654217504800188,
+        0.03654217504800188,
+        0.03654217504800188,
+        0.03654217504800188,
+        0.049260712955428096,
+        0.03654217504800188,
+        0.03654217504800188,
+        0.06038350078029072,
+        0.03654217504800188,
+        0.03654217504800188,
+        0.049885760160237935,
+        0.03654217504800188,
+        0.03654217504800188,
+        0.03654217504800188,
+        0.03654217504800188,
+        0.03654217504800188,
+        0.03654217504800188,
+        0.03654217504800188,
+        0.03654217504800188,
+        0.03654217504800188,
+        0.03654217504800188,
+        0.03654217504800188,
+        0.03654217504800188
+      ],
+      "scores": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.29865979159974254,
+        0.0,
+        0.0,
+        0.5022488274334302,
+        0.0,
+        0.0,
+        0.3112685202005944,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "tokens": [
+        "t",
+        "h",
+        "a",
+        "n",
+        "k",
+        " ",
+        "y",
+        "o",
+        "u",
+        " ",
+        "v",
+        "e",
+        "r",
+        "y",
+        " ",
+        "m",
+        "u",
+        "c",
+        "h"
+      ]
+    }
+  ],
+  "schema": 1,
+  "vocabulary": [
+    "3d",
+    "a",
+    "abilities",
+    "about",
+    "add",
+    "afternoon",
+    "again",
+    "ai",
+    "aiface",
+    "alright",
+    "am",
+    "an",
+    "another",
+    "any",
+    "anything",
+    "appreciate",
+    "appreciated",
+    "are",
+    "awesome",
+    "backgrounds",
+    "be",
+    "beautiful",
+    "been",
+    "best",
+    "blue",
+    "bored",
+    "brighter",
+    "buddy",
+    "bye",
+    "call",
+    "called",
+    "camera",
+    "can",
+    "capabilities",
+    "capable",
+    "care",
+    "casablanca",
+    "change",
+    "chat",
+    "chatbot",
+    "chats",
+    "cheer",
+    "cheers",
+    "ciao",
+    "city",
+    "close",
+    "cold",
+    "color",
+    "configuration",
+    "conversation",
+    "cool",
+    "current",
+    "cute",
+    "dark",
+    "darker",
+    "data",
+    "date",
+    "day",
+    "did",
+    "didn",
+    "disable",
+    "discuss",
+    "do",
+    "does",
+    "doing",
+    "don",
+    "drop",
+    "earlier",
+    "enable",
+    "enough",
+    "entertain",
+    "evening",
+    "exactly",
+    "expression",
+    "face",
+    "fact",
+    "facts",
+    "familiar",
+    "farewell",
+    "favorite",
+    "features",
+    "feeling",
+    "file",
+    "food",
+    "for",
+    "forecast",
+    "friend",
+    "frown",
+    "funny",
+    "give",
+    "glb",
+    "go",
+    "going",
+    "good",
+    "goodbye",
+    "got",
+    "great",
+    "green",
+    "guide",
+    "happy",
+    "have",
+    "hear",
+    "hello",
+    "help",
+    "hey",
+    "hi",
+    "history",
+    "hiya",
+    "hometown",
+    "hot",
+    "hour",
+    "how",
+    "howdy",
+    "i",
+    "in",
+    "introduce",
+    "is",
+    "it",
+    "job",
+    "joke",
+    "jokes",
+    "keep",
+    "kind",
+    "know",
+    "last",
+    "later",
+    "laugh",
+    "learned",
+    "leaving",
+    "light",
+    "lighting",
+    "lights",
+    "like",
+    "list",
+    "load",
+    "look",
+    "lot",
+    "love",
+    "m",
+    "make",
+    "mate",
+    "matrix",
+    "me",
+    "memory",
+    "messages",
+    "mind",
+    "mirror",
+    "mode",
+    "model",
+    "more",
+    "morning",
+    "much",
+    "music",
+    "mute",
+    "my",
+    "name",
+    "need",
+    "nice",
+    "nickname",
+    "night",
+    "note",
+    "now",
+    "of",
+    "off",
+    "okay",
+    "on",
+    "one",
+    "open",
+    "our",
+    "outside",
+    "paris",
+    "pizza",
+    "please",
+    "prefer",
+    "private",
+    "project",
+    "projection",
+    "quiet",
+    "rain",
+    "real",
+    "recall",
+    "remember",
+    "repeat",
+    "robot",
+    "rock",
+    "s",
+    "sad",
+    "sarah",
+    "save",
+    "say",
+    "scared",
+    "scene",
+    "see",
+    "send",
+    "server",
+    "set",
+    "setting",
+    "settings",
+    "should",
+    "show",
+    "shut",
+    "silence",
+    "small",
+    "smart",
+    "smile",
+    "softer",
+    "some",
+    "something",
+    "soon",
+    "start",
+    "stop",
+    "store",
+    "stored",
+    "sunny",
+    "sup",
+    "surprised",
+    "switch",
+    "t",
+    "take",
+    "talk",
+    "talked",
+    "talking",
+    "teal",
+    "tell",
+    "thank",
+    "thanks",
+    "that",
+    "the",
+    "there",
+    "things",
+    "this",
+    "thx",
+    "time",
+    "to",
+    "today",
+    "tracking",
+    "turn",
+    "ty",
+    "up",
+    "uploaded",
+    "use",
+    "very",
+    "vision",
+    "warm",
+    "we",
+    "weather",
+    "what",
+    "whats",
+    "where",
+    "which",
+    "who",
+    "will",
+    "with",
+    "work",
+    "ya",
+    "yo",
+    "you",
+    "your",
+    "yourself"
+  ]
+}
