@@ -30,7 +30,7 @@
 // ============================================================
 
 import { parseYoloOneToOne, nonMaxSuppressionPerClass } from './pure.js';
-import { clampVisionFps, DEFAULT_VISION_FPS, classifySceneMotion, decideDetectionGate } from './visionLogic.js';
+import { clampVisionFps, DEFAULT_VISION_FPS, classifySceneMotion, decideDetectionGate, effectiveDetectionFps } from './visionLogic.js';
 
 let YOLO_MODEL_URL = './models/yolo26n_int8.onnx'; // see scripts/export_model.py
 const YOLO_INPUT_SIZE = 640;
@@ -81,6 +81,7 @@ const GATE_H = 12;
 const GATE_FLOOR_FPS = 2;      // detection rate once cold + static
 const GATE_BURST_MS = 3000;    // keep full rate briefly after the last person
 const GATE_STABLE_MS = 3000;   // how long a scene must sit still before flooring
+const VIDEO_RETRY_MS = 200;    // backoff while the camera video isn't ready yet
 let gateCanvas = null;         // 16x12 offscreen for the luma probe
 let gateCtx = null;
 let gateLumaPrev = null;       // Uint8Array(GATE_W*GATE_H) last probe
@@ -89,19 +90,27 @@ let lastPersonPresent = false;
 
 // ---- Backend acceleration ----
 // 'yolo-webgpu' can actually mean WebGPU OR a silent CPU (wasm) inference if
-// WebGPU is absent. CPU inference is genuinely heavy, so we track whether the
-// active backend computes on the GPU and clamp its rate accordingly.
-const VISION_CPU_FPS_CAP = 3;  // max detection FPS for a wasm/CPU inference path
+// WebGPU is absent or failed to bind. CPU inference is genuinely heavy, so we
+// track which execution provider ORT ACTUALLY bound and clamp its rate
+// accordingly (the caps live in visionLogic.effectiveDetectionFps so they are
+// unit-tested).
 let gpuAccelerated = true;
+let activeExecutionProvider = null; // 'webgpu' | 'wasm' (YOLO path; null else)
+let lastInferenceMs = 0;            // duration of the last inference run (diag)
 
 // Worker-based preprocessing keeps the heavy RGBA->CHW permutation off the
 // main thread so the Three.js render loop never janks (see visionWorker.js).
 let worker = null;           // Worker | null (lazily created in init)
 let workerPending = null;    // { resolve, reject } for the in-flight request
 let workerAvailable = typeof Worker !== 'undefined';
-// Preallocated output buffer reused across frames (worker returns a transferred
-// Float32Array; inline path reuses this to avoid per-frame allocation).
+// Preallocated output buffer reused across frames (inline fallback path).
 let preallocFloat32 = null;  // Float32Array | null
+// Ping-pong buffer handed back to the worker each frame so steady-state
+// preprocessing allocates nothing (~1.2MB/frame otherwise -> GC churn).
+let workerReturnBuffer = null; // Float32Array | null
+// Flipped false after the first failure of the ImageBitmap capture path so a
+// structurally unsupported API isn't retried on every detection frame.
+let bitmapCaptureEnabled = true;
 
 /** Feature-detect WebGPU the same way the rest of the app does for WebLLM. */
 async function hasWebGPU() {
@@ -130,11 +139,36 @@ async function initYolo() {
   await loadScript(ORT_LIB_URL);
   // eslint-disable-next-line no-undef
   ort.env.wasm.wasmPaths = ORT_WASM_PATH;
+  // Multi-threaded wasm needs SharedArrayBuffer, which needs COOP/COEP
+  // (crossOriginIsolated). Without it ORT silently clamps to one thread —
+  // pin it explicitly so the CPU path's cost is known rather than surprising.
+  const isolated = typeof self !== 'undefined' && self.crossOriginIsolated;
   // eslint-disable-next-line no-undef
-  session = await ort.InferenceSession.create(YOLO_MODEL_URL, {
-    executionProviders: ['webgpu', 'wasm'],
-    graphOptimizationLevel: 'all',
-  });
+  ort.env.wasm.numThreads = isolated
+    ? Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 2) - 1))
+    : 1;
+
+  // Request WebGPU ALONE so a fallback to wasm is observable: ORT treats the
+  // executionProviders array as a preference list, and the old
+  // ['webgpu', 'wasm'] form could degrade to single-threaded CPU inference
+  // silently while we still reported the full GPU rate — the main cause of
+  // whole-app lag with YOLO active. Each attempt binds exactly one EP.
+  try {
+    // eslint-disable-next-line no-undef
+    session = await ort.InferenceSession.create(YOLO_MODEL_URL, {
+      executionProviders: ['webgpu'],
+      graphOptimizationLevel: 'all',
+    });
+    activeExecutionProvider = 'webgpu';
+  } catch (err) {
+    console.warn('[vision] WebGPU session unavailable, using wasm (CPU):', err && err.message ? err.message : err);
+    // eslint-disable-next-line no-undef
+    session = await ort.InferenceSession.create(YOLO_MODEL_URL, {
+      executionProviders: ['wasm'],
+      graphOptimizationLevel: 'all',
+    });
+    activeExecutionProvider = 'wasm';
+  }
   backend = 'yolo-webgpu';
 }
 
@@ -146,10 +180,20 @@ function ensurePreprocessWorker() {
     worker = new Worker(new URL('./visionWorker.js', import.meta.url), { type: 'module' });
     worker.onmessage = (e) => {
       const d = e.data || {};
+      if (d.type === 'preprocess-error' && workerPending) {
+        const { reject } = workerPending;
+        workerPending = null;
+        reject(new Error(d.message || 'preprocess failed'));
+        return;
+      }
       if (d.type === 'preprocess-done' && workerPending) {
         const { resolve } = workerPending;
         workerPending = null;
-        resolve(new Float32Array(d.float32));
+        const out = new Float32Array(d.float32);
+        // Park the buffer so the NEXT frame transfers it back (ping-pong):
+        // steady-state preprocessing then allocates nothing per frame.
+        workerReturnBuffer = out;
+        resolve(out);
       }
     };
     worker.onerror = (err) => {
@@ -176,22 +220,69 @@ function terminatePreprocessWorker() {
   workerPending = null;
 }
 
-// Asynchronous RGBA->CHW permutation via the worker, with a reusable
-// preallocated output Float32Array on the main thread. Returns a Promise of
-// a Float32Array of length 3*width*height (R,G,B planes in [0..1]).
+// Ping-pong: detach the previous frame's output (only when the size still
+// matches) so the worker refills it instead of allocating a fresh 1.2MB
+// Float32Array per detection frame (that churn was constant GC pressure).
+// Returns the ArrayBuffer to include in the postMessage transfer list.
+function takeReturnBuffer(size) {
+  const buf = workerReturnBuffer && workerReturnBuffer.length === size
+    ? workerReturnBuffer.buffer
+    : null;
+  workerReturnBuffer = null;
+  return buf;
+}
+
+// Asynchronous RGBA->CHW permutation via the worker. Returns a Promise of a
+// Float32Array of length 3*width*height (R,G,B planes in [0..1]).
 function workerPreprocess(rgba, width, height) {
   const size = 3 * width * height;
-  if (!preallocFloat32 || preallocFloat32.length !== size) {
-    preallocFloat32 = new Float32Array(size);
-  }
   return new Promise((resolve, reject) => {
     if (!worker) { reject(new Error('no worker')); return; }
-    const transfer = rgba;
+    const transfer = [rgba];
+    const buffer = takeReturnBuffer(size);
+    if (buffer) transfer.push(buffer);
     workerPending = { resolve, reject };
-    worker.postMessage(
-      { type: 'preprocess', size, width, height, rgba },
-      [transfer]
-    );
+    try {
+      worker.postMessage(
+        { type: 'preprocess', size, width, height, rgba, buffer },
+        transfer
+      );
+    } catch (err) {
+      workerPending = null;
+      reject(err);
+    }
+  });
+}
+
+// Off-main-thread capture path: the main thread only snapshots the current
+// video frame as an ImageBitmap (async — NO canvas readback / GPU sync on the
+// main thread); the worker owns the letterbox draw + getImageData + CHW
+// conversion. This replaces a ~1.6MB synchronous readback that stalled the
+// Three.js render loop on every detection frame.
+function workerPreprocessBitmap(bitmap, geom) {
+  const { vw, vh, dx, dy, nw, nh } = geom;
+  const size = 3 * YOLO_INPUT_SIZE * YOLO_INPUT_SIZE;
+  return new Promise((resolve, reject) => {
+    if (!worker) {
+      try { bitmap.close(); } catch (e) { /* noop */ }
+      reject(new Error('no worker'));
+      return;
+    }
+    const transfer = [bitmap];
+    const buffer = takeReturnBuffer(size);
+    if (buffer) transfer.push(buffer);
+    workerPending = { resolve, reject };
+    try {
+      worker.postMessage({
+        type: 'preprocess-bmp',
+        size, width: YOLO_INPUT_SIZE, height: YOLO_INPUT_SIZE,
+        bitmap, vw, vh, dx, dy, nw, nh, buffer,
+      }, transfer);
+    } catch (err) {
+      workerPending = null;
+      try { bitmap.close(); } catch (e) { /* noop */ }
+      reject(err);
+    }
   });
 }
 
@@ -241,6 +332,12 @@ async function init(video, { forceBackend, modelUrl, maxFPS } = {}) {
   // Clamp + pin the default detection rate. 0/undefined -> DEFAULT_VISION_FPS;
   // pass Infinity to explicitly opt out of throttling.
   maxFps = maxFPS === Infinity ? Infinity : clampVisionFps(maxFPS);
+  // Fresh init: drop per-session diagnostics/backoff state from a previous
+  // backend so acceleration is re-decided from THIS session's actual EP.
+  activeExecutionProvider = null;
+  lastInferenceMs = 0;
+  workerReturnBuffer = null;
+  bitmapCaptureEnabled = true;
   offscreen = document.createElement('canvas');
   offCtx = offscreen.getContext('2d', { willReadFrequently: true });
 
@@ -263,10 +360,10 @@ async function init(video, { forceBackend, modelUrl, maxFPS } = {}) {
     }
   }
 
-  // 'yolo-webgpu' is a GPU backend ONLY when WebGPU was actually available;
-  // otherwise onnxruntime silently ran the argument on CPU (wasm), which is
-  // genuinely heavy and gets rate-capped via effectiveMaxFps().
-  gpuAccelerated = backend === 'yolo-webgpu' ? gpu : true;
+  // Decide acceleration from the execution provider ORT ACTUALLY bound, not
+  // from adapter presence: a wasm session behind a 'yolo-webgpu' backend label
+  // is genuinely heavy and must get the CPU rate cap (effectiveMaxFps()).
+  gpuAccelerated = backend === 'yolo-webgpu' ? activeExecutionProvider === 'webgpu' : true;
 
   if (dimsLogged) dimsLogged = false; // new session → re-log once on next run
   if (backend === 'yolo-webgpu') {
@@ -280,26 +377,21 @@ async function init(video, { forceBackend, modelUrl, maxFPS } = {}) {
   return backend;
 }
 
-// Clamp the detection rate to the CPU path cap when the active backend computes
-// on CPU (wasm YOLO). GPU backends run at the user's configured rate.
+// Backend-aware rate clamp: the pure decision (CPU / COCO ceilings, user
+// opt-out) lives in visionLogic.effectiveDetectionFps so it stays tested.
 function effectiveMaxFps() {
-  if (gpuAccelerated) return maxFps;
-  if (maxFps === Infinity) return Infinity; // explicit opt-out of throttling
-  return Math.min(maxFps, VISION_CPU_FPS_CAP);
+  return effectiveDetectionFps({ configuredFps: maxFps, gpuAccelerated, backend });
 }
 
 /**
  * Letterbox-resize a video frame into a square input tensor for YOLO.
- * The heavy RGBA->CHW conversion runs in the preprocessing worker (off the
- * main thread); falls back to inline when a Worker is unavailable.
+ * Preferred path snapshots the frame via createImageBitmap and does ALL pixel
+ * work (letterbox draw, readback, RGBA->CHW) inside the worker; the legacy
+ * canvas path stays as fallback for browsers without ImageBitmap/Offscreen
+ * support. Falls back to inline conversion when no Worker is available.
  * @returns {Promise<{float32: Float32Array, scale: number, dx: number, dy: number}>}
  */
 async function preprocessForYolo() {
-  offscreen.width = YOLO_INPUT_SIZE;
-  offscreen.height = YOLO_INPUT_SIZE;
-  offCtx.fillStyle = '#727272';
-  offCtx.fillRect(0, 0, YOLO_INPUT_SIZE, YOLO_INPUT_SIZE);
-
   const vw = videoEl.videoWidth;
   const vh = videoEl.videoHeight;
   const scale = Math.min(YOLO_INPUT_SIZE / vw, YOLO_INPUT_SIZE / vh);
@@ -307,11 +399,33 @@ async function preprocessForYolo() {
   const nh = vh * scale;
   const dx = (YOLO_INPUT_SIZE - nw) / 2;
   const dy = (YOLO_INPUT_SIZE - nh) / 2;
+
+  // Preferred path: cheap async frame snapshot + worker-side pixel work. The
+  // old path did a synchronous 640x640 getImageData on this thread, forcing a
+  // GPU pipeline flush every detection frame — a major jank source.
+  if (worker && bitmapCaptureEnabled && typeof createImageBitmap === 'function') {
+    let bitmap = null;
+    try {
+      bitmap = await createImageBitmap(videoEl);
+      const float32 = await workerPreprocessBitmap(bitmap, { vw, vh, dx, dy, nw, nh });
+      return { float32, scale, dx, dy };
+    } catch (err) {
+      // Structural failure (API unsupported / worker refused it): fall back to
+      // the legacy path below, and stop paying the probe cost every frame.
+      try { if (bitmap) bitmap.close(); } catch (e) { /* neutered or closed */ }
+      bitmapCaptureEnabled = false;
+      console.warn('[vision] bitmap capture unavailable, using canvas path:', err);
+    }
+  }
+
+  // Legacy/fallback path: letterbox here, then hand the RGBA buffer to the
+  // worker (or convert inline when no worker is available).
+  offscreen.width = YOLO_INPUT_SIZE;
+  offscreen.height = YOLO_INPUT_SIZE;
+  offCtx.fillStyle = '#727272';
+  offCtx.fillRect(0, 0, YOLO_INPUT_SIZE, YOLO_INPUT_SIZE);
   offCtx.drawImage(videoEl, 0, 0, vw, vh, dx, dy, nw, nh);
 
-  // getImageData returns a fresh RGBA buffer each call; we transfer it to the
-  // worker (buffer ownership moves off the main thread), so no per-frame
-  // allocation lingers on the JS heap.
   const rgba = offCtx.getImageData(0, 0, YOLO_INPUT_SIZE, YOLO_INPUT_SIZE).data;
 
   let float32;
@@ -422,8 +536,10 @@ function gateFrameMotion() {
 async function loop(now) {
   if (!running) return;
 
-  // Skip inference while the video isn't ready to avoid garbage frames.
-  if (!videoEl || videoEl.paused || videoEl.readyState < 2) { scheduleNext(0); return; }
+  // Skip inference while the video isn't ready to avoid garbage frames. Back
+  // off instead of setTimeout(0): a zero-delay re-wake spins the main thread
+  // ~every 4ms while the camera buffers.
+  if (!videoEl || videoEl.paused || videoEl.readyState < 2) { scheduleNext(VIDEO_RETRY_MS); return; }
 
   const motion = maxFps !== Infinity && gateFrameMotion();
   const base = effectiveMaxFps();
@@ -444,8 +560,8 @@ async function loop(now) {
   gateState = gate.state || gateState;
 
   if (gate.shouldRun) {
-    lastRun = now;
     runCount++;
+    const t0 = performance.now();
     try {
       const detections = backend === 'yolo-webgpu' ? await detectYolo() : await detectCocoSsd();
       lastPersonPresent = detections.some((d) => d.class === 'person');
@@ -453,6 +569,11 @@ async function loop(now) {
     } catch (err) {
       console.error('[vision] inference error', err);
     }
+    // Stamp the run at COMPLETION: stamping the start let slow (CPU)
+    // inferences chain back-to-back at a 100% duty cycle with zero idle —
+    // pacing from the end makes the configured interval a real gap.
+    lastRun = performance.now();
+    lastInferenceMs = Math.round(lastRun - t0);
   }
   scheduleNext(gate.nextDelayMs === undefined ? 0 : gate.nextDelayMs);
 }
@@ -494,6 +615,10 @@ function dispose() {
   preallocFloat32 = null;
   dimsLogged = false;
   gpuAccelerated = true;
+  activeExecutionProvider = null;
+  lastInferenceMs = 0;
+  workerReturnBuffer = null;
+  bitmapCaptureEnabled = true;
   lastPersonPresent = false;
   gateLumaPrev = null;
   gateState = { burstUntil: -Infinity, stableSince: -1 };
@@ -515,6 +640,8 @@ function getStats() {
     effectiveFps: effectiveMaxFps(),
     configuredFps: maxFps,
     gpuAccelerated,
+    executionProvider: activeExecutionProvider,
+    lastInferenceMs,
     gate: { ...gateState },
   };
 }
@@ -527,6 +654,8 @@ function getInfo() {
     gpuAccelerated,
     effectiveFps: effectiveMaxFps(),
     configuredFps: maxFps,
+    executionProvider: activeExecutionProvider,
+    lastInferenceMs,
   };
 }
 

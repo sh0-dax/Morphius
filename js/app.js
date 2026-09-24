@@ -2118,7 +2118,7 @@ function updateMirrorUI() {
 
 cfgMirror.addEventListener('change', async () => {
   if (cfgMirror.checked) {
-    const gate = canRunCameraPipeline({ tier: detectDeviceTier(), requested: 'mirror', otherActive: visionActive });
+    const gate = canRunCameraPipeline({ tier: detectDeviceTier(), requested: 'mirror', otherActive: visionActive || handTrackingActive });
     if (!gate.allowed) {
       cfgMirror.checked = false;
       if (mirrorStatus) { mirrorStatus.className = 'status-pill warn'; mirrorStatus.textContent = 'MIRROR OFF — AI VISION IS USING THE CAMERA (LOW-POWER DEVICE)'; }
@@ -2353,10 +2353,19 @@ async function startVision() {
   const rid = ++visionRequestId;
   try {
     getOrCreateVisionVideo();
-    visionStream = await navigator.mediaDevices.getUserMedia({
-      video: { width: { ideal: 640, max: 640 }, height: { ideal: 480, max: 480 }, facingMode: 'user' },
-    });
-    visionVideo.srcObject = visionStream;
+    // Hand tracking may already own a live stream on the shared video element
+    // — reuse it instead of opening the camera a second time (two live
+    // decodes of the same camera are pure extra lag, and reassigning
+    // visionStream without stopping the old tracks leaked them).
+    const sharedLive = visionStream
+      && visionVideo.srcObject === visionStream
+      && visionStream.getTracks().some((t) => t.readyState === 'live');
+    if (!sharedLive) {
+      visionStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640, max: 640 }, height: { ideal: 480, max: 480 }, facingMode: 'user' },
+      });
+      visionVideo.srcObject = visionStream;
+    }
     try { await visionVideo.play(); } catch (e) {}
 
     const forceBackend = cfgVisionBackend && cfgVisionBackend.value !== 'auto'
@@ -2373,11 +2382,14 @@ async function startVision() {
     }
     visionBackendName = backend === 'yolo-webgpu' ? 'YOLO (WebGPU)' : 'COCO-SSD (WebGL)';
     // A 'yolo-webgpu' label can actually hide a CPU (wasm) inference when
-    // WebGPU is absent — the heaviest path. Surface the throttled rate so it's
-    // obvious the detector is being kept gentle on purpose.
+    // WebGPU is absent or failed to bind — the heaviest path. Surface the
+    // real backend and the throttled rate so it's obvious the detector is
+    // being kept gentle on purpose (COCO-SSD gets its own ceiling too).
     const vInfo = Vision.getInfo ? Vision.getInfo() : null;
     if (vInfo && vInfo.backend === 'yolo-webgpu' && !vInfo.gpuAccelerated) {
       visionBackendName = 'YOLO (CPU) \u00b7 ' + vInfo.effectiveFps + ' FPS';
+    } else if (vInfo && Number.isFinite(vInfo.effectiveFps) && Number.isFinite(vInfo.configuredFps) && vInfo.effectiveFps < vInfo.configuredFps) {
+      visionBackendName += ' \u00b7 ' + vInfo.effectiveFps + ' FPS';
     }
     visionActive = true;
     visionPaused = false;
@@ -2407,8 +2419,13 @@ function stopVision() {
   clearVisionFeeling();
   visionLastClasses = new Set();
   try { Vision.dispose(); } catch (e) {}
-  if (visionStream) { visionStream.getTracks().forEach((t) => t.stop()); visionStream = null; }
-  if (visionVideo) { visionVideo.srcObject = null; }
+  // The camera video is shared with hand tracking — only release it when no
+  // other pipeline still consumes it (stopping it under hands froze their
+  // feed; keeping it alive after vision off left a second decoder running).
+  if (!handTrackingActive) {
+    if (visionStream) { visionStream.getTracks().forEach((t) => t.stop()); visionStream = null; }
+    if (visionVideo) { visionVideo.srcObject = null; }
+  }
   updateCameraWindow(); // auto-hide the camera window if hands aren't running
 }
 
@@ -2427,10 +2444,13 @@ function toggleVisionPause() {
 
 cfgVision.addEventListener('change', async () => {
   if (cfgVision.checked) {
-    const gate = canRunCameraPipeline({ tier: detectDeviceTier(), requested: 'vision', otherActive: Mirror.active });
+    const gate = canRunCameraPipeline({ tier: detectDeviceTier(), requested: 'vision', otherActive: Mirror.active || handTrackingActive });
     if (!gate.allowed) {
       cfgVision.checked = false;
-      if (visionStatus) { visionStatus.className = 'status-pill warn'; visionStatus.textContent = 'VISION: PAUSED — FACE MIRROR IS USING THE CAMERA (LOW-POWER DEVICE)'; }
+      const busy = Mirror.active && handTrackingActive
+        ? 'FACE MIRROR + HAND TRACKING ARE USING THE CAMERA'
+        : Mirror.active ? 'FACE MIRROR IS USING THE CAMERA' : 'HAND TRACKING IS USING THE CAMERA';
+      if (visionStatus) { visionStatus.className = 'status-pill warn'; visionStatus.textContent = `VISION: PAUSED — ${busy} (LOW-POWER DEVICE)`; }
       updateVisionUI();
       return;
     }
@@ -4160,6 +4180,20 @@ let handTrackingCleanup = null;
 
 async function startHandTrackingForProjection() {
   if (handTrackingActive) return;
+
+  // Same device-tier gate as vision/mirror: hand tracking adds a MediaPipe
+  // pipeline (and possibly a second camera stream) on top of whatever else is
+  // running — on low-tier hardware that starves the render loop.
+  const gate = canRunCameraPipeline({
+    tier: detectDeviceTier(),
+    requested: 'hands',
+    otherActive: Mirror.active || visionActive,
+  });
+  if (!gate.allowed) {
+    showStatus(t('handTracking.cameraBusy', 'Hand tracking paused — the camera is already in use on this device'), 'warn');
+    return;
+  }
+
   handTrackingActive = true;
 
   const ok = await ensureVisionStreamForHandTracking();
@@ -4225,6 +4259,11 @@ function stopHandTrackingForProjection() {
   removeHandTrackingHUD();
   if (typeof startHandTrackingForProjection.prevPinch !== 'undefined') {
     startHandTrackingForProjection.prevPinch = undefined;
+  }
+  // Release the shared camera only when vision isn't still consuming it.
+  if (!visionActive) {
+    if (visionStream) { visionStream.getTracks().forEach((t) => t.stop()); visionStream = null; }
+    if (visionVideo) { visionVideo.srcObject = null; }
   }
   updateCameraWindow(); // auto-hide the camera window if vision isn't running
 }

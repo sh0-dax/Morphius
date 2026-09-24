@@ -102,11 +102,11 @@ export function displayClass(className) {
 // heat. This pure decision decides whether a camera pipeline may start given
 // the device tier and which pipelines are already active. Pure + unit-tested.
 //   tier: 'low' | 'mid' | 'high'
-//   requested: 'vision' | 'mirror'
+//   requested: 'vision' | 'mirror' | 'hands'
 //   otherActive: whether the OTHER camera pipeline is currently running
 // Returns { allowed: boolean, reason: 'none' | 'conflict' }.
 export function canRunCameraPipeline({ tier, requested, otherActive }) {
-  if (requested !== 'vision' && requested !== 'mirror') {
+  if (requested !== 'vision' && requested !== 'mirror' && requested !== 'hands') {
     return { allowed: false, reason: 'invalid' };
   }
   if (!otherActive) return { allowed: true, reason: 'none' };
@@ -129,6 +129,34 @@ export function clampVisionFps(fps) {
   const n = Number(fps);
   if (!Number.isFinite(n) || n <= 0) return DEFAULT_VISION_FPS;
   return Math.max(MIN_VISION_FPS, Math.min(MAX_VISION_FPS, Math.round(n)));
+}
+
+// Backend-aware detection-rate caps. Kept here (pure) so the caps are
+// unit-testable; vision.js just delegates via effectiveMaxFps().
+//   - CPU (wasm) YOLO inference executes synchronously on the main thread, so
+//     one slow run visibly janks the Three.js render loop — keep it gentle.
+//   - COCO-SSD's detect() also runs on the main thread (TF.js WebGL with
+//     synchronous readbacks), so it gets its own ceiling.
+export const VISION_CPU_FPS_CAP = 3;
+export const VISION_COCO_FPS_CAP = 4;
+
+/**
+ * Resolve the rate the detector may actually run at.
+ * Infinity (explicit user opt-out) passes through untouched; otherwise the
+ * configured rate is clamped and then capped for heavier backends.
+ *
+ * @param {object} [opts]
+ * @param {number} [opts.configuredFps] user-configured rate (clamped)
+ * @param {boolean} [opts.gpuAccelerated] true when inference runs on a GPU EP
+ * @param {string|null} [opts.backend] 'yolo-webgpu' | 'coco-ssd-webgl' | null
+ * @returns {number} effective detection frames/sec (Infinity = unlimited)
+ */
+export function effectiveDetectionFps({ configuredFps = DEFAULT_VISION_FPS, gpuAccelerated = true, backend = null } = {}) {
+  if (configuredFps === Infinity) return Infinity; // explicit opt-out of throttling
+  let fps = clampVisionFps(configuredFps);
+  if (!gpuAccelerated) fps = Math.min(fps, VISION_CPU_FPS_CAP);
+  if (backend === 'coco-ssd-webgl') fps = Math.min(fps, VISION_COCO_FPS_CAP);
+  return fps;
 }
 
 // Pure decision: should a vision inference frame run at time `now` given the

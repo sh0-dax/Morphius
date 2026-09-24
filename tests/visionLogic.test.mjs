@@ -18,6 +18,9 @@ import {
   lumaMotionScore,
   classifySceneMotion,
   decideDetectionGate,
+  effectiveDetectionFps,
+  VISION_CPU_FPS_CAP,
+  VISION_COCO_FPS_CAP,
 } from '../js/visionLogic.js';
 
 describe('VISION_FEELING_MAP / VISION_SPEAK_CLASSES', () => {
@@ -182,6 +185,18 @@ describe('canRunCameraPipeline (device-tier GPU concurrency gate)', () => {
     expect(canRunCameraPipeline({ tier: 'high', requested: 'unknown', otherActive: false }))
       .toEqual({ allowed: false, reason: 'invalid' });
   });
+  it('allows hand tracking when no other pipeline is active', () => {
+    expect(canRunCameraPipeline({ tier: 'low', requested: 'hands', otherActive: false }))
+      .toEqual({ allowed: true, reason: 'none' });
+  });
+  it('blocks hand tracking while another pipeline runs on a low-tier device', () => {
+    expect(canRunCameraPipeline({ tier: 'low', requested: 'hands', otherActive: true }))
+      .toEqual({ allowed: false, reason: 'conflict' });
+  });
+  it('allows hand tracking concurrency on mid-tier devices', () => {
+    expect(canRunCameraPipeline({ tier: 'mid', requested: 'hands', otherActive: true }))
+      .toEqual({ allowed: true, reason: 'none' });
+  });
 });
 
 describe('shouldRunVisionFrame (rAF-free detection throttling)', () => {
@@ -232,6 +247,30 @@ describe('clampVisionFps', () => {
   });
   it('passes Infinity through as unlimited', () => {
     expect(clampVisionFps(Infinity)).toBe(Infinity);
+  });
+});
+
+describe('effectiveDetectionFps (backend-aware rate caps)', () => {
+  it('passes the configured rate through on an accelerated YOLO backend', () => {
+    expect(effectiveDetectionFps({ configuredFps: 8, gpuAccelerated: true, backend: 'yolo-webgpu' })).toBe(8);
+  });
+  it('caps the CPU (wasm) YOLO path at VISION_CPU_FPS_CAP', () => {
+    expect(effectiveDetectionFps({ configuredFps: 8, gpuAccelerated: false, backend: 'yolo-webgpu' })).toBe(VISION_CPU_FPS_CAP);
+    expect(effectiveDetectionFps({ configuredFps: 30, gpuAccelerated: false, backend: 'yolo-webgpu' })).toBe(VISION_CPU_FPS_CAP);
+  });
+  it('never raises a user rate below the CPU cap', () => {
+    expect(effectiveDetectionFps({ configuredFps: 2, gpuAccelerated: false, backend: 'yolo-webgpu' })).toBe(2);
+  });
+  it('caps COCO-SSD at its own ceiling (main-thread detect())', () => {
+    expect(effectiveDetectionFps({ configuredFps: 8, gpuAccelerated: true, backend: 'coco-ssd-webgl' })).toBe(VISION_COCO_FPS_CAP);
+    expect(effectiveDetectionFps({ configuredFps: 2, gpuAccelerated: true, backend: 'coco-ssd-webgl' })).toBe(2);
+  });
+  it('keeps the Infinity opt-out for every backend', () => {
+    expect(effectiveDetectionFps({ configuredFps: Infinity, gpuAccelerated: false, backend: 'yolo-webgpu' })).toBe(Infinity);
+    expect(effectiveDetectionFps({ configuredFps: Infinity, gpuAccelerated: true, backend: 'coco-ssd-webgl' })).toBe(Infinity);
+  });
+  it('defaults to the default rate with no arguments', () => {
+    expect(effectiveDetectionFps()).toBe(DEFAULT_VISION_FPS);
   });
 });
 
