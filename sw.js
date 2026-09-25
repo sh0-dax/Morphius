@@ -81,6 +81,7 @@ const SHELL_FILES = [
   './js/agent/nb.js',
   './js/agent/logreg.js',
   './js/agent/knn.js',
+  './js/agent/kmeans.js',
   './js/agent/lm.js',
   './js/agent/memory.js',
   './js/agent/modelStore.js',
